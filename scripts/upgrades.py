@@ -116,6 +116,55 @@ def meets_skill_requirements(tooltip: list[str], skills: dict[str, int]) -> bool
     return True
 
 
+STAT_LABEL = {"stamina": "Ausdauer", "intellect": "Intelligenz", "spirit": "Willenskraft", "strength": "Stärke",
+              "agility": "Beweglichkeit"}
+SPELL_LABEL = {
+    "spell_power": "Anlegen: Erhöht durch magische Zauber und Effekte verursachten Schaden und Heilung um bis zu {}.",
+    "spell_damage_done": "Anlegen: Erhöht den von magischen Zaubern und Effekten verursachten Schaden um bis zu {}.",
+    "shadow_damage_done": "Anlegen: Erhöht den von Schattenzaubern und -effekten verursachten Schaden um bis zu {}.",
+    "spell_healing_done": "Anlegen: Erhöht durch Zauber und Effekte verursachte Heilung um bis zu {}.",
+}
+
+
+def tooltip(rec: dict, slot_name: str | None = None) -> dict:
+    """Tooltip for the app: the game's own lines when the addon exported them (1.2+: with colours), otherwise
+    rebuilt from the stats so older snapshots still show something useful."""
+    out = {"name": rec.get("name"), "quality": rec.get("quality"), "ilvl": rec.get("ilvl")}
+    if rec.get("tooltip"):
+        out["lines"] = rec["tooltip"]
+        out["colors"] = rec.get("tipColors")
+        return out
+    lines, colors, equip = [], [], []
+    if slot_name or rec.get("subType"):
+        lines.append(f"{slot_name or ''} | {rec.get('subType') or ''}".strip(" |"))
+        colors.append("ffffff")
+    stats = {stat_key(k): val for k, val in (rec.get("stats") or {}).items()}
+    if stats.get("armor"):
+        lines.append(f"{stats['armor']:g} Rüstung")
+        colors.append("ffffff")
+    if stats.get("damage_per_second"):
+        lines.append(f"({stats['damage_per_second']:.1f} Schaden pro Sekunde)")
+        colors.append("ffffff")
+    for k, label in STAT_LABEL.items():
+        if stats.get(k):
+            lines.append(f"+{stats[k]:g} {label}")
+            colors.append("ffffff")
+    dur = rec.get("durability")
+    if isinstance(dur, list) and len(dur) == 2:
+        lines.append(f"Haltbarkeit {dur[0]} / {dur[1]}")
+        colors.append("ffffff")
+    if rec.get("reqLevel"):
+        lines.append(f"Benötigt Stufe {rec['reqLevel']}")
+        colors.append("ffffff")
+    for k, text in SPELL_LABEL.items():
+        if stats.get(k):
+            equip.append(text.format(f"{stats[k]:g}"))
+    lines += equip
+    colors += ["1eff00"] * len(equip)
+    out.update(lines=lines, colors=colors, rebuilt=True)
+    return out
+
+
 def money(c: int) -> str:
     return f"{c // 10000}g {c // 100 % 100:02d}s" if c >= 10000 else f"{c // 100}s {c % 100:02d}c"
 
@@ -160,7 +209,8 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: 
     def item_out(iid: int, it: dict, price: int, extra: list[str], gain: float | None = None) -> dict:
         return dict(id=iid, name=it.get("name"), quality=it.get("quality"), reqLevel=it.get("reqLevel") or 0,
                     price=price, gain=round(gain, 1) if gain is not None else None, stats=short(it.get("stats")),
-                    isNew=iid >= NEW_ID, soon=(it.get("reqLevel") or 0) > level, effects=extra)
+                    isNew=iid >= NEW_ID, soon=(it.get("reqLevel") or 0) > level, effects=extra,
+                    tip=tooltip(it))
 
     rows, review = [], []
     for iid, it in items.items():
@@ -211,7 +261,7 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: 
         slots_out.append(dict(
             slot=slot, slotName=SLOT_NAME[slot],
             current=dict(name=cur.get("name"), id=cur.get("id"), quality=cur.get("quality"),
-                         stats=short(cur.get("stats"))) if cur else None,
+                         stats=short(cur.get("stats")), tip=tooltip(cur, SLOT_NAME[slot])) if cur else None,
             candidates=[item_out(iid, it, price, extra, gain) for _, gain, price, iid, it, extra in best]))
     review.sort(key=lambda r: r["price"])
     return dict(

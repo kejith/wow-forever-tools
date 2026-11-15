@@ -13,12 +13,14 @@ try {
   assert.equal(info.installed, false);
   assert.throws(() => addon.writeRequest(wow, 'items'), /nicht installiert/);
 
-  // Fresh install ships every file from the .toc and asks for a game restart.
+  // Fresh install ships every file from the .toc.
   info = addon.installAddon(wow);
   assert.equal(info.installed, true);
   assert.equal(info.upToDate, true);
-  assert.equal(info.restartNeeded, true);
+  assert.equal(info.firstInstall, true);
   assert.ok(fs.existsSync(path.join(target, 'AppRequest.lua')));
+  // The shipped stub (with an example in a comment) is no pending request.
+  assert.equal(addon.readRequest(wow), null);
 
   // A request is written as Lua the addon can read, ids grow even within one second.
   const r1 = addon.writeRequest(wow, 'items', { full: true });
@@ -28,8 +30,7 @@ try {
   assert.match(text, /WoWMCP_AppRequest = \{ id = \d+, action = "sync" \}/);
   assert.deepEqual(addon.readRequest(wow), { id: r2.id, action: 'sync' });
 
-  // Updating an install from 1.0 (old .toc, ItemQueue.lua) keeps the pending request, removes the old file
-  // and still reports that the game has to be restarted.
+  // Updating an install from 1.0 (old .toc, ItemQueue.lua) keeps the pending request and removes the old file.
   fs.writeFileSync(path.join(target, 'WoWMCP.toc'), '## Interface: 16001\n## Version: 1.0.0\n## SavedVariablesPerCharacter: WoWMCP_Char\n\nItemQueue.lua\nWoWMCP.lua\n');
   fs.writeFileSync(path.join(target, 'ItemQueue.lua'), 'WoWMCP_ItemQueue = {}\n');
   info = addon.addonInfo(wow);
@@ -38,12 +39,9 @@ try {
   assert.ok(info.changed.includes('WoWMCP.toc'));
   info = addon.installAddon(wow);
   assert.equal(info.upToDate, true);
-  assert.equal(info.restartNeeded, true);
+  assert.equal(info.firstInstall, false);
   assert.ok(!fs.existsSync(path.join(target, 'ItemQueue.lua')));
   assert.deepEqual(addon.readRequest(wow), { id: r2.id, action: 'sync' });
-
-  // Same .toc again: /reload is enough.
-  assert.equal(addon.installAddon(wow).restartNeeded, false);
   console.log('addon.test.js: ok');
 } finally {
   fs.rmSync(wow, { recursive: true, force: true });

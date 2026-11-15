@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: WoWMCP
 ## Notes: Exports character, inventory, bank, quests, reputation, skills, talents and auction house item stats to SavedVariables for the WoWMCP app and MCP server.
-## Version: 1.1.0
+## Version: 1.2.0
 ## OptionalDeps: Auctionator
 ## SavedVariables: WoWMCP_Account, WoWMCP_Items
 ## SavedVariablesPerCharacter: WoWMCP_Char

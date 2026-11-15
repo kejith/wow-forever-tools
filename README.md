@@ -36,7 +36,7 @@ npm start
 
 Benötigt Node.js und uv. Die App beobachtet `WTF\Account` und lädt neu, sobald WoW SavedVariables schreibt (`/reload`, Logout). Berechnet wird in Python über `scripts/app_bridge.py`.
 
-So kommen App und Addon zusammen: Addons können keine Dateien schreiben oder ins Netz. Die App legt einen Auftrag in `Interface\AddOns\WoWMCP\AppRequest.lua` ab. Das Spiel lädt die Datei beim nächsten `/reload`, das Addon führt den Auftrag einmal aus und meldet das Ergebnis über seine SavedVariables. Nach einem Addon-Update mit neuen Dateien muss WoW einmal neu gestartet werden.
+So kommen App und Addon zusammen: Addons können keine Dateien schreiben oder ins Netz. Die App legt einen Auftrag in `Interface\AddOns\WoWMCP\AppRequest.lua` ab. Das Spiel lädt die Datei beim nächsten `/reload`, das Addon führt den Auftrag einmal aus und meldet das Ergebnis über seine SavedVariables. Auch Addon-Updates brauchen nur ein `/reload`, selbst wenn neue Dateien oder SavedVariables dazukommen.
 
 `npm test` prüft Installation und Aufträge gegen einen Testordner. `npm run capture` speichert Screenshots aller Seiten nach `app/captures`.
 

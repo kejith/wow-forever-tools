@@ -177,6 +177,12 @@ async function runCapture(dir) {
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
   }
+  // One tooltip with comparison: hover the first upgrade candidate (data-tip 0 is the equipped item).
+  if (await win.webContents.executeJavaScript('window.__showTip(1)')) {
+    await wait(300);
+    const image = await win.webContents.capturePage();
+    fs.writeFileSync(path.join(out, 'tooltip.png'), image.toPNG());
+  }
   app.quit();
 }
 

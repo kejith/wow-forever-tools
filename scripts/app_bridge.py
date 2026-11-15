@@ -89,7 +89,8 @@ def character(wow: str, name: str) -> dict:
         equipment.append({"slot": e.get("slot"), "slotName": upgrades.SLOT_NAME.get(e.get("slot"), str(e.get("slot"))),
                           "id": e.get("id"), "name": e.get("name"), "quality": e.get("quality"), "ilvl": e.get("ilvl"),
                           "stats": upgrades.short(e.get("stats")), "durability": e.get("durability"),
-                          "score": round(upgrades.score(e.get("stats"), wand=e.get("slot") == 18), 1)})
+                          "score": round(upgrades.score(e.get("stats"), wand=e.get("slot") == 18), 1),
+                          "tip": upgrades.tooltip(e, upgrades.SLOT_NAME.get(e.get("slot")))})
     return {"key": char_key(files[0]), "updated": c.get("updated"), "character": c.get("character") or {},
             "equipment": sorted(equipment, key=lambda e: e["slot"] or 0),
             "professions": skills.get("professions") or [], "talents": talents.get("class") or [],

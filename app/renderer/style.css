@@ -149,6 +149,26 @@ tr.best td { background: #2a2216; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Item tooltips (in-game look) ---------- */
+[data-tip] { cursor: default; text-decoration: underline dotted transparent; }
+[data-tip]:hover { text-decoration-color: currentColor; }
+#wtip {
+  position: fixed; z-index: 1000; pointer-events: none; display: none;
+  gap: 8px; align-items: flex-start;
+}
+#wtip.show { display: flex; }
+.wtip-box {
+  width: 320px; padding: 8px 10px 9px; border-radius: 5px;
+  background: rgba(6, 10, 30, .96); border: 1px solid #5c5c66;
+  box-shadow: 0 0 0 1px #000, 0 8px 24px rgba(0, 0, 0, .6);
+  font: 12.5px/1.38 Verdana, "Segoe UI", sans-serif; color: #fff;
+}
+.wtip-head { font-size: 11px; color: #9a9aa6; margin-bottom: 3px; }
+.wtip-name { font-size: 14.5px; font-weight: 600; line-height: 1.3; margin-bottom: 1px; }
+.wtip-ilvl { color: #ffd100; }
+.wtip-line { display: flex; justify-content: space-between; gap: 12px; }
+.wtip-foot { margin-top: 6px; font-size: 10.5px; color: #8a8a96; font-style: italic; }
+
 .controls { display: flex; gap: 18px; align-items: end; flex-wrap: wrap; margin-bottom: 18px; }
 .controls label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
 .controls label.check { flex-direction: row; align-items: center; gap: 7px; font-size: 13px; color: var(--text); }

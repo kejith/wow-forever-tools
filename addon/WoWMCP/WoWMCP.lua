@@ -54,6 +54,30 @@ local function copyPlain(t)
     return out
 end
 
+local function colorHex(color)
+    if type(color) ~= "table" then return nil end
+    local r, g, b = num(color.r), num(color.g), num(color.b)
+    if not (r and g and b) then return nil end
+    return ("%02x%02x%02x"):format(math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5), math.floor(b * 255 + 0.5))
+end
+
+-- Tooltip text below the item name, as shown in game: one string per line ("left | right" when the line has
+-- a right column, e.g. "Kopf | Stoff") plus each line's left text colour (red = requirement not met).
+local function tooltipLines(data)
+    if type(data) ~= "table" or type(data.lines) ~= "table" then return nil end
+    local lines, colors = {}, {}
+    for i = 2, #data.lines do -- line 1 is the item name
+        local line = data.lines[i]
+        local text, right = str(line.leftText), str(line.rightText)
+        if right then text = (text or "") .. " | " .. right end
+        if text then
+            lines[#lines + 1] = text
+            colors[#lines] = colorHex(line.leftColor) or "ffffff"
+        end
+    end
+    return lines, colors
+end
+
 local function itemRecord(link, itemID, count)
     local name, _, quality, itemLevel, reqLevel, itemType, itemSubType, _, equipLoc =
         try(C_Item.GetItemInfo, link or itemID)
@@ -178,6 +202,7 @@ local function collectEquipment()
             local cur, max = try(GetInventoryItemDurability, slot)
             if num(cur) and num(max) then rec.durability = { cur, max } end
             rec.stats = copyPlain(try(C_Item.GetItemStats, link))
+            rec.tooltip, rec.tipColors = tooltipLines(try(C_TooltipInfo.GetInventoryItem, "player", slot))
             items[#items + 1] = rec
         end
     end
@@ -540,24 +565,11 @@ local function clientBuild()
     return tonumber(build)
 end
 
-local function tooltipLines(itemID)
-    local data = try(C_TooltipInfo.GetItemByID, itemID)
-    if type(data) ~= "table" or type(data.lines) ~= "table" then return nil end
-    local lines = {}
-    for i = 2, #data.lines do -- line 1 is the item name
-        local line = data.lines[i]
-        local text, right = str(line.leftText), str(line.rightText)
-        if right then text = (text or "") .. " | " .. right end
-        if text then lines[#lines + 1] = text end
-    end
-    return lines
-end
-
 local function itemInfoRecord(itemID)
     local name, link, quality, itemLevel, reqLevel, _, _, _, equipLoc, _, _, classID, subclassID, bindType =
         try(C_Item.GetItemInfo, itemID)
     if not str(name) then return nil end
-    return {
+    local rec = {
         name = name,
         link = str(link),
         quality = num(quality),
@@ -568,8 +580,9 @@ local function itemInfoRecord(itemID)
         subclassID = num(subclassID),
         bind = num(bindType),
         stats = str(link) and copyPlain(try(C_Item.GetItemStats, link)) or nil,
-        tooltip = tooltipLines(itemID),
     }
+    rec.tooltip, rec.tipColors = tooltipLines(try(C_TooltipInfo.GetItemByID, itemID))
+    return rec
 end
 
 -- Armor and weapons that can be equipped; class and slot come from the client files, no server request.

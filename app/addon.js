@@ -25,7 +25,9 @@ function tocFiles(dir) {
 
 function readRequest(wowDir) {
   try {
-    const text = fs.readFileSync(path.join(installedAddonDir(wowDir), REQUEST_FILE), 'utf8');
+    // Only the assignment counts; the stub's comment shows an example request.
+    const text = fs.readFileSync(path.join(installedAddonDir(wowDir), REQUEST_FILE), 'utf8')
+      .split(/\r?\n/).filter((l) => /^\s*WoWMCP_AppRequest\s*=/.test(l)).join('\n');
     const id = text.match(/\bid\s*=\s*(\d+)/);
     const action = text.match(/action\s*=\s*"(\w+)"/);
     return id ? { id: Number(id[1]), action: action ? action[1] : null } : null;
@@ -46,18 +48,12 @@ function addonInfo(wowDir, source = ADDON_SOURCE) {
     try { b = fs.readFileSync(path.join(target, f)); } catch { /* missing in install */ }
     if (!a || !b || !a.equals(b)) changed.push(f);
   }
-  // A changed file list in the .toc only takes effect after restarting the game, not after /reload.
-  let restartNeeded = false;
-  if (installed) {
-    try {
-      restartNeeded = tocFiles(target).join('|') !== tocFiles(source).join('|')
-        || !/SavedVariables: WoWMCP_Account/.test(fs.readFileSync(path.join(target, 'WoWMCP.toc'), 'utf8'));
-    } catch { restartNeeded = true; }
-  }
+  // Forever re-reads the .toc on /reload (tested 15.11.2026: new files and new SavedVariables load), so an
+  // update never needs a game restart.
   return {
     sourceDir: source, installedDir: target, installed,
     sourceVersion: tocVersion(source), installedVersion: installed ? tocVersion(target) : null,
-    changed, upToDate: installed && changed.length === 0, restartNeeded,
+    changed, upToDate: installed && changed.length === 0,
     auctionatorInstalled: fs.existsSync(path.join(wowDir, 'Interface', 'AddOns', 'Auctionator')),
     pendingRequest: readRequest(wowDir),
   };
@@ -73,7 +69,7 @@ function installAddon(wowDir, source = ADDON_SOURCE) {
     fs.copyFileSync(path.join(source, f), path.join(target, f));
   }
   for (const f of OBSOLETE_ADDON_FILES) fs.rmSync(path.join(target, f), { force: true });
-  return { ...addonInfo(wowDir, source), restartNeeded: before.restartNeeded || !before.installed };
+  return { ...addonInfo(wowDir, source), firstInstall: !before.installed };
 }
 
 function writeRequest(wowDir, action, opts = {}) {

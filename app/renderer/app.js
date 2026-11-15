@@ -59,6 +59,78 @@ const quality = (q) => `q${q ?? 1}`;
 const loading = (text) => `<div class="loading"><div class="spinner"></div>${esc(text)}</div>`;
 const errorBox = (msg) => `<div class="notice error">${esc(msg)}</div>`;
 
+// ---------- Item tooltips ----------
+// Elements carry data-tip="<n>"; the tooltip data lives in a registry that is reset on every page render.
+
+const QUALITY_HEX = ['9d9d9d', 'ffffff', '1eff00', '3d8fe8', 'b569f0', 'ff8000'];
+let tips = [];
+const tipBox = $('#wtip');
+
+function tipAttr(tip, compare) {
+  if (!tip || !tip.name) return '';
+  tips.push({ tip, compare });
+  return ` data-tip="${tips.length - 1}"`;
+}
+
+// Colours for exports from addon 1.1 (text only); 1.2 sends the game's own colour per line.
+function guessColor(line) {
+  if (/^(Anlegen|Benutzen|Trefferchance):/.test(line)) return '1eff00';
+  if (/^".*"$/.test(line)) return 'ffd100';
+  if (/Vorlage/.test(line)) return '8080ff';
+  return 'ffffff';
+}
+
+function tipHtml(tip, head) {
+  const lines = (tip.lines || []).map((line, i) => {
+    const color = tip.colors?.[i] || guessColor(line);
+    const [left, right] = line.split(' | ');
+    return `<div class="wtip-line" style="color:#${esc(color)}"><span>${esc(left)}</span>${right ? `<span>${esc(right)}</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="wtip-box">
+    ${head ? `<div class="wtip-head">${esc(head)}</div>` : ''}
+    <div class="wtip-name" style="color:#${QUALITY_HEX[tip.quality ?? 1] || 'ffffff'}">${esc(tip.name)}</div>
+    ${tip.ilvl ? `<div class="wtip-ilvl">Gegenstandsstufe ${esc(tip.ilvl)}</div>` : ''}
+    ${lines}
+    ${tip.rebuilt ? '<div class="wtip-foot">Aus den Werten nachgebaut. Nach dem nächsten /reload kommt der Original-Tooltip.</div>' : ''}
+  </div>`;
+}
+
+function placeTip(x, y) {
+  const pad = 14;
+  const { width, height } = tipBox.getBoundingClientRect();
+  let left = x + pad;
+  let top = y + pad;
+  if (left + width > window.innerWidth - 8) left = Math.max(8, x - width - pad);
+  if (top + height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - height - 8);
+  tipBox.style.left = `${left}px`;
+  tipBox.style.top = `${top}px`;
+}
+
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest('[data-tip]');
+  if (!el) return;
+  const entry = tips[Number(el.dataset.tip)];
+  if (!entry) return;
+  tipBox.innerHTML = tipHtml(entry.tip) + (entry.compare ? tipHtml(entry.compare, 'Derzeit angelegt') : '');
+  tipBox.classList.add('show');
+  placeTip(e.clientX, e.clientY);
+});
+document.addEventListener('mousemove', (e) => {
+  if (tipBox.classList.contains('show')) placeTip(e.clientX, e.clientY);
+});
+document.addEventListener('mouseout', (e) => {
+  const el = e.target.closest('[data-tip]');
+  if (el && !el.contains(e.relatedTarget)) tipBox.classList.remove('show');
+});
+window.__showTip = (index) => {
+  // Used by "npm run capture" to screenshot a tooltip.
+  const el = document.querySelectorAll('[data-tip]')[index];
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: r.left + 10, clientY: r.top + 8 }));
+  return true;
+};
+
 // ---------- Data ----------
 
 async function cached(key, fn) {
@@ -111,6 +183,8 @@ function updateLiveState() {
 async function showPage(page) {
   window.__idle = false;
   state.page = page;
+  tips = [];
+  tipBox.classList.remove('show');
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
   $('#page-title').textContent = PAGES[page].title;
   try {
@@ -203,7 +277,7 @@ function itemExportCard() {
         <dt>Stand</dt><dd>${when(ex.updated)} (${ago(ex.updated)})</dd>
         ${ex.missing ? `<dt>Nicht geladen</dt><dd>${ex.missing}</dd>` : ''}
         ${ex.lastRun ? `<dt>Letzter Lauf</dt><dd>${ex.lastRun.new} neu von ${ex.lastRun.total}</dd>` : ''}
-        <dt>Automatisch</dt><dd>${ex.legacy ? 'erst ab Addon 1.1' : ex.auto === false ? 'aus' : 'nach dem Schließen des AH'}</dd>
+        <dt>Automatisch</dt><dd>${ex.legacy ? 'alter 1.0-Export, wird beim nächsten /reload übernommen' : ex.auto === false ? 'aus' : 'nach dem Schließen des AH'}</dd>
       </dl>`
     : '<div class="big muted">noch keiner</div>';
   return `<div class="card"><h2>Item-Export</h2>${body}</div>`;
@@ -272,11 +346,10 @@ async function renderConnection() {
   const a = state.addon;
   let hint = '';
   if (a.installed && !a.upToDate) {
-    hint = `<div class="notice">Die Addon-Quelle ist neuer als die Installation. „Addon aktualisieren“ kopiert sie ins Spiel.
-      ${a.restartNeeded ? ' Danach WoW einmal neu starten, weil neue Dateien dazukommen.' : ' Danach reicht ein <code>/reload</code>.'}</div>`;
+    hint = '<div class="notice">Die Addon-Quelle ist neuer als die Installation. „Addon aktualisieren“ kopiert sie ins Spiel, danach im Spiel <code>/reload</code>.</div>';
   }
-  if (a.lastInstall?.restartNeeded) {
-    hint = '<div class="notice"><b>Spiel neu starten:</b> Das Update bringt neue Dateien mit, die WoW erst nach einem Neustart lädt (ein <code>/reload</code> reicht dafür nicht).</div>';
+  if (a.lastInstall?.firstInstall) {
+    hint = '<div class="notice">Addon installiert. Im Spiel <code>/reload</code> eingeben. Taucht es danach nicht in der Addon-Liste auf, WoW einmal neu starten.</div>';
   } else if (a.lastInstall) {
     hint = '<div class="notice">Addon aktualisiert. Im Spiel <code>/reload</code> eingeben.</div>';
   }
@@ -326,7 +399,7 @@ async function renderCharacter() {
   ].map(([k, v]) => `<div class="card"><h2>${esc(k)}</h2><div class="big">${esc(v)}</div></div>`).join('');
   const eq = d.equipment.map((e) => `<tr>
       <td class="muted">${esc(e.slotName)}</td>
-      <td class="${quality(e.quality)}">${esc(e.name)}</td>
+      <td><span class="${quality(e.quality)}"${tipAttr(e.tip)}>${esc(e.name)}</span></td>
       <td class="num">${esc(e.ilvl ?? '')}</td>
       <td class="small">${esc(e.stats)}</td>
       <td class="num">${e.score}</td>
@@ -425,7 +498,7 @@ async function renderUpgrades() {
     const rows = s.candidates.map((c) => `<tr>
         <td><div class="gain"><b>+${c.gain.toFixed(1)}</b><div class="bar"><span style="width:${Math.round((c.gain / maxGain) * 100)}%"></span></div></div></td>
         <td class="num">${money(c.price)}</td>
-        <td><span class="${quality(c.quality)}">${esc(c.name)}</span>
+        <td><span class="${quality(c.quality)}"${tipAttr(c.tip, cur?.tip)}>${esc(c.name)}</span>
           ${c.isNew ? '<span class="badge new">NEU in Forever</span>' : ''}
           ${c.soon ? `<span class="badge warn">ab Stufe ${c.reqLevel}</span>` : ''}
           <div class="small muted">${esc(c.stats)}</div>
@@ -433,14 +506,14 @@ async function renderUpgrades() {
     return `<div class="card section slot-card">
       <div><div class="slot-name">${esc(s.slotName)}</div>
         <div class="small muted" style="margin-top:4px">jetzt:</div>
-        <div class="small ${quality(cur?.quality)}">${esc(cur?.name || '–')}</div>
+        <div class="small"><span class="${quality(cur?.quality)}"${tipAttr(cur?.tip)}>${esc(cur?.name || '–')}</span></div>
         <div class="small muted">${esc(cur?.stats || '')}</div></div>
       <table><thead><tr><th>Gewinn</th><th class="num">Preis</th><th>Item</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
   const review = d.review.length ? `<div class="section"><h2>Mit Spezialeffekt – selbst ansehen</h2><div class="card"><table>
       <thead><tr><th>Platz</th><th class="num">Preis</th><th>Item</th><th>Effekt</th></tr></thead><tbody>
       ${d.review.map((r) => `<tr><td class="muted">${esc(r.slot)}</td><td class="num">${money(r.price)}</td>
-        <td class="${quality(r.quality)}">${esc(r.name)} ${r.isNew ? '<span class="badge new">NEU</span>' : ''}</td>
+        <td><span class="${quality(r.quality)}"${tipAttr(r.tip)}>${esc(r.name)}</span> ${r.isNew ? '<span class="badge new">NEU</span>' : ''}</td>
         <td class="small">${esc(r.effects.join(' / '))}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>Budget</h2><div class="big">${money(d.budget)}</div></div>

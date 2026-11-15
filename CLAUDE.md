@@ -42,14 +42,14 @@ Faustregeln:
 | `scripts/app_bridge.py` | JSON-Schnittstelle der Desktop-App zu den Skripten (`status`, `character`, `writs`, `upgrades`) | `uv run scripts\app_bridge.py status` |
 | `app/` | Electron-App: Verbindung zum Addon (installieren/aktualisieren, Aufträge, Live-Abgleich der SavedVariables), Charakter, Verfügungen, AH-Upgrades. Rechnet über `app_bridge.py`. | `cd app`, `npm install`, `npm start`. Screenshots aller Seiten: `npm run capture` (→ `app/captures`), Tests: `npm test` |
 | `server/wow_mcp.py` | MCP-Server `wow-forever` (uv-Skript, Abhängigkeiten im Header) | wird von Claude gestartet: `uv run server\wow_mcp.py` |
-| `addon/WoWMCP/` | Quelle des Export-Addons (1.1.0). Installiert liegt es unter `…\_forever_\Interface\AddOns\WoWMCP`; die App installiert und aktualisiert es. | In-game `/wowmcp sync`, `/wowmcp items [full]`, `/wowmcp auto on/off`, `/wowmcp status` |
+| `addon/WoWMCP/` | Quelle des Export-Addons (1.2.0). Installiert liegt es unter `…\_forever_\Interface\AddOns\WoWMCP`; die App installiert und aktualisiert es. | In-game `/wowmcp sync`, `/wowmcp items [full]`, `/wowmcp auto on/off`, `/wowmcp status` |
 | `notes/wow_forever_settings.txt` | Versteckte Grafik-CVars (Schärfe, Gras, Sichtweite, LOD) inkl. Reset-Befehle | im Chat `/console …` |
 
 Daten-Aktualität: WoW schreibt SavedVariables nur bei `/reload` oder Logout. Für `verfuegungen.py` vorher einen vollen AH-Scan mit Auctionator machen und dann `/reload`. AH-Preise sind Mindest-Sofortkauf beim letzten Scan, keine Live-Angebote.
 
 ## Hinweise
 
-- App ↔ Addon: Addons haben kein Datei- oder Netzwerk-I/O. Die App schreibt Aufträge nach `Interface\AddOns\WoWMCP\AppRequest.lua`. Die Datei wird bei `/reload` neu gelesen, jeder Auftrag läuft einmal pro `id`. Ergebnisse kommen über die SavedVariables zurück (`WoWMCP_Account.lastRequest`). Neue Dateien in der `.toc` lädt WoW erst nach einem Spiel-Neustart, `/reload` reicht dafür nicht.
+- App ↔ Addon: Addons haben kein Datei- oder Netzwerk-I/O. Die App schreibt Aufträge nach `Interface\AddOns\WoWMCP\AppRequest.lua`. Die Datei wird bei `/reload` neu gelesen, jeder Auftrag läuft einmal pro `id`. Ergebnisse kommen über die SavedVariables zurück (`WoWMCP_Account.lastRequest`). Forever liest bei `/reload` auch die `.toc` neu: Neue Dateien und neue SavedVariables laden ohne Spiel-Neustart (im Spiel getestet am 15.11.2026).
 - Item-Export (Addon 1.1): Die Kandidaten kommen direkt aus `Auctionator.Database.db` (alle ausrüstbaren Rüstungen und Waffen der letzten 4 Scan-Tage). Gespeichert wird Account-weit und inkrementell pro Client-Build.
 - Verfügungsliste in `verfuegungen.py` stammt von wow.gg (Nov 2026); neue Verfügungen dort in `WRITS` ergänzen.
 - Änderungen am Addon zuerst in `addon/WoWMCP` machen, mit `wow_lua_lint` / `wow_toc_validate` prüfen und dann nach `Interface\AddOns` kopieren.
