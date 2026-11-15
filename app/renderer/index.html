@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <title>WoWMCP</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">W</div>
+      <div>
+        <div class="brand-name">WoWMCP</div>
+        <div class="brand-sub">WoW Forever</div>
+      </div>
+    </div>
+    <nav id="nav">
+      <button data-page="connection" class="active"><span class="dot" id="nav-dot"></span>Verbindung</button>
+      <button data-page="character">Charakter</button>
+      <button data-page="writs">Verfügungen</button>
+      <button data-page="upgrades">AH-Upgrades</button>
+    </nav>
+    <div class="sidebar-foot" id="live-state">Warte auf Daten …</div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <h1 id="page-title">Verbindung</h1>
+      <div class="topbar-right">
+        <label class="char-select">Charakter
+          <select id="char-select"></select>
+        </label>
+        <button id="refresh" class="ghost" title="Neu laden">↻ Aktualisieren</button>
+      </div>
+    </header>
+    <section id="content" class="content"></section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

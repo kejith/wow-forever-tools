@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "wow-forever": {
+      "type": "stdio",
+      "command": "${LOCALAPPDATA}\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+      "args": ["run", "C:\\Coding\\wow\\server\\wow_mcp.py"],
+      "env": {
+        "WOW_FOREVER_DIR": "C:\\Program Files (x86)\\World of Warcraft\\_forever_"
+      }
+    }
+  }
+}

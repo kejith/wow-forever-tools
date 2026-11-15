@@ -1,0 +1,13 @@
+# Abhängigkeiten und Build
+node_modules/
+app/out/
+app/dist/
+__pycache__/
+*.pyc
+
+# Heruntergeladene Spieldaten (wago.tools) und App-Screenshots
+scripts/cache/
+app/captures/
+
+# Lokale Claude-Einstellungen
+.claude/settings.local.json

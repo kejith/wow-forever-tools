@@ -1,0 +1,15 @@
+{
+  "name": "wowmcp-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Desktop-App für WoW Forever: Verbindung zum WoWMCP-Addon, Charakter, Verfügungen und AH-Upgrades.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "capture": "electron . --capture=captures",
+    "test": "node addon.test.js"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2"
+  }
+}

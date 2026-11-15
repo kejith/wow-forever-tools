@@ -1,0 +1,29 @@
+HIDDEN SETTINGS I USED
+Sharpening:
+/console ResampleAlwaysSharpen 1  
+
+More ground clutter / grass:
+/console groundEffectDensity 256
+256 is the maximum. If that hurts performance or is too dense, try something between the normal 48 and 256.  
+
+Draw distance:
+/console farclip 5000
+This one is completely preference/performance dependent. Try 4000, 5000, 7000, etc. From my spot in the Barrens, around 4000 was enough to see Nordrassil on Mount Hyjal. The normal maximum graphics setting can go up to 10000.  
+
+Keep smaller objects visible farther away:
+/console lodObjectCullSize 8  
+
+Keep higher-detail world objects farther away:
+/console lodObjectFadeScale 200 
+ 
+I also used Brightness 45 / Contrast 60 in the normal graphics settings. Those are completely personal preference. 
+ 
+You DO NOT need to use the exact values I used. Things like ground density, draw distance and LOD settings can all be adjusted depending on how you want the game to look and how much performance you’re willing to trade. Some of these settings can lower FPS.
+
+WANT TO RESET THEM?
+Use these to reset only the settings above back to WoW’s default values:
+/console cvar_default ResampleAlwaysSharpen
+/console cvar_default groundEffectDensity
+/console cvar_default farclip
+/console cvar_default lodObjectCullSize
+/console cvar_default lodObjectFadeScale
