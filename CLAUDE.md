@@ -47,12 +47,58 @@ Faustregeln:
 
 Daten-Aktualität: WoW schreibt SavedVariables nur bei `/reload` oder Logout. Für `verfuegungen.py` vorher einen vollen AH-Scan mit Auctionator machen und dann `/reload`. AH-Preise sind Mindest-Sofortkauf beim letzten Scan, keine Live-Angebote.
 
+## Desktop-App (`app/`)
+
+Electron-App (Electron 45, ohne Build-Schritt, Vanilla-JS), die Addon, Skripte und SavedVariables zusammenführt. Sie läuft lokal und hat keinen Server und keinen Netzwerkzugriff.
+
+**Starten:** `cd C:\Coding\wow\app` und dann `npm start` (`npm install` nur nach frischem Clone). Voraussetzungen sind Node.js und uv. Liegt WoW woanders, `WOW_FOREVER_DIR` setzen. Feste Einstellungen liest die App aus `%APPDATA%\wowmcp-app\settings.json` (`wowDir`, `uvPath`). Die Datei gibt es erst, wenn man sie anlegt; in der Oberfläche gibt es dafür noch keinen Dialog.
+
+**Seiten**
+
+| Seite | Inhalt | Datenquelle |
+| --- | --- | --- |
+| Verbindung | WoW läuft?, Addon installiert/aktuell (Button „installieren/aktualisieren“), Auctionator-Scan, Item-Export, Charakter-Snapshots mit Alter und Exportfehlern, Aufträge an das Addon | `app_bridge.py status`, `addon.js`, PowerShell `Get-Process Wow` |
+| Charakter | Kopfzeile (Stufe, Gold, XP), Kampfwerte, Ausrüstung mit Punkten und Tooltips, Berufe, Talente | `app_bridge.py character` |
+| Verfügungen | Ruf-Fortschritt, beste Verfügung pro Stufe, Kosten pro Tag; Optionen Top-N und „eigene Items zum AH-Preis“ | `app_bridge.py writs` → `verfuegungen.compute()` |
+| AH-Upgrades | Karten pro Ausrüstungsplatz mit Gewinn, Preis, Markierung „NEU in Forever“ und „ab Stufe“, Hover-Tooltips mit Vergleich „Derzeit angelegt“; Optionen Max-Preis, Vorschau, Top-N | `app_bridge.py upgrades` → `upgrades.compute()` |
+
+**Aufbau**
+
+| Datei | Aufgabe |
+| --- | --- |
+| `app/main.js` | Hauptprozess: Fenster, IPC, Aufruf der Bridge (`uv run --quiet scripts/app_bridge.py …`, sucht uv im PATH, unter WinGet und in `~/.local/bin`), Dateiwächter auf `WTF\Account` (bei Änderungen an `WoWMCP.lua`/`Auctionator.lua` nach 1,5 s Ruhe → Event `data-changed`), Screenshot-Modus `--capture=<ordner>` |
+| `app/preload.js` | Einzige Brücke zum Fenster (`window.wow`): `bridge(cmd, opts)`, `addonInfo()`, `installAddon()`, `createRequest(action, {full})`, `wowRunning()`, `openPath()`, `getSettings()`, `setSettings()`, `onDataChanged(fn)`. contextIsolation und sandbox sind an, nodeIntegration ist aus. |
+| `app/addon.js` | Installieren und Aktualisieren des Addons (kopiert alle Dateien aus der `.toc`, behält eine offene `AppRequest.lua`, löscht das veraltete `ItemQueue.lua`), Versionsvergleich Quelle ↔ Installation, Schreiben und Lesen von Aufträgen. Hat keine Electron-Abhängigkeit. |
+| `app/addon.test.js` | Tests für `addon.js` gegen einen temporären WoW-Ordner (`npm test`) |
+| `app/renderer/index.html`, `app.js`, `style.css` | Oberfläche ohne Framework. Seiten-Registry `PAGES`, Cache pro Abfrage (wird bei `data-changed` und „Aktualisieren“ geleert), Tooltip-Registry (`tipAttr(tip, compare)` → `data-tip`). CSP: nur `'self'`, Inline-Styles erlaubt. |
+| `scripts/app_bridge.py` | JSON-Schnittstelle der App: `status`, `character --char`, `writs --char [--top] [--besitz-zum-ah-preis]`, `upgrades --char [--max-preis] [--vorschau] [--top]`. Gibt immer genau ein JSON-Objekt aus, Fehler als `{"error": "…"}` mit Exit-Code 0. |
+
+**App ↔ Addon:** Addons haben kein Datei- oder Netzwerk-I/O. Die App schreibt Aufträge nach `Interface\AddOns\WoWMCP\AppRequest.lua` (`WoWMCP_AppRequest = { id = <unix-zeit>, action = "items"|"sync", full = true? }`). Das Spiel liest die Datei bei `/reload`, das Addon führt jeden Auftrag einmal pro `id` aus (3 s nach dem Einloggen) und schreibt das Ergebnis nach `WoWMCP_Account.lastRequest`. Die App erkennt das am nächsten `/reload`. Forever liest bei `/reload` auch die `.toc` neu: Neue Dateien und neue SavedVariables laden ohne Spiel-Neustart (im Spiel getestet am 15.11.2026). Achtung: `/reload` speichert erst mit dem alten Code und lädt danach den neuen. Nach einem Addon-Update braucht es deshalb ein zweites `/reload`, bis Daten im neuen Format auf der Platte liegen.
+
+**SavedVariables des Addons**
+
+| Variable | Datei | Inhalt |
+| --- | --- | --- |
+| `WoWMCP_Char` | pro Charakter `…\<Name-Name>\SavedVariables\WoWMCP.lua` | `character`, `equipment` (ab 1.2 mit `tooltip` + `tipColors`), `bags`, `bank`, `quests`, `completedQuests`, `reputation`, `skills`, `talents`, `errors`, `client`, `addon.version`, `updated` |
+| `WoWMCP_Items` | Account `…\SavedVariables\WoWMCP.lua` | Item-Export: `build`, `updated`, `count`, `missing`, `lastRun`, `items[id] = {name, quality, ilvl, reqLevel, equipLoc, classID, subclassID, bind, stats, tooltip, tipColors}` |
+| `WoWMCP_Account` | Account `…\SavedVariables\WoWMCP.lua` | `autoItems` (Export beim Schließen des AH, Standard an), `lastRequest` |
+
+**Tooltips:** Ab Addon 1.2 kommt der Original-Tooltip-Text (`C_TooltipInfo`, Zeile 1 = Name wird weggelassen, rechte Spalte als `"links | rechts"`) mit der Farbe pro Zeile (`tipColors`, Hex ohne `#`). Ältere Exporte haben keine Farben, dann rät die App sie aus dem Text (`Anlegen:`/`Benutzen:` grün, Zitat gelb). Angelegte Items ohne Tooltip baut `upgrades.tooltip()` aus den Werten nach (`rebuilt: true`, im Tooltip vermerkt). Icons gibt es keine, das Spiel liefert nur FileDataIDs.
+
+**Prüfen nach Änderungen**
+- `cd app` und `npm test`: Installieren, Update von 1.0, Aufträge, Stub ohne Phantom-Auftrag.
+- `npm run capture`: rendert alle Seiten mit echten Daten und speichert `app/captures/{connection,character,writs,upgrades,tooltip}.png`. Danach die PNGs ansehen; das ist der Weg, die Oberfläche ohne Klicken zu prüfen. `captures/` ist in `.gitignore`.
+- Bridge direkt: `uv run scripts\app_bridge.py upgrades --char Malgruk --max-preis 1`.
+- Eine neue Seite braucht einen Eintrag in `PAGES` (`app.js`), einen Nav-Button in `index.html` und bei neuen Daten einen Befehl in `app_bridge.py`; zusätzlich die Seite in `runCapture` (`main.js`) eintragen.
+
 ## Hinweise
 
-- App ↔ Addon: Addons haben kein Datei- oder Netzwerk-I/O. Die App schreibt Aufträge nach `Interface\AddOns\WoWMCP\AppRequest.lua`. Die Datei wird bei `/reload` neu gelesen, jeder Auftrag läuft einmal pro `id`. Ergebnisse kommen über die SavedVariables zurück (`WoWMCP_Account.lastRequest`). Forever liest bei `/reload` auch die `.toc` neu: Neue Dateien und neue SavedVariables laden ohne Spiel-Neustart (im Spiel getestet am 15.11.2026).
-- Item-Export (Addon 1.1): Die Kandidaten kommen direkt aus `Auctionator.Database.db` (alle ausrüstbaren Rüstungen und Waffen der letzten 4 Scan-Tage). Gespeichert wird Account-weit und inkrementell pro Client-Build.
+- Item-Export (Addon ab 1.1): Die Kandidaten kommen direkt aus `Auctionator.Database.db` (alle ausrüstbaren Rüstungen und Waffen der letzten 4 Scan-Tage). Gespeichert wird Account-weit und inkrementell pro Client-Build. `/wowmcp items full` liest alles neu, etwa um Tooltip-Farben nachzuholen.
 - Verfügungsliste in `verfuegungen.py` stammt von wow.gg (Nov 2026); neue Verfügungen dort in `WRITS` ergänzen.
-- Änderungen am Addon zuerst in `addon/WoWMCP` machen, mit `wow_lua_lint` / `wow_toc_validate` prüfen und dann nach `Interface\AddOns` kopieren.
+- Änderungen am Addon zuerst in `addon/WoWMCP` machen, Version in der `.toc` hochzählen, prüfen und dann über die App („Addon aktualisieren“) ins Spiel bringen, danach `/reload`. Prüfen:
+  - Syntax: `uv run --with lupa python -c "…load(src)…"` (Lua 5.4, reicht für Syntaxfehler).
+  - `wow_lua_lint` mit `flavor: forever` akzeptiert nur Pfade unter `_retail_\Interface\AddOns`. Datei dafür kurz nach `_retail_\Interface\AddOns\_wowmcp_lint_tmp\` kopieren (ohne `.toc`, wird nicht geladen) und danach wieder löschen. `knownGlobals`: `WoWMCP_Char`, `WoWMCP_Items`, `WoWMCP_Account`, `WoWMCP_AppRequest`, `Auctionator`, `ReloadUI`.
+- Git: Repo in `C:\Coding\wow`, Branch `main`, kein Remote. Nicht versioniert sind `node_modules/`, `scripts/cache/` (wago-Downloads), `app/captures/` und `.claude/settings.local.json`.
 - Forever-Spieldaten (DB2) gibt es bei wago.tools als CSV, Produkt `wowf`, z. B. `https://wago.tools/db2/ItemSparse/csv?build=1.60.1.70938&locale=deDE`. `ItemSparse` ist dort unvollständig (rund ein Drittel der AH-Ausrüstung fehlt, vermutlich verschlüsselt). Item-Werte darum aus dem Spiel holen (Item-Export des Addons). `Item`, `SpellEffect`, `SpellName` und `ItemXItemEffect` sind vollständig.
 - Zauberstein und Feuerstein sind in Forever laut Zaubertext Waffen-Verzauberungen („Erfüllt Eure Waffe …“, Zauberstein 36: +14 Schatten/+1 % Tempo, 48: +17/+2 %, 60: +21/+2 %). Sie belegen also vermutlich denselben Platz wie Zauberöl. Im Spiel noch nicht getestet.
 - Die Konsole zeigt Umlaute aus Python ggf. kaputt an (cp1252); die Daten selbst sind korrekt.
