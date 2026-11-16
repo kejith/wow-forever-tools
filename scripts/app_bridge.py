@@ -88,7 +88,7 @@ def character(wow: str, name: str) -> dict:
     talents = c.get("talents") or {}
     # Points per item: what the set loses without it, on the same scale as the AH upgrades.
     eq, totals = upgrades.equipped_stats(c)
-    scale = upgrades.build_scale(c, gear_hit=totals.get("hit", 0))
+    scale = upgrades.build_scale(c, gear_hit=totals.get("hit", 0), gear_crit=totals.get("crit", 0))
     full = upgrades.set_value(totals, scale)
     equipment = []
     for e in c.get("equipment") or []:

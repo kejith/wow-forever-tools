@@ -35,13 +35,22 @@ import verfuegungen as v  # noqa: E402  (load_prices, DEFAULT_WOW)
 # immer das ganze Set (set_value). So zählt Treffer nur bis zum Cap.
 PROFILES = {
     # target: Stufenvorsprung der Gegner, aff_share: Anteil des Schadens aus Gebrechen-Zaubern (DoTs, Entzüge).
-    "leveln": dict(label="Leveln", target=2, aff_share=0.75,
+    # mana_share: 1 % mehr Vorrat (Mana + per Aderlass nutzbares Leben) zählt wie mana_share % mehr Schaden.
+    # survival_share: 1 % mehr Leben zählt zusätzlich wie survival_share % mehr Schaden (Überleben, weniger Rast).
+    # Beide sind Erfahrungswerte (so gewählt, dass Malgruk auf Stufe 46 ungefähr bei den alten festen Gewichten
+    # landet); Intelligenz und Ausdauer rechnet build_scale daraus mit Stufe, Werten und Talenten aus.
+    # weights: feste Gewichte; stamina/intellect nur, wenn der Export keine Leben-/Mana-Werte hat.
+    "leveln": dict(label="Leveln", target=2, aff_share=0.75, mana_share=0.10, survival_share=0.05,
                    weights={"stamina": 0.5, "intellect": 0.35, "spirit": 0.25, "mp5": 0.7, "hp5": 0.15,
                             "armor": 0.01, "wand_dps": 0.6}),
-    "dungeon": dict(label="Dungeon/Raid", target=3, aff_share=0.75,
+    "dungeon": dict(label="Dungeon/Raid", target=3, aff_share=0.75, mana_share=0.06, survival_share=0.02,
                     weights={"stamina": 0.25, "intellect": 0.25, "spirit": 0.05, "mp5": 0.3, "hp5": 0.0,
                              "armor": 0.0, "wand_dps": 0.1}),
 }
+BASE_SPELL_CRIT = 1.7  # Zauberkrit ohne Intelligenz (Hexer); nur für Exporte ohne critFromIntellect (Addon < 1.3)
+MANA_PER_INT = 15  # MANA_PER_INTELLECT im Spiel
+HP_PER_STAMINA = 10  # UnitHPPerStamina im Spiel
+IMPROVED_LIFE_TAP = 0.1  # Verbesserter Aderlass: +10 % Mana pro Rang (Classic-Wert, in Forever nicht geprüft)
 # Fehlschlagchance von Zaubern gegen Gegner mit +0 bis +3 Stufen. Quelle: Forevers eigene Charakteranzeige
 # (Blizzard_UIPanels_Game/Camelot/PaperDollFrameStats.lua, spellMissChances).
 SPELL_MISS = {0: 4.0, 1: 5.0, 2: 6.0, 3: 17.0}
@@ -143,12 +152,47 @@ def add_stats(total: dict, n: dict, sign: int = 1) -> None:
         total[k] = total.get(k, 0) + sign * val
 
 
-def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0) -> dict:
+def crit_per_intellect(st: dict, gear_crit: float = 0.0) -> tuple[float | None, str]:
+    """Spell crit in percent per point of intellect at the character's level, and where the number comes from."""
+    intellect = st.get("intellect") or 0
+    if intellect <= 0:
+        return None, ""
+    if st.get("critFromIntellect") is not None:
+        return st["critFromIntellect"] / intellect, "laut Spiel"
+    crit = (st.get("spellCrit") or {}).get("shadow")
+    if crit is None:
+        return None, ""
+    return max(0.0, (crit - BASE_SPELL_CRIT - gear_crit) / intellect), f"geschätzt: Zauberkrit − {BASE_SPELL_CRIT:g} %"
+
+
+def life_tap_ratio(st: dict, level: int, ilt_rank: int) -> tuple[float, str]:
+    """Mana per point of health from Life Tap, with Improved Life Tap, and a note on the source."""
+    lt = st.get("lifeTap")
+    text = (lt or {}).get("text") or ""
+    m = re.search(r"([\d.]+)\s*Gesundheit\D+?([\d.]+)\s*Mana", text)
+    if m and float(m.group(1).replace(".", "")) > 0:
+        ratio = float(m.group(2).replace(".", "")) / float(m.group(1).replace(".", ""))
+        source = "laut Zaubertext"
+    elif lt is None and "hpPerStamina" in st:  # Addon 1.3 exportiert und kennt keinen Aderlass
+        return 0.0, "Aderlass nicht bekannt"
+    elif level < 6:
+        return 0.0, "Aderlass erst ab Stufe 6"
+    else:
+        ratio, source = 1.0, "Annahme 1:1"
+    if ilt_rank:
+        ratio *= 1 + IMPROVED_LIFE_TAP * ilt_rank
+        source += f", Verbesserter Aderlass {ilt_rank}/2"
+    return ratio, source
+
+
+def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0, gear_crit: float = 0.0) -> dict:
     """Weights for this character, in points of shadow spell power.
 
     Hit and crit are derived instead of fixed: 1 % more damage is worth (base damage / coefficient + spell power)
     / 100 spell power, hit counts only up to the cap against the profile's enemies, crit only for the share of
-    damage that can crit. Stamina, intellect, spirit and regeneration are judgement values per profile."""
+    damage that can crit. Intellect and stamina follow from what one point gives at this level (mana, crit from
+    intellect, health, Life Tap) and the profile's mana_share/survival_share. Spirit and regeneration are
+    judgement values per profile."""
     ch = char.get("character") or {}
     st = ch.get("stats") or {}
     level = ch.get("level") or 60
@@ -180,18 +224,39 @@ def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0) -> dict:
     crit_note = f"1 % Schaden = {pct:.1f} Zaubermacht, {crit_share:.0%} des Schadens kann kritisch treffen"
     if pandemic:
         crit_note += " (Annahme: Pandemie lässt DoTs kritisch treffen)"
+
+    # Intellect and stamina: what one point gives at this level, valued against the mana pool.
+    stamina_note, intellect_note = "Leben, über Aderlass auch Mana (fester Wert)", "15 Mana und etwas Krit (fester Wert)"
+    mana, health = st.get("powerMax") or 0, st.get("healthMax") or 0
+    cpi, cpi_source = crit_per_intellect(st, gear_crit)
+    if mana > 0 and health > 0 and cpi is not None:
+        tap, tap_source = life_tap_ratio(st, level, talents.get("Verbesserter Aderlass", 0))
+        pool = mana + health * tap
+        per_mana = p["mana_share"] * pct * 100 / pool
+        per_health = p["survival_share"] * pct * 100 / health
+        mpi = st.get("manaPerIntellect") or MANA_PER_INT
+        hps = st.get("hpPerStamina") or HP_PER_STAMINA
+        int_mana, int_crit = mpi * per_mana, cpi * weights["crit"]
+        sta_tap, sta_live = hps * tap * per_mana, hps * per_health
+        weights["intellect"] = round(int_mana + int_crit, 3)
+        weights["stamina"] = round(sta_tap + sta_live, 3)
+        intellect_note = (f"{mpi:g} Mana = {int_mana:.2f}, {cpi:.4f} % Krit ({cpi_source}) = {int_crit:.2f}. "
+                          f"1 Mana = {per_mana:.3f}: Vorrat {pool:.0f} (Mana + Leben über Aderlass), "
+                          f"1 % mehr Vorrat zählt wie {p['mana_share']:g} % Schaden")
+        stamina_note = (f"{hps:g} Leben: über Aderlass {hps * tap:.1f} Mana ({tap_source}) = {sta_tap:.2f}, "
+                        f"Überleben = {sta_live:.2f} (1 % mehr Leben zählt wie {p['survival_share']:g} % Schaden)")
     w = weights
     rows = [
         dict(label="Schatten-/Zaubermacht", weight=1.0, note="Bezugsgröße"),
-        dict(label="Ausdauer", weight=w["stamina"], note="Leben, über Aderlass auch Mana"),
-        dict(label="Intelligenz", weight=w["intellect"], note="15 Mana und etwas Krit"),
+        dict(label="Ausdauer", weight=w["stamina"], note=stamina_note),
+        dict(label="Intelligenz", weight=w["intellect"], note=intellect_note),
         dict(label="Willenskraft", weight=w["spirit"], note="Regeneration außerhalb des Kampfes"),
         dict(label="Mana pro 5 Sek.", weight=w["mp5"], note=""),
         dict(label="Treffer, nächstes 1 %", weight=round(hit_now, 2), note=hit_note),
         dict(label="Krit, je 1 %", weight=w["crit"], note=crit_note),
         dict(label="Zauberstab-DPS", weight=w["wand_dps"], note="nur im Zauberstab-Platz"),
     ]
-    text = (f"Schatten/Zaubermacht 1, Ausdauer {w['stamina']:g}, Int {w['intellect']:g}, Willenskraft {w['spirit']:g}, "
+    text = (f"Schatten/Zaubermacht 1, Ausdauer {w['stamina']:.2f}, Int {w['intellect']:.2f}, Willenskraft {w['spirit']:g}, "
             f"Mana/5s {w['mp5']:g}, Treffer 1 % = {hit_now:.1f}, Krit 1 % = {w['crit']:.1f}, "
             f"Zauberstab-DPS {w['wand_dps']:g}")
     return dict(profile=profile, label=p["label"], pct=pct, weights=weights, hitSteps=hit_steps, rows=rows, text=text)
@@ -350,7 +415,7 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: 
               if isinstance(s, dict) and s.get("name")}
     ratings = learn_ratings(items)
     eq, totals = equipped_stats(c, ratings)
-    scale = build_scale(c, profil, totals.get("hit", 0))
+    scale = build_scale(c, profil, totals.get("hit", 0), totals.get("crit", 0))
     base = set_value(totals, scale)
     two_handed = (equipped.get(16) or {}).get("equipLoc") == "INVTYPE_2HWEAPON"
 

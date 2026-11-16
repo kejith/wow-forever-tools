@@ -104,6 +104,19 @@ local function sumAttackPower(base, pos, neg)
     if num(base) then return base + (num(pos) or 0) + (num(neg) or 0) end
 end
 
+-- Warlock Life Tap: highest known rank and its spell text ("Wandelt 310 Gesundheit in 310 Mana um").
+local LIFE_TAP_RANKS = { 11689, 11688, 11687, 1456, 1455, 1454 }
+
+local function collectLifeTap()
+    local known = C_SpellBook and C_SpellBook.IsSpellKnown
+    if not known then return nil end
+    for _, id in ipairs(LIFE_TAP_RANKS) do
+        if try(known, id) then
+            return { id = id, text = str(try(C_Spell.GetSpellDescription, id)) }
+        end
+    end
+end
+
 local function collectStats()
     local s = { spellDamage = {}, spellCrit = {}, resistances = {} }
     for i, key in ipairs(STATS) do
@@ -134,6 +147,14 @@ local function collectStats()
     s.powerMax = num(try(UnitPowerMax, "player"))
     local _, powerToken = try(UnitPowerType, "player")
     s.powerType = str(powerToken)
+    -- What one point of a stat is worth at the current level, as the character sheet's tooltips compute it.
+    if s.intellect then
+        local fromInt = num(try(GetSpellCritChanceFromStat, 4, s.intellect))
+        s.critFromIntellect = fromInt and fromInt * 100 -- percent from all intellect
+    end
+    s.hpPerStamina = num(try(UnitHPPerStamina, "player"))
+    s.manaPerIntellect = num(MANA_PER_INTELLECT)
+    s.lifeTap = collectLifeTap()
     return s
 end
 

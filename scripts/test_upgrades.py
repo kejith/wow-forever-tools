@@ -58,6 +58,43 @@ def test_crit_depends_on_talents():
     assert 0 < plain < pandemic
 
 
+def pooled(level=46, sp=180, intellect=100, health=1500, mana=2000, talents=(), **extra):
+    c = char(level=level, talents=talents)
+    c["character"]["stats"].update(intellect=intellect, healthMax=health, powerMax=mana, spellCrit={"shadow": 3.7}, **extra)
+    c["character"]["stats"]["spellDamage"]["shadow"] = sp
+    return c
+
+
+def test_intellect_and_stamina_follow_the_character():
+    # Without health/mana in the export the fixed profile weights stay.
+    fixed = u.build_scale(char())["weights"]
+    assert (fixed["intellect"], fixed["stamina"]) == (0.35, 0.5)
+
+    # With them: Int = 15 mana + crit from intellect, Stamina = 10 health (Life Tap + survival).
+    s = u.build_scale(pooled(critFromIntellect=2.0, lifeTap={"id": 11688, "text": "Wandelt 310 Gesundheit in 310 Mana um."}))
+    pct, k = s["pct"], u.PROFILES["leveln"]
+    per_mana = k["mana_share"] * pct * 100 / (2000 + 1500)
+    assert abs(s["weights"]["intellect"] - round(15 * per_mana + 0.02 * s["weights"]["crit"], 3)) < 1e-9
+    assert abs(s["weights"]["stamina"] - round(10 * per_mana + 10 * k["survival_share"] * pct * 100 / 1500, 3)) < 1e-9
+
+    # Without critFromIntellect (addon < 1.3) the crit comes from the spell crit minus the base: (3.7 - 1.7) / 100.
+    assert abs(u.crit_per_intellect(pooled()["character"]["stats"])[0] - 0.02) < 1e-9
+
+    # A bigger pool makes each point worth less; Improved Life Tap makes stamina worth more.
+    assert u.build_scale(pooled(mana=4000))["weights"]["intellect"] < u.build_scale(pooled())["weights"]["intellect"]
+    ilt = u.build_scale(pooled(talents=[("Verbesserter Aderlass", 2)]))["weights"]["stamina"]
+    assert ilt > u.build_scale(pooled())["weights"]["stamina"]
+
+
+def test_life_tap_ratio():
+    st = {"lifeTap": {"text": "Wandelt 424 Gesundheit in 424 Mana um."}, "hpPerStamina": 10}
+    assert u.life_tap_ratio(st, 56, 0)[0] == 1.0
+    assert abs(u.life_tap_ratio(st, 56, 2)[0] - 1.2) < 1e-9
+    assert u.life_tap_ratio({"hpPerStamina": 10}, 46, 2)[0] == 0.0  # addon 1.3 exported: no Life Tap known
+    assert u.life_tap_ratio({}, 46, 0)[0] == 1.0  # old export: assume the Classic 1:1
+    assert u.life_tap_ratio({}, 4, 0)[0] == 0.0
+
+
 def test_special_effects():
     tip = ["Anlegen: +10 Angriffskraft.", "Anlegen: Verbessert Eure Trefferchance um 1.0%.",
            "Anlegen: Erhöht durch magische Zauber und Effekte verursachten Schaden und Heilung um bis zu 9.",
