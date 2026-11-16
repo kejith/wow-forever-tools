@@ -131,6 +131,48 @@ window.__showTip = (index) => {
   return true;
 };
 
+// ---------- Item icons ----------
+// itemIcon() renders a placeholder with data-icon="<itemId>"; hydrateIcons() asks the main process for the
+// FileDataIDs (the first time it downloads the PNGs via the bridge) and sets them as background images.
+
+const iconOf = new Map(); // item ID -> FileDataID or null (no icon known)
+let iconFallback = null; // question mark
+const iconUrl = (fdid) => `url(wowicon://${fdid}.png)`;
+
+function itemIcon(id, q, size = '') {
+  if (!id) return `<span class="icon empty ${size}"></span>`;
+  const known = iconOf.has(Number(id)) ? (iconOf.get(Number(id)) ?? iconFallback) : null;
+  return `<span class="icon ${quality(q)} ${size}" data-icon="${Number(id)}"${known ? ` style="background-image:${iconUrl(known)}"` : ''}></span>`;
+}
+
+let hydrating = Promise.resolve();
+function hydrateIcons() {
+  const run = async () => {
+    const els = [...content.querySelectorAll('[data-icon]')];
+    const ids = [...new Set(els.map((el) => Number(el.dataset.icon)))].filter((id) => !iconOf.has(id));
+    if (ids.length) {
+      const r = await api.icons(ids);
+      if (r && !r.error) {
+        for (const id of ids) iconOf.set(id, r.icons?.[id] ?? null);
+        if (r.fallback) iconFallback = r.fallback;
+      }
+    }
+    for (const el of content.querySelectorAll('[data-icon]')) {
+      const fdid = iconOf.has(Number(el.dataset.icon)) ? (iconOf.get(Number(el.dataset.icon)) ?? iconFallback) : null;
+      if (fdid && !el.style.backgroundImage) el.style.backgroundImage = iconUrl(fdid);
+    }
+  };
+  hydrating = hydrating.then(run, run);
+  return hydrating;
+}
+
+// Pages that re-render themselves (options on the writs and upgrades pages) get their icons the same way.
+let hydrateTimer;
+new MutationObserver(() => {
+  clearTimeout(hydrateTimer);
+  hydrateTimer = setTimeout(hydrateIcons, 30);
+}).observe(content, { childList: true, subtree: true });
+
 // ---------- Data ----------
 
 async function cached(key, fn) {
@@ -189,6 +231,7 @@ async function showPage(page) {
   $('#page-title').textContent = PAGES[page].title;
   try {
     await PAGES[page].render();
+    await hydrateIcons();
   } catch (err) {
     content.innerHTML = errorBox(err.message || String(err));
   }
@@ -389,41 +432,84 @@ async function renderCharacter() {
   const c = d.character;
   const st = c.stats || {};
   const xpPct = c.xpMax ? Math.round((c.xp / c.xpMax) * 100) : 0;
-  const shadow = st.spellDamage?.shadow;
-  const crit = st.spellCrit?.shadow;
-  const statCards = [
-    ['Schattenschaden', shadow ?? '–'], ['Zauberkrit', crit !== undefined ? `${crit.toFixed(2)} %` : '–'],
-    ['Zaubertreffer', st.spellHit !== undefined ? `${st.spellHit} %` : '–'], ['Leben', st.healthMax ?? '–'],
-    ['Mana', st.powerMax ?? '–'], ['Intelligenz', st.intellect ?? '–'], ['Ausdauer', st.stamina ?? '–'],
-    ['Willenskraft', st.spirit ?? '–'],
-  ].map(([k, v]) => `<div class="card"><h2>${esc(k)}</h2><div class="big">${esc(v)}</div></div>`).join('');
-  const eq = d.equipment.map((e) => `<tr>
-      <td class="muted">${esc(e.slotName)}</td>
-      <td><span class="${quality(e.quality)}"${tipAttr(e.tip)}>${esc(e.name)}</span></td>
-      <td class="num">${esc(e.ilvl ?? '')}</td>
-      <td class="small">${esc(e.stats)}</td>
-      <td class="num">${e.score}</td>
-      <td class="num small">${e.durability ? `${e.durability[0]}/${e.durability[1]}` : ''}</td></tr>`).join('');
+  const num = (v, digits = 0) => (v === undefined || v === null ? '–'
+    : Number(v).toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits }));
+  const pct = (v) => (v === undefined || v === null ? '–' : `${num(v, 2)} %`);
+
+  // Paper doll in the layout of the in-game character window: left and right columns, weapons below.
+  const bySlot = Object.fromEntries(d.equipment.map((e) => [e.slot, e]));
+  const slot = ([id, label], side) => {
+    const e = bySlot[id];
+    if (!e) {
+      return `<div class="pd-slot ${side} empty">${itemIcon(null, null, 'lg')}
+        <div class="pd-text"><div class="pd-name">${esc(label)}</div><div class="pd-meta">leer</div></div></div>`;
+    }
+    const dur = e.durability;
+    const meta = [
+      `${num(e.score, 1)} P.`,
+      e.ilvl ? `iLvl ${esc(e.ilvl)}` : '',
+      dur ? `<span class="${dur[0] / dur[1] < 0.3 ? 'dur-low' : ''}">${dur[0]}/${dur[1]}</span>` : '',
+    ].filter(Boolean).join(' · ');
+    return `<div class="pd-slot ${side}"${tipAttr(e.tip)}>${itemIcon(e.id, e.quality, 'lg')}
+      <div class="pd-text"><div class="pd-name ${quality(e.quality)}">${esc(e.name)}</div>
+        <div class="pd-meta"><span class="pd-label">${esc(label)}</span> · ${meta}</div></div></div>`;
+  };
+  const column = (slots, side) => slots.map((s) => slot(s, side)).join('');
+
+  const statBox = (title, rows) => `<div class="pd-stats"><h4>${esc(title)}</h4>
+    ${rows.map(([k, v]) => `<div class="pd-stat"><span>${esc(k)}</span><b>${v}</b></div>`).join('')}</div>`;
+  const res = st.resistances || {};
+  const resist = [['arcane', 'Arkan'], ['fire', 'Feuer'], ['nature', 'Natur'], ['frost', 'Frost'], ['shadow', 'Schatten']]
+    .map(([k, label]) => `<span class="res res-${k}" title="${label}widerstand">${num(res[k] ?? 0)}<small>${label}</small></span>`).join('');
+  const durs = d.equipment.filter((e) => e.durability).map((e) => e.durability[0] / e.durability[1]);
+  const ilvls = d.equipment.map((e) => e.ilvl).filter(Boolean);
+  const center = `<div class="pd-center">
+      <div class="pd-res">${resist}</div>
+      <div class="pd-grid">
+        ${statBox('Attribute', [['Stärke', num(st.strength)], ['Beweglichkeit', num(st.agility)], ['Ausdauer', num(st.stamina)],
+          ['Intelligenz', num(st.intellect)], ['Willenskraft', num(st.spirit)]])}
+        ${statBox('Zauber', [['Schattenschaden', num(st.spellDamage?.shadow)], ['Heilung', num(st.healing)],
+          ['Zauberkrit', pct(st.spellCrit?.shadow)], ['Zaubertreffer', st.spellHit !== undefined ? `${num(st.spellHit)} %` : '–']])}
+        ${statBox('Verteidigung', [['Leben', num(st.healthMax)], [st.powerType === 'MANA' || !st.powerType ? 'Mana' : 'Energie', num(st.powerMax)],
+          ['Rüstung', num(st.armor)], ['Ausweichen', pct(st.dodge)]])}
+        ${statBox('Ausrüstung', [['Ausrüstungswert', num(d.setValue, 1)], ['Ø iLvl', ilvls.length ? num(ilvls.reduce((a, b) => a + b, 0) / ilvls.length, 1) : '–'],
+          ['Haltbarkeit min.', durs.length ? `<span class="${Math.min(...durs) < 0.3 ? 'dur-low' : ''}">${Math.round(Math.min(...durs) * 100)} %</span>` : '–'],
+          ['Skala', esc(d.profileLabel)]])}
+      </div></div>`;
+
   const profs = d.professions.map((p) => `<div style="margin-bottom:8px">
       <div class="row small"><span>${esc(p.name)}</span><span class="spacer"></span><span class="muted">${p.rank}/${p.max}</span></div>
       <div class="bar"><span style="width:${Math.round((p.rank / p.max) * 100)}%"></span></div></div>`).join('');
   const talents = d.talents.map((t) => Object.entries(t.tabs || {}).map(([tab, pts]) => `${esc(tab)} ${pts}`).join(' / ')).join('<br>');
   content.innerHTML = `
-    <div class="card" style="margin-bottom:16px"><div class="row">
-      <div><h3 style="font-size:20px;margin:0">${esc(c.name)} <span class="muted">${esc(c.surname || '')}</span></h3>
-        <div class="muted">Stufe ${esc(c.level)} ${esc(c.race)} ${esc(c.class)} · ${esc(c.zone || '')} · Snapshot ${ago(d.updated)}</div></div>
-      <span class="spacer"></span><div class="big">${money(c.money)}</div></div>
-      <div style="margin-top:12px" class="small muted">Erfahrung ${xpPct} % (${(c.xp || 0).toLocaleString('de-DE')} / ${(c.xpMax || 0).toLocaleString('de-DE')})</div>
-      <div class="bar"><span style="width:${xpPct}%"></span></div></div>
-    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(175px, 1fr))">${statCards}</div>
-    <div class="section"><h2>Ausrüstung</h2><div class="card"><table>
-      <thead><tr><th>Platz</th><th>Item</th><th class="num">iLvl</th><th>Werte</th><th class="num">Punkte</th><th class="num">Haltbarkeit</th></tr></thead>
-      <tbody>${eq}</tbody></table>
-      <p class="small muted">Punkte = was der Ausrüstung ohne das Item fehlt, nach der Skala „${esc(d.profileLabel)}“ der AH-Upgrades
-        (${esc(d.weights)}). Zusammen ${d.setValue.toLocaleString('de-DE')}.</p></div></div>
+    <div class="paperdoll">
+      <div class="pd-head">
+        <div><div class="pd-title">${esc(c.name)} <span>${esc(c.surname || '')}</span></div>
+          <div class="pd-sub">Stufe ${esc(c.level)} ${esc(c.race)} ${esc(c.class)}</div></div>
+        <span class="spacer"></span>
+        <div class="pd-money">${money(c.money)}<div class="small muted">${esc(c.zone || '')} · Snapshot ${ago(d.updated)}</div></div>
+      </div>
+      <div class="pd-body">
+        <div class="pd-col">${column(PAPERDOLL.left, 'left')}</div>
+        ${center}
+        <div class="pd-col">${column(PAPERDOLL.right, 'right')}</div>
+        <div class="pd-weapons">${column(PAPERDOLL.bottom, 'bottom')}</div>
+      </div>
+      <div class="pd-xp"><div class="bar"><span style="width:${xpPct}%"></span></div>
+        <div class="pd-xp-text">Erfahrung ${(c.xp || 0).toLocaleString('de-DE')} / ${(c.xpMax || 0).toLocaleString('de-DE')} (${xpPct} %)${c.rested ? ` · erholt ${c.rested.toLocaleString('de-DE')}` : ''}</div></div>
+    </div>
+    <p class="small muted">P. = Punkte: was der Ausrüstung ohne das Item fehlt, nach der Skala „${esc(d.profileLabel)}“ der AH-Upgrades
+      (${esc(d.weights)}). Zusammen ${d.setValue.toLocaleString('de-DE')}. Maus über ein Item zeigt den Tooltip.</p>
     <div class="grid section"><div class="card"><h2>Berufe</h2>${profs || '<span class="muted">–</span>'}</div>
       <div class="card"><h2>Talente</h2>${talents || '<span class="muted">–</span>'}</div></div>`;
 }
+
+// Slot IDs and order of the in-game character window (Classic layout).
+const PAPERDOLL = {
+  left: [[1, 'Kopf'], [2, 'Hals'], [3, 'Schultern'], [15, 'Rücken'], [5, 'Brust'], [4, 'Hemd'], [19, 'Wappenrock'], [9, 'Handgelenke']],
+  right: [[10, 'Hände'], [6, 'Taille'], [7, 'Beine'], [8, 'Füße'], [11, 'Finger'], [12, 'Finger'], [13, 'Schmuck'], [14, 'Schmuck']],
+  bottom: [[16, 'Waffenhand'], [17, 'Schildhand'], [18, 'Distanz']],
+};
 
 // ---------- Page: writs ----------
 
@@ -448,7 +534,7 @@ async function renderWrits() {
       <div class="bar" style="margin-top:10px"><span style="width:${Math.round((rep.value / rep.max) * 100)}%"></span></div></div>` : '';
   const tiers = d.tiers.map((t) => {
     const rows = t.best.map((b, i) => `<tr class="${i === 0 ? 'best' : ''}">
-        <td>${i === 0 ? '★ ' : ''}${esc(b.name)}${b.qty > 1 ? ` <span class="muted">(${b.qty}x)</span>` : ''}</td>
+        <td><span class="item">${itemIcon(b.writId, 1)}<span>${i === 0 ? '★ ' : ''}${esc(b.name)}${b.qty > 1 ? ` <span class="muted">(${b.qty}x)</span>` : ''}</span></span></td>
         <td class="muted">${esc(b.prof)}</td>
         <td class="num">${money(b.wcost)}</td><td class="num">${money(b.icost)}</td>
         <td class="num"><b>${money(b.cost)}</b></td>
@@ -503,7 +589,7 @@ async function renderUpgrades() {
   const signed = (n) => `${n < 0 ? '−' : '+'}${Math.abs(n).toFixed(1)}`;
   const pctOf = (c) => (c.gainPct === null ? 'neu' : `${c.gainPct < 0 ? '−' : '+'}${Math.abs(c.gainPct)} %`);
   const perGold = (c) => c.perGold.toLocaleString('de-DE', { maximumFractionDigits: 1 });
-  const itemCell = (c, compare) => `<span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span>
+  const itemCell = (c, compare) => `<span class="item">${itemIcon(c.id, c.quality)}<span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span></span>
           ${c.isNew ? '<span class="badge new">NEU in Forever</span>' : ''}
           ${c.soon ? `<span class="badge warn">ab Stufe ${c.reqLevel}</span>` : ''}
           ${c.twoHand ? '<span class="badge">Zweihand, ersetzt auch die Schildhand</span>' : ''}
@@ -520,7 +606,7 @@ async function renderUpgrades() {
     return `<div class="card section slot-card">
       <div><div class="slot-name">${esc(s.slotName)}</div>
         <div class="small muted" style="margin-top:4px">jetzt:</div>
-        <div class="small"><span class="${quality(cur?.quality)}"${tipAttr(cur?.tip)}>${esc(cur?.name || '–')}</span></div>
+        <div class="small"><span class="item">${itemIcon(cur?.id, cur?.quality)}<span class="${quality(cur?.quality)}"${tipAttr(cur?.tip)}>${esc(cur?.name || '–')}</span></span></div>
         <div class="small muted">${esc(cur?.stats || '')}</div></div>
       <table><thead><tr><th>Gewinn</th><th class="num">zum Item</th><th class="num">Preis</th><th class="num">Punkte/Gold</th><th>Item</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
@@ -546,7 +632,7 @@ async function renderUpgrades() {
   const review = d.review.length ? `<div class="section"><h2>Mit Spezialeffekt – selbst ansehen</h2><div class="card"><table>
       <thead><tr><th>Platz</th><th class="num">Preis</th><th>Item</th><th>Effekt</th></tr></thead><tbody>
       ${d.review.map((r) => `<tr><td class="muted">${esc(r.slot)}</td><td class="num">${money(r.price)}</td>
-        <td><span class="${quality(r.quality)}"${tipAttr(r.tip)}>${esc(r.name)}</span> ${r.isNew ? '<span class="badge new">NEU</span>' : ''}</td>
+        <td><span class="item">${itemIcon(r.id, r.quality)}<span class="${quality(r.quality)}"${tipAttr(r.tip)}>${esc(r.name)}</span></span> ${r.isNew ? '<span class="badge new">NEU</span>' : ''}</td>
         <td class="small">${esc(r.effects.join(' / '))}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>Budget</h2><div class="big">${money(d.budget)}</div></div>

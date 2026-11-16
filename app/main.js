@@ -3,15 +3,20 @@
 // on /reload or logout, and it writes AppRequest.lua into the installed addon, which the client loads on the
 // next /reload. All calculations run in the Python scripts via scripts/app_bridge.py.
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const addon = require('./addon');
 
 const REPO = path.resolve(__dirname, '..');
 const BRIDGE = path.join(REPO, 'scripts', 'app_bridge.py');
 const DEFAULT_WOW = 'C:\\Program Files (x86)\\World of Warcraft\\_forever_';
+const ICON_DIR = path.join(REPO, 'scripts', 'cache', 'icons');
+
+// Item icons reach the page as wowicon://<FileDataID>.png, served from the cache scripts/icons.py fills.
+protocol.registerSchemesAsPrivileged([{ scheme: 'wowicon', privileges: { standard: true, secure: true } }]);
 
 let win;
 let settings = {};
@@ -78,6 +83,7 @@ async function runBridge(command, opts = {}) {
   if (opts.besitzZumAhPreis) args.push('--besitz-zum-ah-preis');
   if (['leveln', 'dungeon'].includes(opts.profil)) args.push('--profil', opts.profil);
   if (['gewinn', 'preis'].includes(opts.sort)) args.push('--sort', opts.sort);
+  if (Array.isArray(opts.ids)) args.push('--ids', opts.ids.map(Number).filter((n) => n > 0).join(','));
   const candidates = workingUv ? [workingUv] : uvCandidates();
   let lastErr;
   for (const uv of candidates) {
@@ -94,6 +100,40 @@ async function runBridge(command, opts = {}) {
     return { error: 'uv wurde nicht gefunden. Installieren: winget install astral-sh.uv' };
   }
   return { error: lastErr ? lastErr.message : 'Bridge fehlgeschlagen' };
+}
+
+// ---------- Item icons ----------
+// Item ID -> FileDataID, remembered for the session. Unknown IDs go to the bridge in one batch, which also
+// downloads the PNGs; IDs without an icon are not asked for again until the app restarts.
+
+const iconOf = new Map();
+let iconFallback = null;
+let iconQueue = Promise.resolve();
+
+function resolveIcons(ids) {
+  const run = async () => {
+    const unknown = [...new Set(ids.map(Number))].filter((id) => id > 0 && !iconOf.has(id));
+    if (unknown.length) {
+      const r = await runBridge('icons', { ids: unknown });
+      if (r.error) return { error: r.error };
+      for (const id of unknown) iconOf.set(id, r.icons?.[id] ?? null);
+      if (r.fallback) iconFallback = r.fallback;
+    }
+    const icons = {};
+    for (const id of ids) icons[id] = iconOf.get(Number(id)) ?? null;
+    return { icons, fallback: iconFallback };
+  };
+  // One bridge call at a time, so two pages asking for the same icons do not download them twice.
+  iconQueue = iconQueue.then(run, run);
+  return iconQueue;
+}
+
+function serveIcons() {
+  protocol.handle('wowicon', (request) => {
+    const name = new URL(request.url).hostname;
+    if (!/^\d+\.png$/.test(name)) return new Response('', { status: 404 });
+    return net.fetch(pathToFileURL(path.join(ICON_DIR, name)).toString());
+  });
 }
 
 // ---------- Game process ----------
@@ -140,6 +180,7 @@ ipcMain.handle('addon:install', () => {
 ipcMain.handle('request:create', (_e, action, opts) => {
   try { return addon.writeRequest(settings.wowDir, action, opts); } catch (err) { return { error: err.message }; }
 });
+ipcMain.handle('icons', (_e, ids) => resolveIcons(Array.isArray(ids) ? ids : []));
 ipcMain.handle('wow:running', () => wowRunning());
 ipcMain.handle('open:path', (_e, p) => shell.openPath(p));
 ipcMain.handle('settings:get', () => ({ ...settings, repo: REPO }));
@@ -197,6 +238,7 @@ async function runCapture(dir) {
 
 app.whenReady().then(() => {
   loadSettings();
+  serveIcons();
   createWindow();
   startWatcher();
 });

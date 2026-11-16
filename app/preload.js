@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('wow', {
   addonInfo: () => ipcRenderer.invoke('addon:info'),
   installAddon: () => ipcRenderer.invoke('addon:install'),
   createRequest: (action, opts) => ipcRenderer.invoke('request:create', action, opts),
+  icons: (itemIds) => ipcRenderer.invoke('icons', itemIds),
   wowRunning: () => ipcRenderer.invoke('wow:running'),
   openPath: (p) => ipcRenderer.invoke('open:path', p),
   getSettings: () => ipcRenderer.invoke('settings:get'),

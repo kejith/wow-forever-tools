@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["lupa>=2.0"]
+# dependencies = ["lupa>=2.0", "pillow>=10"]
 # ///
 """JSON bridge between the desktop app (app/) and the scripts in this folder.
 
@@ -9,6 +9,7 @@
     uv run scripts/app_bridge.py writs --char Malgruk [--top 3] [--besitz-zum-ah-preis]
     uv run scripts/app_bridge.py upgrades --char Malgruk [--max-preis 1] [--vorschau 4] [--top 3]
                                           [--profil leveln|dungeon] [--sort gewinn|preis]
+    uv run scripts/app_bridge.py icons --ids 9492,287004
 
 Prints exactly one JSON object on stdout; failures come back as {"error": "..."} with exit code 0,
 so the app can show the message.
@@ -107,7 +108,7 @@ def character(wow: str, name: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["status", "character", "writs", "upgrades"])
+    ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "icons"])
     ap.add_argument("--wow", default=os.environ.get("WOW_FOREVER_DIR") or v.DEFAULT_WOW)
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=3)
@@ -116,12 +117,17 @@ def main() -> None:
     ap.add_argument("--vorschau", type=int, default=4)
     ap.add_argument("--profil", choices=["", *sorted(upgrades.PROFILES)], default="")
     ap.add_argument("--sort", choices=["gewinn", "preis"], default="gewinn")
+    ap.add_argument("--ids", default="", help="icons: comma-separated item IDs")
     a = ap.parse_args()
     try:
         if a.command == "status":
             r = status(a.wow)
         elif a.command == "character":
             r = character(a.wow, a.char)
+        elif a.command == "icons":
+            import icons  # pillow is only needed here
+
+            r = icons.resolve(a.wow, [int(i) for i in a.ids.split(",") if i.strip().isdigit()])
         elif a.command == "writs":
             r = v.compute(a.wow, a.char, a.top, a.besitz_zum_ah_preis)
         else:
