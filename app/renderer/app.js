@@ -738,10 +738,40 @@ function recipeName(r) {
     ${r.notes.length ? `<div class="small warn-text">${esc(r.notes.join(' · '))}</div>` : ''}`;
 }
 
+const TREND = { fallend: ['down', '↘ fällt'], steigend: ['up', '↗ steigt'], stabil: ['flat', '→ stabil'] };
+
+function goldText(copper) {
+  return `${copper < 0 ? '−' : '+'}${(Math.abs(copper) / 10000).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g`;
+}
+
+// Gewinn pro Herstellung an den letzten vollen Scan-Tagen als kleine Linie; die gestrichelte Linie ist null.
+function profitTrend(r) {
+  const h = r.history || [];
+  if (h.length < 2) return '<span class="muted" title="Für einen Verlauf braucht es Preise von mindestens zwei vollen Scan-Tagen.">–</span>';
+  const W = 116, H = 30, pad = 4;
+  const t = h.map((p) => Date.parse(p.date));
+  const values = h.map((p) => p.profit);
+  const lo = Math.min(0, ...values), hi = Math.max(0, ...values);
+  const x = (i) => pad + ((t[i] - t[0]) / (t[h.length - 1] - t[0])) * (W - 2 * pad);
+  const y = (v) => pad + ((hi - v) / (hi - lo || 1)) * (H - 2 * pad);
+  const points = h.map((p, i) => `${x(i).toFixed(1)},${y(p.profit).toFixed(1)}`).join(' ');
+  const [cls, label] = TREND[r.trend] || ['flat', ''];
+  const day = (iso) => `${iso.slice(8)}.${iso.slice(5, 7)}.`;
+  const tip = h.map((p) => `${day(p.date)}  ${goldText(p.profit)}  ·  Preis ${(p.price / 10000).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} g  ·  ${p.listed} im AH`).join('\n');
+  return `<div class="trend ${cls}" title="${esc(tip)}">
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gewinnverlauf">
+        <line class="zero" x1="0" x2="${W}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"/>
+        <polyline points="${points}"/>
+        ${h.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.profit).toFixed(1)}" r="${i === h.length - 1 ? 2.6 : 1.4}"/>`).join('')}
+      </svg>
+      <div class="small">${label}<span class="muted"> · ${h.length} Scans seit ${day(h[0].date)}</span></div></div>`;
+}
+
 function marketCells(r) {
   return `<td class="num">${money(r.cost)}</td>
     <td class="num">${money(r.sell)}${r.sellSource === 'Händler' ? '<div class="small muted">Händler</div>' : ''}</td>
     <td class="num"><b>${signedMoney(r.profit)}</b>${r.margin !== null ? `<div class="small muted">${r.margin > 0 ? '+' : ''}${r.margin} %</div>` : ''}</td>
+    <td>${profitTrend(r)}</td>
     <td class="num ${r.listed < 3 ? 'warn-text' : 'muted'}">${r.listed}</td>`;
 }
 
@@ -801,13 +831,13 @@ async function renderRecipes() {
       Bis dahin stehen unten alle Rezepte des Berufs.</div>`;
 
   const learnedTable = scanned ? `<div class="section"><h2>Deine Rezepte (${learned.length} von ${p.learnedCount})</h2><div class="card">
-      ${learned.length ? `<table><thead><tr><th>Rezept und Reagenzien</th><th class="num">Reagenzien</th><th class="num">Verkauf (−5 %)</th><th class="num">Gewinn</th><th class="num">im AH</th></tr></thead>
+      ${learned.length ? `<table><thead><tr><th>Rezept und Reagenzien</th><th class="num">Reagenzien</th><th class="num">Verkauf (−5 %)</th><th class="num">Gewinn</th><th>Verlauf</th><th class="num">im AH</th></tr></thead>
       <tbody>${learned.map((r) => `<tr><td>${recipeName(r)}</td>${marketCells(r)}</tr>`).join('')}</tbody></table>`
         : '<p class="muted">Kein gelerntes Rezept passt zum Filter.</p>'}</div></div>` : '';
 
   const missingTitle = scanned ? 'Noch nicht gelernt' : 'Alle Rezepte';
   const missingTable = `<div class="section"><h2>${missingTitle} (${missing.length} von ${p.missingCount})</h2><div class="card">
-      ${missing.length ? `<table><thead><tr><th>Rezept und Reagenzien</th><th class="num">Reagenzien</th><th class="num">Verkauf (−5 %)</th><th class="num">Gewinn</th><th class="num">im AH</th>
+      ${missing.length ? `<table><thead><tr><th>Rezept und Reagenzien</th><th class="num">Reagenzien</th><th class="num">Verkauf (−5 %)</th><th class="num">Gewinn</th><th>Verlauf</th><th class="num">im AH</th>
         <th>Lernen</th><th>Woher</th><th class="num">bezahlt nach</th></tr></thead>
       <tbody>${missing.map((r) => `<tr class="${r.better ? 'best' : ''}"><td>${r.better ? '<span class="badge new">lohnt mehr</span> ' : ''}${recipeName(r)}</td>${marketCells(r)}
         <td>${learnCell(r, p.rank)}</td><td class="small">${acquireCell(r)}</td>
@@ -823,7 +853,9 @@ async function renderRecipes() {
     ${notice}${header}${learnedTable}${missingTable}
     <p class="small muted">Gewinn pro Herstellung = Mindest-Sofortkauf des Ergebnisses beim Scan × Menge, minus 5 % AH-Gebühr, minus Reagenzien
       zum günstigeren Preis aus AH oder Händler (eigene Reagenzien zählen zum Marktpreis). „im AH“ = Angebote des Ergebnisses beim letzten Scan:
-      Bei wenigen Angeboten ist der Preis unsicher. Der Punkt vor dem Namen ist die Skill-Farbe. „bezahlt nach“ = Rezeptpreis geteilt durch den Gewinn.
+      Bei wenigen Angeboten ist der Preis unsicher. „Verlauf“ = derselbe Gewinn an den letzten vollen Scan-Tagen (Preis des Tages: Mitte aus
+      höchstem und niedrigstem Mindestpreis, die gestrichelte Linie ist null). „fällt“ oder „steigt“ heißt: Der Gewinn hat sich über die letzten
+      drei Scan-Tage um mehr als 20 % verändert. Details zeigt der Tooltip. Der Punkt vor dem Namen ist die Skill-Farbe. „bezahlt nach“ = Rezeptpreis geteilt durch den Gewinn.
       Händlerpreise liest das Addon, wenn du mit einem Händler sprichst (bisher ${d.vendorPrices}).</p>`;
   $('#r-prof').addEventListener('change', (e) => { o.skillLine = Number(e.target.value); renderRecipes(); });
   $('#r-listed').addEventListener('change', (e) => { o.minListed = Math.max(0, Number(e.target.value) || 0); renderRecipes(); });

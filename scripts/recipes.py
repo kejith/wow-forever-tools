@@ -23,7 +23,9 @@ Preis aus AH und Händler; eigene Reagenzien zählen zum Marktpreis (das, was du
 from __future__ import annotations
 
 import argparse
+import collections
 import csv
+import datetime
 import glob
 import json
 import os
@@ -38,6 +40,8 @@ import verfuegungen as v  # noqa: E402  (Auctionator)
 
 AH_CUT = 0.05
 CATALOG_VERSION = 2
+HISTORY_DAYS = 8  # so viele volle Scan-Tage zeigt der Gewinnverlauf
+FULL_SCAN_SHARE = 0.3  # ein Tag zählt als voller Scan, wenn er so viel vom größten Scan-Tag enthält
 GATHERING = {182, 186, 393, 356}  # Kräuterkunde, Bergbau, Kürschnerei, Angeln: keine Herstellung
 NEW_ID = 200000
 
@@ -149,8 +153,11 @@ def load_catalog(build: str | None) -> dict:
 class Market:
     def __init__(self, prices: dict, vendor: dict, items: dict):
         self.prices, self.vendor, self.items = prices, vendor, items
-        days = [int(k) for e in prices.values() if isinstance(e, dict) for k in (e.get("a") or {})]
+        days = collections.Counter(int(k) for e in prices.values() if isinstance(e, dict) for k in (e.get("a") or {}))
         self.last_day = max(days) if days else 0
+        # Auctionator schreibt auch bei einer einzelnen Suche Tagespreise. Für den Verlauf zählen nur volle Scans.
+        biggest = max(days.values(), default=0)
+        self.scan_days = sorted(d for d, n in days.items() if n >= FULL_SCAN_SHARE * biggest)[-HISTORY_DAYS:]
 
     def ah(self, iid: int) -> dict | None:
         """Mindestpreis beim letzten Scan, Anzahl im AH, Median der Tagespreise der letzten 7 Scan-Tage."""
@@ -162,6 +169,24 @@ class Market:
         recent = [p for d, p in (e.get("h") or {}).items() if int(d) > self.last_day - 7 and p]
         return {"price": e["m"], "listed": avail.get(str(day), 0), "age": self.last_day - day if day else None,
                 "median": int(statistics.median(recent)) if recent else e["m"]}
+
+    def day_price(self, iid: int, day: int) -> float | None:
+        """AH-Preis an einem Scan-Tag: Mitte aus höchstem und niedrigstem Mindestpreis des Tages (Auctionator
+        speichert nur diese beiden), am letzten Scan-Tag der aktuelle Mindestpreis wie in ah()."""
+        e = self.prices.get(str(iid))
+        if not isinstance(e, dict):
+            return None
+        high = (e.get("h") or {}).get(str(day))
+        if not high:
+            return None
+        if day == self.last_day and e.get("m"):
+            return e["m"]
+        low = (e.get("l") or {}).get(str(day))
+        return (high + low) / 2 if low else high
+
+    def day_listed(self, iid: int, day: int) -> int:
+        e = self.prices.get(str(iid))
+        return ((e.get("a") or {}).get(str(day)) or 0) if isinstance(e, dict) else 0
 
     def vendor_price(self, iid: int) -> tuple[float | None, str | None]:
         seen = self.vendor.get(iid) or self.vendor.get(str(iid))
@@ -221,6 +246,41 @@ def fmt_cd(seconds: int | None) -> str | None:
 
 # ---------- Rechnung ----------
 
+def profit_history(market: Market, output: int, qty: float, reagents: list[tuple[int, int]]) -> list[dict]:
+    """Gewinn pro Herstellung an jedem vollen Scan-Tag, gerechnet wie der aktuelle Gewinn. Tage, an denen das
+    Ergebnis oder ein Reagenz keinen Preis hat, fehlen."""
+    out = []
+    for day in market.scan_days:
+        price = market.day_price(output, day)
+        if not price:
+            continue
+        cost = 0.0
+        for iid, count in reagents:
+            options = [p for p in (market.day_price(iid, day), market.vendor_price(iid)[0]) if p]
+            if not options:
+                break
+            cost += min(options) * count
+        else:
+            out.append({"date": (datetime.date(2020, 1, 1) + datetime.timedelta(day)).isoformat(),
+                        "profit": round(price * qty * (1 - AH_CUT) - cost), "price": round(price),
+                        "listed": market.day_listed(output, day)})
+    return out
+
+
+def trend_of(history: list[dict], cost: float = 0) -> str | None:
+    """„fallend“, „steigend“ oder „stabil“: Änderung des Gewinns über die letzten drei vollen Scan-Tage.
+    Unter 20 % des größten Betrags in diesem Fenster gilt als stabil (mindestens 5 % der Reagenzienkosten
+    oder 1 Silber, damit Kupferbeträge um null kein Trend sind). Ohne drei Scan-Tage gibt es keine Aussage."""
+    if len(history) < 3:
+        return None
+    window = [h["profit"] for h in history[-3:]]
+    change = window[-1] - window[0]
+    scale = max(*(abs(p) for p in window), 0.05 * cost, 100)
+    if abs(change) < 0.2 * scale:
+        return "stabil"
+    return "fallend" if change < 0 else "steigend"
+
+
 def evaluate(sid: int, rec: dict, scan: dict | None, rank: int, market: Market, owned: dict[int, int],
              names: dict[int, str]) -> dict:
     item = lambda i: market.items.get(str(i)) or {}  # noqa: E731
@@ -256,6 +316,8 @@ def evaluate(sid: int, rec: dict, scan: dict | None, rank: int, market: Market, 
     elif out_item.get("sell"):
         sell, sell_source = out_item["sell"] * qty, "Händler"
     profit = None if sell is None or missing_price else sell - cost
+    history = profit_history(market, output, qty, reagents) if sell_source == "AH" else []
+    trend = trend_of(history, cost)
     difficulty = (scan or {}).get("difficulty")
     if difficulty is None:
         difficulty = color_of(rank, rec.get("yellow", 0), rec.get("grey", 0))
@@ -264,7 +326,11 @@ def evaluate(sid: int, rec: dict, scan: dict | None, rank: int, market: Market, 
         notes.append("beim Aufheben gebunden, nicht verkäuflich")
     if ah and ah["age"]:
         notes.append(f"Preis {ah['age']} Tage alt")
-    if ah and ah["price"] < 0.6 * ah["median"]:
+    if trend == "fallend":
+        # Ein Preis unter dem Wochenschnitt ist dann kein Ausrutscher, sondern das Ende eines Rückgangs.
+        was = history[-3]
+        notes.append(f"Gewinn fällt (am {was['date'][8:]}.{was['date'][5:7]}. noch {was['profit'] / 10000:+.2f}g)")
+    elif ah and ah["price"] < 0.6 * ah["median"]:
         notes.append(f"gerade billig (Ø 7 Tage {ah['median'] / 10000:.2f}g)")
     if missing_price:
         notes.append("kein Preis für " + ", ".join(missing_price))
@@ -279,7 +345,7 @@ def evaluate(sid: int, rec: dict, scan: dict | None, rank: int, market: Market, 
         "margin": None if profit is None or not cost else round(profit / cost * 100),
         "craftable": craftable or 0, "difficulty": difficulty, "yellow": rec.get("yellow"), "grey": rec.get("grey"),
         "skillUps": (scan or {}).get("skillUps"), "cooldown": fmt_cd(rec.get("cooldown")),
-        "isNew": bool(output and output > NEW_ID), "notes": notes,
+        "isNew": bool(output and output > NEW_ID), "notes": notes, "history": history, "trend": trend,
     }
 
 

@@ -271,3 +271,9 @@ tr.best td { background: #2a2216; }
 .skill-dot.green { background: #40bf40; } .skill-dot.grey { background: #808080; }
 .loss { color: var(--bad); }
 .warn-text { color: var(--warn); }
+.trend { display: inline-block; white-space: nowrap; color: var(--muted); }
+.trend svg { display: block; }
+.trend polyline { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.trend circle { fill: currentColor; }
+.trend .zero { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
+.trend.down { color: var(--bad); } .trend.up { color: var(--good); }
