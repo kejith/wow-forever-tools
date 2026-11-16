@@ -141,6 +141,11 @@ tr.best td { background: #2a2216; }
 .slot-card { display: grid; grid-template-columns: 150px 1fr; gap: 14px; }
 .slot-card .slot-name { font-weight: 600; color: var(--gold); }
 .effects { color: #d9c49b; font-size: 12px; margin-top: 2px; }
+.good { color: var(--good); }
+.scale { margin-top: 12px; font-size: 12px; color: var(--muted); }
+.scale summary { cursor: pointer; }
+.scale table { margin-top: 6px; width: auto; }
+.scale td { padding: 3px 14px 3px 0; border: none; color: var(--text); }
 
 .loading { color: var(--muted); padding: 30px 0; display: flex; gap: 10px; align-items: center; }
 .spinner {

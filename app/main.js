@@ -76,6 +76,8 @@ async function runBridge(command, opts = {}) {
   if (opts.maxPreis) args.push('--max-preis', String(opts.maxPreis));
   if (opts.vorschau !== undefined) args.push('--vorschau', String(opts.vorschau));
   if (opts.besitzZumAhPreis) args.push('--besitz-zum-ah-preis');
+  if (['leveln', 'dungeon'].includes(opts.profil)) args.push('--profil', opts.profil);
+  if (['gewinn', 'preis'].includes(opts.sort)) args.push('--sort', opts.sort);
   const candidates = workingUv ? [workingUv] : uvCandidates();
   let lastErr;
   for (const uv of candidates) {
@@ -177,7 +179,14 @@ async function runCapture(dir) {
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
   }
-  // One tooltip with comparison: hover the first upgrade candidate (data-tip 0 is the equipped item).
+  // The upgrades page is longer than the window: a second shot of the cards per slot below the shopping list.
+  if (await win.webContents.executeJavaScript('!!document.querySelector(".slot-card")?.scrollIntoView()  || !!document.querySelector(".slot-card")')) {
+    await wait(300);
+    const image = await win.webContents.capturePage();
+    fs.writeFileSync(path.join(out, 'upgrades-slots.png'), image.toPNG());
+    await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0');
+  }
+  // One tooltip with comparison: the second line of the shopping list against the equipped item.
   if (await win.webContents.executeJavaScript('window.__showTip(1)')) {
     await wait(300);
     const image = await win.webContents.capturePage();

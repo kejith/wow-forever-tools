@@ -8,6 +8,7 @@
     uv run scripts/app_bridge.py character --char Malgruk
     uv run scripts/app_bridge.py writs --char Malgruk [--top 3] [--besitz-zum-ah-preis]
     uv run scripts/app_bridge.py upgrades --char Malgruk [--max-preis 1] [--vorschau 4] [--top 3]
+                                          [--profil leveln|dungeon] [--sort gewinn|preis]
 
 Prints exactly one JSON object on stdout; failures come back as {"error": "..."} with exit code 0,
 so the app can show the message.
@@ -84,15 +85,22 @@ def character(wow: str, name: str) -> dict:
     c = upgrades.load_char(files[0])
     skills = c.get("skills") or {}
     talents = c.get("talents") or {}
+    # Points per item: what the set loses without it, on the same scale as the AH upgrades.
+    eq, totals = upgrades.equipped_stats(c)
+    scale = upgrades.build_scale(c, gear_hit=totals.get("hit", 0))
+    full = upgrades.set_value(totals, scale)
     equipment = []
     for e in c.get("equipment") or []:
+        rest = dict(totals)
+        upgrades.add_stats(rest, eq.get(e.get("slot"), {}), -1)
         equipment.append({"slot": e.get("slot"), "slotName": upgrades.SLOT_NAME.get(e.get("slot"), str(e.get("slot"))),
                           "id": e.get("id"), "name": e.get("name"), "quality": e.get("quality"), "ilvl": e.get("ilvl"),
                           "stats": upgrades.short(e.get("stats")), "durability": e.get("durability"),
-                          "score": round(upgrades.score(e.get("stats"), wand=e.get("slot") == 18), 1),
+                          "score": round(full - upgrades.set_value(rest, scale), 1),
                           "tip": upgrades.tooltip(e, upgrades.SLOT_NAME.get(e.get("slot")))})
     return {"key": char_key(files[0]), "updated": c.get("updated"), "character": c.get("character") or {},
             "equipment": sorted(equipment, key=lambda e: e["slot"] or 0),
+            "weights": scale["text"], "profileLabel": scale["label"], "setValue": round(full, 1),
             "professions": skills.get("professions") or [], "talents": talents.get("class") or [],
             "legacy": talents.get("legacy") or [], "errors": c.get("errors") or {}}
 
@@ -106,6 +114,8 @@ def main() -> None:
     ap.add_argument("--besitz-zum-ah-preis", action="store_true")
     ap.add_argument("--max-preis", type=float, default=0)
     ap.add_argument("--vorschau", type=int, default=4)
+    ap.add_argument("--profil", choices=["", *sorted(upgrades.PROFILES)], default="")
+    ap.add_argument("--sort", choices=["gewinn", "preis"], default="gewinn")
     a = ap.parse_args()
     try:
         if a.command == "status":
@@ -115,7 +125,7 @@ def main() -> None:
         elif a.command == "writs":
             r = v.compute(a.wow, a.char, a.top, a.besitz_zum_ah_preis)
         else:
-            r = upgrades.compute(a.wow, a.char, 0, a.vorschau, a.max_preis, a.top)
+            r = upgrades.compute(a.wow, a.char, 0, a.vorschau, a.max_preis, a.top, profil=a.profil, sort=a.sort)
         r["generated"] = datetime.datetime.now().timestamp()
     except (FileNotFoundError, LookupError, ValueError) as e:
         r = {"error": str(e)}

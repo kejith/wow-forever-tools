@@ -17,7 +17,7 @@ const state = {
   cache: new Map(),
   lastLoad: null,
   writs: { top: 3, besitzZumAhPreis: false },
-  upgrades: { maxPreis: '', vorschau: 4, top: 3 },
+  upgrades: { maxPreis: '', vorschau: 4, top: 3, profil: '', sort: 'gewinn' },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -419,7 +419,8 @@ async function renderCharacter() {
     <div class="section"><h2>Ausrüstung</h2><div class="card"><table>
       <thead><tr><th>Platz</th><th>Item</th><th class="num">iLvl</th><th>Werte</th><th class="num">Punkte</th><th class="num">Haltbarkeit</th></tr></thead>
       <tbody>${eq}</tbody></table>
-      <p class="small muted">Punkte nach den Gewichten der AH-Upgrades (Schatten/Zaubermacht 1, Ausdauer 0,5, Int 0,35, Willenskraft 0,25).</p></div></div>
+      <p class="small muted">Punkte = was der Ausrüstung ohne das Item fehlt, nach der Skala „${esc(d.profileLabel)}“ der AH-Upgrades
+        (${esc(d.weights)}). Zusammen ${d.setValue.toLocaleString('de-DE')}.</p></div></div>
     <div class="grid section"><div class="card"><h2>Berufe</h2>${profs || '<span class="muted">–</span>'}</div>
       <div class="card"><h2>Talente</h2>${talents || '<span class="muted">–</span>'}</div></div>`;
 }
@@ -472,18 +473,24 @@ async function renderWrits() {
 async function renderUpgrades() {
   if (!state.status) await loadStatus();
   const o = state.upgrades;
+  const option = (value, label, current) => `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`;
   content.innerHTML = `<div class="controls">
-      <label>Max. Preis pro Item (Gold, leer = eigenes Gold)<input type="number" id="u-max" min="0" step="0.5" value="${esc(o.maxPreis)}" placeholder="eigenes Gold"></label>
+      <label>Budget (Gold, leer = eigenes Gold)<input type="number" id="u-max" min="0" step="0.5" value="${esc(o.maxPreis)}" placeholder="eigenes Gold"></label>
+      <label>Skala<select id="u-profil">${option('', 'automatisch', o.profil)}${option('leveln', 'Leveln', o.profil)}${option('dungeon', 'Dungeon/Raid', o.profil)}</select></label>
+      <label>Sortierung<select id="u-sort">${option('gewinn', 'größter Gewinn', o.sort)}${option('preis', 'Punkte pro Gold', o.sort)}</select></label>
       <label>Vorschau (Stufen voraus)<input type="number" id="u-pre" min="0" max="10" value="${o.vorschau}"></label>
       <label>Vorschläge pro Platz<input type="number" id="u-top" min="1" max="10" value="${o.top}"></label>
     </div><div id="u-body">${loading('Vergleiche AH-Items mit deiner Ausrüstung …')}</div>`;
   const bind = (id, field, parse) => $(id).addEventListener('change', (e) => { o[field] = parse(e.target.value); renderUpgrades(); });
   bind('#u-max', 'maxPreis', (v) => v);
+  bind('#u-profil', 'profil', (v) => v);
+  bind('#u-sort', 'sort', (v) => v);
   bind('#u-pre', 'vorschau', (v) => Number(v) || 0);
   bind('#u-top', 'top', (v) => Number(v) || 3);
-  const key = `upgrades:${state.char}:${o.maxPreis}:${o.vorschau}:${o.top}`;
+  const key = `upgrades:${state.char}:${o.maxPreis}:${o.vorschau}:${o.top}:${o.profil}:${o.sort}`;
   const d = await cached(key, () => api.bridge('upgrades', {
     char: state.char, maxPreis: o.maxPreis ? Number(o.maxPreis) : 0, vorschau: o.vorschau, top: o.top,
+    profil: o.profil, sort: o.sort,
   }));
   const body = $('#u-body');
   if (!body) return;
@@ -493,23 +500,49 @@ async function renderUpgrades() {
     return;
   }
   const maxGain = Math.max(1, ...d.slots.flatMap((s) => s.candidates.map((c) => c.gain)));
+  const signed = (n) => `${n < 0 ? '−' : '+'}${Math.abs(n).toFixed(1)}`;
+  const pctOf = (c) => (c.gainPct === null ? 'neu' : `${c.gainPct < 0 ? '−' : '+'}${Math.abs(c.gainPct)} %`);
+  const perGold = (c) => c.perGold.toLocaleString('de-DE', { maximumFractionDigits: 1 });
+  const itemCell = (c, compare) => `<span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span>
+          ${c.isNew ? '<span class="badge new">NEU in Forever</span>' : ''}
+          ${c.soon ? `<span class="badge warn">ab Stufe ${c.reqLevel}</span>` : ''}
+          ${c.twoHand ? '<span class="badge">Zweihand, ersetzt auch die Schildhand</span>' : ''}
+          <div class="small muted">${esc(c.stats)}</div>
+          ${c.effects.map((t) => `<div class="effects">${esc(t)}</div>`).join('')}`;
   const slots = d.slots.map((s) => {
     const cur = s.current;
     const rows = s.candidates.map((c) => `<tr>
-        <td><div class="gain"><b>+${c.gain.toFixed(1)}</b><div class="bar"><span style="width:${Math.round((c.gain / maxGain) * 100)}%"></span></div></div></td>
+        <td><div class="gain"><b>${signed(c.gain)}</b><div class="bar"><span style="width:${Math.round((c.gain / maxGain) * 100)}%"></span></div></div></td>
+        <td class="num muted">${pctOf(c)}</td>
         <td class="num">${money(c.price)}</td>
-        <td><span class="${quality(c.quality)}"${tipAttr(c.tip, cur?.tip)}>${esc(c.name)}</span>
-          ${c.isNew ? '<span class="badge new">NEU in Forever</span>' : ''}
-          ${c.soon ? `<span class="badge warn">ab Stufe ${c.reqLevel}</span>` : ''}
-          <div class="small muted">${esc(c.stats)}</div>
-          ${c.effects.map((t) => `<div class="effects">${esc(t)}</div>`).join('')}</td></tr>`).join('');
+        <td class="num muted">${perGold(c)}</td>
+        <td>${itemCell(c, cur?.tip)}</td></tr>`).join('');
     return `<div class="card section slot-card">
       <div><div class="slot-name">${esc(s.slotName)}</div>
         <div class="small muted" style="margin-top:4px">jetzt:</div>
         <div class="small"><span class="${quality(cur?.quality)}"${tipAttr(cur?.tip)}>${esc(cur?.name || '–')}</span></div>
         <div class="small muted">${esc(cur?.stats || '')}</div></div>
-      <table><thead><tr><th>Gewinn</th><th class="num">Preis</th><th>Item</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <table><thead><tr><th>Gewinn</th><th class="num">zum Item</th><th class="num">Preis</th><th class="num">Punkte/Gold</th><th>Item</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
+  const pk = d.package;
+  const packageHtml = pk.items.length ? `<div class="section"><h2>Einkaufsliste: bestes Paket für ${money(d.budget)}</h2><div class="card">
+      <div class="row" style="gap:36px;align-items:flex-start;margin-bottom:10px">
+        <div><h2>Gewinn</h2><div class="big good">${signed(pk.gain)}${pk.gainPct === null ? '' : ` <span class="small muted">(+${pk.gainPct} % Ausrüstungswert)</span>`}</div></div>
+        <div><h2>Kosten</h2><div class="big">${money(pk.cost)}</div></div>
+        <div><h2>Käufe</h2><div class="big">${pk.items.length}</div></div><span class="spacer"></span></div>
+      <table><thead><tr><th>Platz</th><th class="num">Gewinn</th><th class="num">Preis</th><th class="num">Punkte/Gold</th><th>Item</th>
+        <th>ersetzt</th><th class="num">bis hier</th></tr></thead><tbody>
+      ${pk.items.map((c) => `<tr><td class="muted">${esc(c.slotName)}</td>
+        <td class="num"><b class="${c.gain < 0 ? '' : 'good'}">${signed(c.gain)}</b></td>
+        <td class="num">${money(c.price)}</td><td class="num muted">${perGold(c)}</td>
+        <td>${itemCell(c, c.compareTip)}</td><td class="small muted">${esc(c.replaces.join(' + ') || '–')}</td>
+        <td class="num small">${money(c.cumCost)}<div class="muted">${signed(c.cumGain)}</div></td></tr>`).join('')}</tbody></table>
+      <p class="small muted">Beste Kombination über alle Plätze, die ins Budget passt (Ringe als Paar, Waffenhand + Schildhand gegen Zweihand,
+        ohne Items über deiner Stufe). Sortiert nach Punkten pro Gold: Von oben nach unten kaufen und aufhören, wo es dir zu teuer wird.</p>
+      </div></div>` : '';
+  const scale = `<details class="scale"><summary>Skala „${esc(d.profileLabel)}“: 1 Punkt = 1 Schatten-Zaubermacht. ${esc(d.weights)}</summary>
+      <table><tbody>${d.scale.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${r.weight.toLocaleString('de-DE')}</td>
+        <td class="small muted">${esc(r.note)}</td></tr>`).join('')}</tbody></table></details>`;
   const review = d.review.length ? `<div class="section"><h2>Mit Spezialeffekt – selbst ansehen</h2><div class="card"><table>
       <thead><tr><th>Platz</th><th class="num">Preis</th><th>Item</th><th>Effekt</th></tr></thead><tbody>
       ${d.review.map((r) => `<tr><td class="muted">${esc(r.slot)}</td><td class="num">${money(r.price)}</td>
@@ -518,12 +551,16 @@ async function renderUpgrades() {
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>Budget</h2><div class="big">${money(d.budget)}</div></div>
       <div><h2>Stufe</h2><div class="big">${d.level}</div></div>
+      <div><h2>Ausrüstungswert</h2><div class="big">${d.setValue.toLocaleString('de-DE')}</div></div>
       <div><h2>AH-Scan</h2><div class="big">${esc(d.scanDate)}</div></div>
       <div><h2>Item-Export</h2><div class="big">${d.exportCount.toLocaleString('de-DE')}</div><div class="small muted">${ago(d.exportUpdated)}</div></div>
       <span class="spacer"></span></div>
-      <p class="small muted">Gewichte: ${esc(d.weights)}. Preise = Mindest-Sofortkauf beim Scan.
+      ${scale}
+      <p class="small muted">Gewinn = Änderung des Ausrüstungswerts beim Tausch, „zum Item“ = im Verhältnis zum ersetzten Item.
+        Preise = Mindest-Sofortkauf beim Scan.
         Items mit Zufallswerten („des Schattenzorns“) kann Auctionator nicht unterscheiden, sie fehlen hier.</p></div>
-    ${slots || '<div class="notice section">Keine Upgrades in diesem Budget.</div>'}${review}`;
+    ${packageHtml}
+    ${slots ? `<div class="section"><h2>Alle Plätze</h2></div>${slots}` : '<div class="notice section">Keine Upgrades in diesem Budget.</div>'}${review}`;
 }
 
 // ---------- Start ----------
