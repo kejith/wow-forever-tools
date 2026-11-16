@@ -83,6 +83,7 @@ async function runBridge(command, opts = {}) {
   if (opts.besitzZumAhPreis) args.push('--besitz-zum-ah-preis');
   if (['leveln', 'dungeon'].includes(opts.profil)) args.push('--profil', opts.profil);
   if (['gewinn', 'preis'].includes(opts.sort)) args.push('--sort', opts.sort);
+  if (typeof opts.beruf === 'string' && opts.beruf) args.push('--beruf', opts.beruf);
   if (Array.isArray(opts.ids)) args.push('--ids', opts.ids.map(Number).filter((n) => n > 0).join(','));
   const candidates = workingUv ? [workingUv] : uvCandidates();
   let lastErr;
@@ -208,7 +209,7 @@ function createWindow() {
 async function runCapture(dir) {
   const out = path.resolve(__dirname, dir);
   fs.mkdirSync(out, { recursive: true });
-  const pages = ['connection', 'character', 'writs', 'upgrades'];
+  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   for (const page of pages) {
     await win.webContents.executeJavaScript(`window.__showPage(${JSON.stringify(page)})`);
@@ -219,7 +220,12 @@ async function runCapture(dir) {
     await wait(400);
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
+    if (page === 'upgrades') await captureUpgradeDetails(out, wait);
   }
+  app.quit();
+}
+
+async function captureUpgradeDetails(out, wait) {
   // The upgrades page is longer than the window: a second shot of the cards per slot below the shopping list.
   if (await win.webContents.executeJavaScript('!!document.querySelector(".slot-card")?.scrollIntoView()  || !!document.querySelector(".slot-card")')) {
     await wait(300);
@@ -232,8 +238,8 @@ async function runCapture(dir) {
     await wait(300);
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, 'tooltip.png'), image.toPNG());
+    await win.webContents.executeJavaScript('document.querySelector("#wtip").classList.remove("show")');
   }
-  app.quit();
 }
 
 app.whenReady().then(() => {

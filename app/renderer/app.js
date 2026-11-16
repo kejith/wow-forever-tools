@@ -6,6 +6,7 @@ const PAGES = {
   character: { title: 'Charakter', render: renderCharacter },
   writs: { title: 'Handwerksverfügungen', render: renderWrits },
   upgrades: { title: 'AH-Upgrades', render: renderUpgrades },
+  recipes: { title: 'Berufe und Rezepte', render: renderRecipes },
 };
 
 const state = {
@@ -18,6 +19,7 @@ const state = {
   lastLoad: null,
   writs: { top: 3, besitzZumAhPreis: false },
   upgrades: { maxPreis: '', vorschau: 4, top: 3, profil: '', sort: 'gewinn' },
+  recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -647,6 +649,125 @@ async function renderUpgrades() {
         Items mit Zufallswerten („des Schattenzorns“) kann Auctionator nicht unterscheiden, sie fehlen hier.</p></div>
     ${packageHtml}
     ${slots ? `<div class="section"><h2>Alle Plätze</h2></div>${slots}` : '<div class="notice section">Keine Upgrades in diesem Budget.</div>'}${review}`;
+}
+
+// ---------- Page: recipes ----------
+
+const DIFFICULTY = [['orange', 'orange: sicher ein Skillpunkt'], ['yellow', 'gelb: meistens ein Skillpunkt'],
+  ['green', 'grün: selten ein Skillpunkt'], ['grey', 'grau: kein Skillpunkt']];
+
+function signedMoney(copper) {
+  if (copper === null || copper === undefined) return '<span class="muted">–</span>';
+  return copper < 0 ? `<span class="loss">−${money(-copper)}</span>` : `<span class="good">+${money(copper)}</span>`;
+}
+
+function recipeName(r) {
+  const diff = DIFFICULTY[r.difficulty];
+  const dot = diff ? `<span class="skill-dot ${diff[0]}" title="${esc(diff[1])}${r.yellow ? ` · gelb ab ${r.yellow}, grau ab ${r.grey}` : ''}"></span>` : '';
+  const qty = r.qty && r.qty !== 1 ? ` <span class="muted">×${Number(r.qty).toLocaleString('de-DE', { maximumFractionDigits: 1 })}</span>` : '';
+  const reagents = r.reagents.map((g) => `<span class="reagent" title="${esc(g.name)}: ${g.unit === null ? 'kein Preis' : `${(g.unit / 100).toLocaleString('de-DE', { maximumFractionDigits: 2 })} s pro Stück (${g.source})`}${g.owned ? ` · ${g.owned} im Besitz` : ''}">`
+    + `${itemIcon(g.id, g.quality, 'sm')}${g.count}× ${esc(g.name)}${g.source && g.source !== 'AH' ? ' <span class="muted">(Händler)</span>' : ''}</span>`).join('');
+  const badges = [
+    r.isNew ? '<span class="badge new">NEU in Forever</span>' : '',
+    r.cooldown ? `<span class="badge">Abklingzeit ${esc(r.cooldown)}</span>` : '',
+    r.craftable ? `<span class="badge ok" title="aus Taschen und Bank">${r.craftable}× herstellbar</span>` : '',
+  ].join(' ');
+  return `<div class="recipe">${dot}<span class="item">${itemIcon(r.output, r.quality)}<span class="${quality(r.quality)}">${esc(r.name)}</span></span>${qty} ${badges}</div>
+    <div class="reagents">${reagents}</div>
+    ${r.notes.length ? `<div class="small warn-text">${esc(r.notes.join(' · '))}</div>` : ''}`;
+}
+
+function marketCells(r) {
+  return `<td class="num">${money(r.cost)}</td>
+    <td class="num">${money(r.sell)}${r.sellSource === 'Händler' ? '<div class="small muted">Händler</div>' : ''}</td>
+    <td class="num"><b>${signedMoney(r.profit)}</b>${r.margin !== null ? `<div class="small muted">${r.margin > 0 ? '+' : ''}${r.margin} %</div>` : ''}</td>
+    <td class="num ${r.listed < 3 ? 'warn-text' : 'muted'}">${r.listed}</td>`;
+}
+
+function acquireCell(r) {
+  const a = r.acquire;
+  const parts = a.options.map((o) => {
+    if (o.kind === 'ah') return `<div><span class="item">${itemIcon(o.id, o.quality, 'sm')}AH ${money(o.price)}</span> <span class="muted small">(${o.listed} im Angebot${o.age ? `, ${o.age} Tage alt` : ''})</span></div>`;
+    if (o.kind === 'vendor') return `<div><span class="item">${itemIcon(o.id, o.quality, 'sm')}Händler ${esc(o.npc || '')} ${money(o.price)}</span>${o.limited ? ' <span class="badge warn">begrenzt</span>' : ''}</div>`;
+    if (o.kind === 'trainer') return '<div>Lehrer</div>';
+    return `<div><span class="item">${itemIcon(o.id, o.quality, 'sm')}<span class="${quality(o.quality)}">${esc(o.name)}</span></span> <span class="muted small">nicht im AH</span></div>`;
+  }).join('');
+  const text = a.sourceText ? `<div class="small muted">${esc(a.sourceText.replace(/\|c\w{8}|\|r|\|n/g, ' '))}</div>` : '';
+  return parts + text;
+}
+
+function learnCell(r, rank) {
+  const a = r.acquire;
+  if (a.learnable === true) return `<span class="badge ok">jetzt</span>${a.reqSkill ? `<div class="small muted">ab ${a.reqSkill}</div>` : ''}`;
+  if (a.reqSkill) return `<span class="badge warn">ab ${a.reqSkill}</span><div class="small muted">noch ${a.reqSkill - rank}</div>`;
+  if (a.trainer && r.yellow) return `<span class="badge">spätestens ${r.yellow}</span>`;
+  return '<span class="muted">?</span>';
+}
+
+async function renderRecipes() {
+  if (!state.status) await loadStatus();
+  if (!state.char) { content.innerHTML = '<div class="notice">Kein Charakter exportiert.</div>'; return; }
+  const o = state.recipes;
+  content.innerHTML = loading('Rechne Rezepte gegen den AH-Scan …');
+  const d = await cached(`recipes:${state.char}`, () => api.bridge('recipes', { char: state.char }));
+  if (d.error) { content.innerHTML = errorBox(d.error); return; }
+  if (!d.professions.length) {
+    content.innerHTML = '<div class="notice">Dieser Charakter hat keinen Herstellungsberuf (Sammelberufe haben keine Rezepte).</div>';
+    return;
+  }
+  if (!d.professions.some((p) => p.skillLine === o.skillLine)) o.skillLine = d.professions[0].skillLine;
+  const p = d.professions.find((x) => x.skillLine === o.skillLine);
+  const option = (value, label, current) => `<option value="${value}"${String(value) === String(current) ? ' selected' : ''}>${label}</option>`;
+
+  const keep = (r) => (!o.onlyProfit || (r.profit ?? -1) > 0) && r.listed >= o.minListed;
+  const learned = p.learned.filter(keep);
+  const missing = p.missing.filter((r) => keep(r) && (!o.onlyLearnable || r.acquire.learnable === true));
+  const scanned = !!p.scanned;
+
+  const header = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
+      <div><h2>${esc(p.name)}</h2><div class="big">${p.rank} <span class="muted small">/ ${p.max}</span></div>
+        <div class="bar" style="width:160px;margin-top:6px"><span style="width:${Math.round((p.rank / p.max) * 100)}%"></span></div></div>
+      <div><h2>Gelernt</h2><div class="big">${scanned ? p.learnedCount : '?'}</div><div class="small muted">${scanned ? `${p.profitableCount} mit Gewinn` : 'Berufsfenster noch nicht gelesen'}</div></div>
+      <div><h2>Bestes Rezept</h2><div class="big">${scanned ? signedMoney(p.bestLearned) : '–'}</div><div class="small muted">pro Herstellung, ab 3 im AH</div></div>
+      <div><h2>Lohnender zu holen</h2><div class="big">${scanned ? p.missing.filter((r) => r.better).length : '–'}</div><div class="small muted">mehr Gewinn als dein bestes</div></div>
+      <div><h2>AH-Scan</h2><div class="big">${esc(d.scanDate || '–')}</div><div class="small muted">${scanned ? `Rezepte gelesen ${ago(p.scanned)}` : ''}</div></div>
+      <span class="spacer"></span></div></div>`;
+
+  const notice = scanned ? '' : `<div class="notice"><b>Welche Rezepte du kennst, weiß die App noch nicht.</b>
+      ${d.addonVersion && d.addonVersion < '1.4' ? `Das Addon im Spiel ist ${esc(d.addonVersion)}. Auf der Seite „Verbindung“ zuerst „Addon aktualisieren“ und im Spiel <code>/reload</code>.` : ''}
+      <ol class="steps"><li>Im Spiel das ${esc(p.name)}-Fenster einmal öffnen (Zauberbuch oder Taste K).</li>
+      <li><code>/reload</code> eingeben. Die App trennt dann gelernte und fehlende Rezepte.</li></ol>
+      Bis dahin stehen unten alle Rezepte des Berufs.</div>`;
+
+  const learnedTable = scanned ? `<div class="section"><h2>Deine Rezepte (${learned.length} von ${p.learnedCount})</h2><div class="card">
+      ${learned.length ? `<table><thead><tr><th>Rezept und Reagenzien</th><th class="num">Reagenzien</th><th class="num">Verkauf (−5 %)</th><th class="num">Gewinn</th><th class="num">im AH</th></tr></thead>
+      <tbody>${learned.map((r) => `<tr><td>${recipeName(r)}</td>${marketCells(r)}</tr>`).join('')}</tbody></table>`
+        : '<p class="muted">Kein gelerntes Rezept passt zum Filter.</p>'}</div></div>` : '';
+
+  const missingTitle = scanned ? 'Noch nicht gelernt' : 'Alle Rezepte';
+  const missingTable = `<div class="section"><h2>${missingTitle} (${missing.length} von ${p.missingCount})</h2><div class="card">
+      ${missing.length ? `<table><thead><tr><th>Rezept und Reagenzien</th><th class="num">Reagenzien</th><th class="num">Verkauf (−5 %)</th><th class="num">Gewinn</th><th class="num">im AH</th>
+        <th>Lernen</th><th>Woher</th><th class="num">bezahlt nach</th></tr></thead>
+      <tbody>${missing.map((r) => `<tr class="${r.better ? 'best' : ''}"><td>${r.better ? '<span class="badge new">lohnt mehr</span> ' : ''}${recipeName(r)}</td>${marketCells(r)}
+        <td>${learnCell(r, p.rank)}</td><td class="small">${acquireCell(r)}</td>
+        <td class="num small">${r.payback ? `${Math.ceil(r.payback)}× herstellen` : '<span class="muted">–</span>'}</td></tr>`).join('')}</tbody></table>`
+        : '<p class="muted">Kein Rezept passt zum Filter.</p>'}</div></div>`;
+
+  content.innerHTML = `<div class="controls">
+      <label>Beruf<select id="r-prof">${d.professions.map((x) => option(x.skillLine, `${esc(x.name)} ${x.rank}/${x.max}`, o.skillLine)).join('')}</select></label>
+      <label>Mindestens im AH<input type="number" id="r-listed" min="0" max="1000" value="${o.minListed}"></label>
+      <label class="check"><input type="checkbox" id="r-profit" ${o.onlyProfit ? 'checked' : ''}> nur mit Gewinn</label>
+      <label class="check"><input type="checkbox" id="r-learnable" ${o.onlyLearnable ? 'checked' : ''}> nur jetzt lernbar</label>
+    </div>
+    ${notice}${header}${learnedTable}${missingTable}
+    <p class="small muted">Gewinn pro Herstellung = Mindest-Sofortkauf des Ergebnisses beim Scan × Menge, minus 5 % AH-Gebühr, minus Reagenzien
+      zum günstigeren Preis aus AH oder Händler (eigene Reagenzien zählen zum Marktpreis). „im AH“ = Angebote des Ergebnisses beim letzten Scan:
+      Bei wenigen Angeboten ist der Preis unsicher. Der Punkt vor dem Namen ist die Skill-Farbe. „bezahlt nach“ = Rezeptpreis geteilt durch den Gewinn.
+      Händlerpreise liest das Addon, wenn du mit einem Händler sprichst (bisher ${d.vendorPrices}).</p>`;
+  $('#r-prof').addEventListener('change', (e) => { o.skillLine = Number(e.target.value); renderRecipes(); });
+  $('#r-listed').addEventListener('change', (e) => { o.minListed = Math.max(0, Number(e.target.value) || 0); renderRecipes(); });
+  $('#r-profit').addEventListener('change', (e) => { o.onlyProfit = e.target.checked; renderRecipes(); });
+  $('#r-learnable').addEventListener('change', (e) => { o.onlyLearnable = e.target.checked; renderRecipes(); });
 }
 
 // ---------- Start ----------

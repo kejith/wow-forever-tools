@@ -27,6 +27,7 @@ Electron-App in `app/` mit vier Seiten:
 - **Charakter:** Werte, Ausrüstung mit Punkten, Berufe, Talente
 - **Verfügungen:** die günstigste Handwerksverfügung pro Stufe (`scripts/verfuegungen.py`)
 - **AH-Upgrades:** Upgrades pro Ausrüstungsplatz mit Budget, Vorschau und Markierung neuer Forever-Items (`scripts/upgrades.py`)
+- **Berufe:** Gewinn pro Herstellung der gelernten Rezepte und noch fehlende Rezepte, die mehr bringen, mit Quelle und Preis des Rezepts (`scripts/recipes.py`)
 
 ```
 cd app

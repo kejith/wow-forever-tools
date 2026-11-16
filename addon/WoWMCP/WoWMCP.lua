@@ -511,6 +511,115 @@ local function collectTalents()
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Recipes: read while the player's own profession window is open (the trade skill API only has data
+-- then). Stored per profession in WoWMCP_Char.recipes[skillLineID], so each window opened once is enough.
+---------------------------------------------------------------------------------------------------
+
+local function professionInfo()
+    local child = try(C_TradeSkillUI.GetChildProfessionInfo)
+    local base = try(C_TradeSkillUI.GetBaseProfessionInfo)
+    local info = (child and num(child.professionID) and child.professionID ~= 0) and child or base
+    if not info or not num(info.professionID) or info.professionID == 0 then return nil end
+    return info, base
+end
+
+local function recipeReagents(schematic, names)
+    local out = {}
+    for _, slot in ipairs(schematic.reagentSlotSchematics or {}) do
+        local first = slot.reagents and slot.reagents[1]
+        local id = first and num(first.itemID)
+        local count = num(slot.quantityRequired)
+        if id and count and count > 0 then
+            out[#out + 1] = { id = id, count = count, type = num(slot.reagentType), optional = not slot.required or nil }
+            names[id] = names[id] or str(try(C_Item.GetItemNameByID, id))
+        end
+    end
+    return out
+end
+
+local function scanTradeSkill()
+    if try(C_TradeSkillUI.IsTradeSkillLinked) or try(C_TradeSkillUI.IsTradeSkillGuild)
+        or try(C_TradeSkillUI.IsNPCCrafting) then
+        return
+    end
+    local info, base = professionInfo()
+    local ids = info and try(C_TradeSkillUI.GetAllRecipeIDs)
+    if type(ids) ~= "table" or #ids == 0 then return end
+    local names, recipes, learned = {}, {}, 0
+    for _, id in ipairs(ids) do
+        local r = try(C_TradeSkillUI.GetRecipeInfo, id)
+        if r and not r.isDummyRecipe and not r.isGatheringRecipe then
+            local rec = {
+                name = str(r.name),
+                learned = r.learned or nil,
+                difficulty = num(r.relativeDifficulty), -- 0 orange, 1 yellow, 2 green, 3 grey
+                skillUps = num(r.numSkillUps),
+                category = num(r.categoryID),
+            }
+            local s = try(C_TradeSkillUI.GetRecipeSchematic, id, false)
+            if s then
+                rec.output = num(s.outputItemID)
+                rec.qtyMin, rec.qtyMax = num(s.quantityMin), num(s.quantityMax)
+                rec.reagents = recipeReagents(s, names)
+                if rec.output then names[rec.output] = names[rec.output] or str(try(C_Item.GetItemNameByID, rec.output)) end
+            end
+            if not r.learned then rec.source = str(try(C_TradeSkillUI.GetRecipeSourceText, id)) end
+            if r.learned then learned = learned + 1 end
+            recipes[id] = rec
+        end
+    end
+    local db = WoWMCP_Char
+    db.recipes = type(db.recipes) == "table" and db.recipes or {}
+    -- The DB2 tables list recipes under the base skill line (171 = Alchemy), so that is the key.
+    local key = (base and num(base.professionID) and base.professionID ~= 0) and base.professionID
+        or num(info.parentProfessionID) or info.professionID
+    db.recipes[key] = {
+        name = str(info.parentProfessionName) or str(info.professionName),
+        professionID = info.professionID,
+        rank = num(info.skillLevel),
+        max = num(info.maxSkillLevel),
+        modifier = (num(info.skillModifier) or 0) ~= 0 and info.skillModifier or nil,
+        updated = time(),
+        learned = learned,
+        recipes = recipes,
+        names = names,
+    }
+end
+
+local tradeSkillPending = false
+local function requestTradeSkillScan()
+    if tradeSkillPending then return end
+    tradeSkillPending = true
+    -- TRADE_SKILL_LIST_UPDATE fires in bursts while the window fills; read once it is quiet.
+    C_Timer.After(1, function()
+        tradeSkillPending = false
+        local ok, err = pcall(scanTradeSkill)
+        WoWMCP_Char.errors.recipes = (not ok) and tostring(err) or nil
+    end)
+end
+
+-- Vendor prices: what a merchant sells for gold (reagents like vials, and vendor recipes), per item.
+local function scanMerchant()
+    local n = num(try(GetMerchantNumItems)) or 0
+    if n == 0 then return end
+    WoWMCP_Account.vendor = type(WoWMCP_Account.vendor) == "table" and WoWMCP_Account.vendor or {}
+    local npc = str(UnitName("npc"))
+    for index = 1, n do
+        local info = try(C_MerchantFrame.GetItemInfo, index)
+        local id = num(try(GetMerchantItemID, index))
+        if info and id and num(info.price) and info.price > 0 and not info.hasExtendedCost then
+            local stack = math.max(1, num(info.stackCount) or 1)
+            WoWMCP_Account.vendor[id] = {
+                price = info.price / stack,
+                npc = npc,
+                limited = (num(info.numAvailable) or -1) >= 0 or nil,
+                updated = time(),
+            }
+        end
+    end
+end
+
+---------------------------------------------------------------------------------------------------
 -- Snapshot scheduling
 ---------------------------------------------------------------------------------------------------
 
@@ -780,7 +889,8 @@ for _, event in ipairs(SNAPSHOT_EVENTS) do
     register(event)
 end
 for _, event in ipairs({ "ADDON_LOADED", "PLAYER_REGEN_ENABLED", "AUCTION_HOUSE_CLOSED",
-                         "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED" }) do
+                         "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED",
+                         "TRADE_SKILL_SHOW", "TRADE_SKILL_LIST_UPDATE", "MERCHANT_SHOW", "MERCHANT_UPDATE" }) do
     register(event)
 end
 
@@ -828,6 +938,10 @@ frame:SetScript("OnEvent", function(_, event, arg1)
         bankOpen = false
     elseif event == "PLAYERBANKSLOTS_CHANGED" then
         if bankOpen then requestSnapshot() end
+    elseif event == "TRADE_SKILL_SHOW" or event == "TRADE_SKILL_LIST_UPDATE" then
+        requestTradeSkillScan()
+    elseif event == "MERCHANT_SHOW" or event == "MERCHANT_UPDATE" then
+        pcall(scanMerchant)
     elseif SNAPSHOT_EVENT[event] then
         if event == "PLAYER_ENTERING_WORLD" and not enteredWorld then
             enteredWorld = true
@@ -869,6 +983,11 @@ SlashCmdList.WOWMCP = function(msg)
         print(("  item export: %d items, %s, auto %s"):format(countItems(),
             store.updated and date("%Y-%m-%d %H:%M", store.updated) or "never run",
             WoWMCP_Account.autoItems and "on" or "off"))
+        for _, p in pairs(db.recipes or {}) do
+            print(("  recipes %s: %d learned, read %s"):format(tostring(p.name), p.learned or 0,
+                p.updated and date("%Y-%m-%d %H:%M", p.updated) or "?"))
+        end
+        if not next(db.recipes or {}) then print("  recipes: none yet (open each profession window once)") end
         local last = WoWMCP_Account.lastRequest
         if type(last) == "table" then
             print(("  last app request: #%s (%s) %s"):format(tostring(last.id), tostring(last.action),
@@ -881,6 +1000,7 @@ SlashCmdList.WOWMCP = function(msg)
         print("WoWMCP: /wowmcp sync - snapshot and reload so the app and MCP server see current data")
         print("WoWMCP: /wowmcp items [full] - read stats of new auction house items (full: all again), then /reload")
         print("WoWMCP: /wowmcp auto on|off - run the item export automatically when the auction house closes")
-        print("WoWMCP: /wowmcp status - snapshot time, item export, app requests and export errors")
+        print("WoWMCP: /wowmcp status - snapshot time, item export, recipes, app requests and export errors")
+        print("WoWMCP: recipes are read when you open a profession window, vendor prices when you talk to a merchant")
     end
 end
