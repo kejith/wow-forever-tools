@@ -221,8 +221,20 @@ async function runCapture(dir) {
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
+    if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
   }
   app.quit();
+}
+
+// Second shot of a long page, scrolled to `selector`; scrolls back to the top afterwards.
+async function captureScrolled(out, wait, selector, name) {
+  const found = await win.webContents.executeJavaScript(
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (el) el.scrollIntoView(); return !!el; })()`);
+  if (!found) return;
+  await wait(300);
+  const image = await win.webContents.capturePage();
+  fs.writeFileSync(path.join(out, `${name}.png`), image.toPNG());
+  await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0');
 }
 
 async function captureUpgradeDetails(out, wait) {

@@ -25,7 +25,7 @@ Electron-App in `app/` mit vier Seiten:
 
 - **Verbindung:** Läuft WoW Forever? Ist das Addon installiert und aktuell (Installieren/Aktualisieren per Klick)? Wie alt sind AH-Scan, Item-Export und die Charakter-Snapshots? Dazu Aufträge an das Addon: Item-Export, alle Items neu lesen, Charakter-Snapshot.
 - **Charakter:** Werte, Ausrüstung mit Punkten, Berufe, Talente
-- **Verfügungen:** die günstigste Handwerksverfügung pro Stufe (`scripts/verfuegungen.py`)
+- **Verfügungen:** die günstigste Handwerksverfügung pro Stufe netto nach Münzbeutel, dazu die Handelskisten nach Silber pro Händlergunst (`scripts/verfuegungen.py`)
 - **AH-Upgrades:** Upgrades pro Ausrüstungsplatz mit Budget, Vorschau und Markierung neuer Forever-Items (`scripts/upgrades.py`)
 - **Berufe:** Gewinn pro Herstellung der gelernten Rezepte und noch fehlende Rezepte, die mehr bringen, mit Quelle und Preis des Rezepts (`scripts/recipes.py`)
 

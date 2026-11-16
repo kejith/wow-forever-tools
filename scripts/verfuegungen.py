@@ -167,6 +167,69 @@ WRITS = """264012|Elixier der Weisheit|J|3383|1|Alch
 264152|Wizardweave Turban|A|14130|1|Schneider"""
 
 
+# Gold beim Abschluss: Die Quest selbst zahlt kein Gold (RewardMoney 0 im Quest-Cache des Spiels), sie gibt
+# einen Münzbeutel (Items 284583–284586), dessen Münzen der Server beim Öffnen auswürfelt. Das Addon (ab 1.5)
+# misst den Inhalt; bis dahin gelten diese Schätzungen pro Stufe in Kupfer.
+POUCH_ESTIMATE = {"J": 3300, "E": 7000, "A": 7500}
+POUCH_ESTIMATE_SOURCE = "Schätzung laut conquestcapped.com (Nov 2026): Geselle 22–45 s, Experte 50–90 s, Fachmann ~75 s"
+
+# Handelskisten: eine abgefangene (leere) Kiste wird mit genau EINEM der Bündel befüllt und als versiegelte
+# Kiste beim Handelsvertreter gegen Händlergunst (Währung 3402) abgegeben. Kein Gold, kein Ruf.
+# Mengen aus dem Spiel geprüft (Zauber „Kiste befüllen“, Dummy-Effekte in SpellEffect), Items laut wow.gg und
+# urgametips.com (Nov 2026). Stufe L = Lehrling.
+FAVOR_CURRENCY = 3402
+CRATE_TIERS = "LJEA"
+CRATE_TIER_NAME = {"L": "Lehrling", "J": "Geselle", "E": "Experte", "A": "Fachmann"}
+CRATE_LEVEL = {"L": 10, "J": 10, "E": 20, "A": 35}
+# Gunst pro versiegelter Kiste (gewöhnlich, ungewöhnlich) laut urgametips.com/wow.gg; Fachmann ist fortgeschrieben.
+CRATE_FAVOR = {"L": (5, 10), "J": (10, 20), "E": (15, 30), "A": (20, 40)}
+CRATE_FAVOR_GUESS = {"A"}
+SEALED_CRATE = {t: (248765 + i, 248770 + i) for i, t in enumerate(CRATE_TIERS)}  # gewöhnlich, ungewöhnlich
+
+# Kisten-Item | Stufe | Art | Bündel als Item-ID:Menge:Name, getrennt durch ;
+CRATES = """248682|L|Kräuter|2447:20:Friedensblume;765:20:Silberblatt;2449:10:Erdwurzel;785:10:Maguskönigskraut;2450:10:Wilddornrose
+248683|L|Erz|2770:20:Kupfererz;2771:20:Zinnerz
+248684|L|Textilien|2589:40:Leinenstoff;2318:20:Leichtes Leder
+248685|L|Kuriositäten|10940:20:Seltsamer Staub;10939:4:Große Magieessenz;10978:6:Kleiner gleißender Splitter;11084:2:Großer gleißender Splitter
+248702|L|Stoffe|4231:2:Geschmeidiger leichter Balg;2996:20:Leinenstoffballen
+248703|L|Barren|2840:20:Kupferbarren;3576:20:Zinnbarren;2841:10:Bronzebarren
+248704|L|Bauteile|4359:16:Eine Hand voll Kupferbolzen;4361:16:Kupferrohr;4363:4:Kupfermodulator
+248686|J|Kräuter|3820:10:Würgetang;2453:10:Beulengras;3355:10:Wildstahlblume;3369:10:Grabmoos;3356:10:Königsblut
+248687|J|Erz|2775:10:Silbererz;2772:20:Eisenerz
+248688|J|Textilien|2592:20:Wollstoff;4306:40:Seidenstoff;2319:20:Mittleres Leder
+248689|J|Kuriositäten|11083:20:Seelenstaub;11082:4:Große Astralessenz;11138:6:Kleiner leuchtender Splitter;11139:2:Großer leuchtender Splitter
+248705|J|Stoffe|2997:6:Wollstoffballen;4305:10:Seidenstoffballen;4233:2:Geschmeidiger mittlerer Balg
+248706|J|Barren|2842:10:Silberbarren;3575:20:Eisenbarren
+248707|J|Bauteile|4371:8:Bronzeröhre;4375:7:Surrendes bronzenes Dingsda;4382:4:Bronzegerüst;10558:45:Goldkraftkern
+248690|E|Weltliche Kräuter|3357:20:Lebenswurz;3818:10:Blassblatt;3821:10:Golddorn;3358:10:Khadgars Schnurrbart
+248691|E|Blühende Kräuter|3819:10:Winterbiss;4625:10:Feuerblüte;8831:20:Lila Lotus;8836:10:Arthas' Tränen
+248692|E|Erz|2776:10:Golderz;3858:20:Mithrilerz
+248693|E|Textilien|4338:40:Magiestoff;4234:20:Schweres Leder
+248694|E|Kuriositäten|11137:20:Visionenstaub;11135:4:Große Mystikeressenz;11177:6:Kleiner strahlender Splitter;11178:2:Großer strahlender Splitter
+248708|E|Stoffe|4339:8:Magiestoffballen;4236:2:Geschmeidiger schwerer Balg
+248709|E|Barren|3860:20:Mithrilbarren;3859:15:Stahlbarren;3577:10:Goldbarren
+248710|E|Bauteile|4387:8:Eisenstrebe;10559:5:Mithrilrohr;10560:12:Instabiler Auslöser;10561:5:Mithrilgehäuse
+248695|A|Weltliche Kräuter|13464:10:Goldener Sansam;8838:20:Sonnengras;8839:10:Blindkraut;8845:10:Geisterpilz;8846:10:Gromsblut
+248696|A|Blühende Kräuter|13463:20:Traumblatt;13465:20:Bergsilberweisling;13466:20:Pestblüte;13467:20:Eiskappe
+248697|A|Erz|7911:10:Echtsilbererz;10620:20:Thoriumerz;11370:20:Dunkeleisenerz
+248698|A|Textilien|14047:40:Runenstoff;4304:20:Dickes Leder;8170:20:Unverwüstliches Leder
+248699|A|Kuriositäten|11176:20:Traumstaub;11175:4:Große Netheressenz;14343:6:Kleiner glänzender Splitter;14344:2:Großer glänzender Splitter
+248711|A|Stoffe|14048:8:Runenstoffballen;8172:2:Geschmeidiger dicker Balg
+248712|A|Barren|11371:2:Dunkeleisenbarren;6037:10:Echtsilberbarren;12359:20:Thoriumbarren
+248713|A|Bauteile|15994:5:Thoriumapparat;18631:5:Echtsilberumwandler;16000:2:Thoriumröhre"""
+
+
+def crate_list():
+    out = []
+    for line in CRATES.splitlines():
+        cid, tier, kind, opts = line.split('|')
+        options = []
+        for o in opts.split(';'):
+            iid, qty, name = o.split(':', 2)
+            options.append((int(iid), int(qty), name))
+        out.append((int(cid), tier, kind, options))
+    return out
+
 # ---------- Lua / CBOR decoding ----------
 def lua_string(b, i):
     """b[i] is the opening quote of a Lua string literal; return (bytes, end index)."""
@@ -274,14 +337,86 @@ def scan_date(prices):
     return datetime.date(2020, 1, 1) + datetime.timedelta(max(days)) if days else None
 
 
-def compute(wow=DEFAULT_WOW, char='', top=3, besitz_zum_ah_preis=False, prices=None):
-    """Best writs per tier. Returns plain data (copper amounts) for the CLI and the app."""
+def writ_quests(cache=None):
+    """Writ item -> quest ID (ItemSparse.StartQuestID) from the newest cached DB2 copy; {} without one."""
+    cache = cache or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cache')
+    files = sorted(glob.glob(os.path.join(cache, 'ItemSparse-*.csv')), key=os.path.getmtime)
+    if not files:
+        return {}
+    import csv
+    wanted = {int(line.split('|')[0]) for line in WRITS.splitlines()}
+    out = {}
+    with open(files[-1], encoding='utf-8', newline='') as f:
+        for r in csv.DictReader(f):
+            iid = int(r['ID'])
+            if iid in wanted and (r.get('StartQuestID') or '0').isdigit() and int(r['StartQuestID']):
+                out[iid] = int(r['StartQuestID'])
+    return out
+
+
+def load_extras(wow, char_path):
+    """Payouts the addon measured (account-wide), plus level and Merchant's Favor of the character.
+    Needs lupa (upgrades.load_sv); without it the estimates are used."""
+    payouts, level, favor = {}, None, None
+    try:
+        import upgrades  # lazy: upgrades imports this module
+        for path in glob.glob(os.path.join(wow, 'WTF', 'Account', '*', 'SavedVariables', 'WoWMCP.lua')):
+            p = (upgrades.load_sv(path, 'WoWMCP_Account') or {}).get('payouts') or {}
+            for kind in ('pouches', 'crates', 'writQuests'):
+                payouts.setdefault(kind, {}).update(p.get(kind) or {})
+        if char_path:
+            c = upgrades.load_char(char_path)
+            level = (c.get('character') or {}).get('level')
+            cur = (c.get('currencies') or {}).get(FAVOR_CURRENCY)
+            favor = cur.get('quantity') if isinstance(cur, dict) else None
+    except ImportError:  # lupa missing (plain python)
+        pass
+    return payouts, level, favor
+
+
+def sample_avg(s):
+    return s['sum'] / s['n'] if isinstance(s, dict) and s.get('n') else None
+
+
+def pouch_values(payouts, quest_of):
+    """Gold per writ from the measured pouches: quest -> pouch item (seen at turn-in), pouch -> average
+    coins. A writ without its own turn-in uses the pouch the other writs of its tier gave."""
+    pouches = payouts.get('pouches') or {}
+    wq = payouts.get('writQuests') or {}
+    tier_of = {int(line.split('|')[0]): line.split('|')[2] for line in WRITS.splitlines()}
+    per_writ, tier_pouch = {}, {}
+    for wid, q in quest_of.items():
+        rec = wq.get(q)
+        if isinstance(rec, dict) and rec.get('pouch'):
+            per_writ[wid] = (rec['pouch'], rec.get('money') or 0)
+            votes = tier_pouch.setdefault(tier_of[wid], {})
+            votes[rec['pouch']] = votes.get(rec['pouch'], 0) + 1
+
+    def value(wid, tier):
+        pouch, money = per_writ.get(wid, (None, 0))
+        if pouch is None and tier in tier_pouch:
+            pouch = max(tier_pouch[tier], key=tier_pouch[tier].get)
+        s = pouches.get(pouch) if pouch else None
+        avg = sample_avg(s)
+        if avg is not None:
+            return (round(avg) + money,
+                    f"gemessen: Münzbeutel {s['n']}x geöffnet, {fmt(s['min'])} bis {fmt(s['max'])}", True)
+        return POUCH_ESTIMATE[tier] + money, POUCH_ESTIMATE_SOURCE, False
+    return value
+
+
+def compute(wow=DEFAULT_WOW, char='', top=3, besitz_zum_ah_preis=False, prices=None, extras=None, quest_of=None):
+    """Best writs per tier by net cost per reputation, and the trade crates by cost per Merchant's Favor.
+    Returns plain data (copper amounts) for the CLI and the app."""
     prices = prices if prices is not None else load_prices(find_auctionator(wow))
     chars = find_chars(wow, char)
     owned, rep, who = {}, None, None
     if chars:
         owned, rep = load_char(chars[0])
         who = os.path.basename(os.path.dirname(os.path.dirname(chars[0])))
+    payouts, level, favor = extras if extras is not None else load_extras(wow, chars[0] if chars else None)
+    quest_of = quest_of if quest_of is not None else writ_quests()
+    payout_of = pouch_values(payouts, quest_of)
 
     def price(item_id):
         e = prices.get(str(item_id))
@@ -304,25 +439,99 @@ def compute(wow=DEFAULT_WOW, char='', top=3, besitz_zum_ah_preis=False, prices=N
         wcost = 0 if have_writ else wp
         icost = 0 if (have_item and not besitz_zum_ah_preis) else (ip or 0) * qty
         cost = wcost + icost
+        payout, payout_source, measured = payout_of(wid, tier)
+        net = cost - payout
         note = []
         if have_writ: note.append('Verfügung im Besitz')
         if have_item: note.append(f'Item im Besitz ({owned[item]}x)')
         if not have_item and inn < qty * 10: note.append(f'nur {inn} Items im AH')
-        rows.append(dict(tier=tier, name=name, prof=prof, cost=cost, per=cost / REP[tier], wcost=wcost,
-                         icost=icost, writs=wn, note=', '.join(note), qty=qty, writId=wid, itemId=item))
+        rows.append(dict(tier=tier, name=name, prof=prof, cost=cost, payout=payout, net=net, per=net / REP[tier],
+                         payoutSource=payout_source, payoutMeasured=measured, wcost=wcost, icost=icost,
+                         writs=wn, note=', '.join(note), qty=qty, writId=wid, itemId=item,
+                         questId=quest_of.get(wid)))
 
     tiers = []
     for t in 'JEA':
         best = sorted((r for r in rows if r['tier'] == t), key=lambda r: r['per'])[:top]
         tiers.append(dict(tier=t, name=TIER_NAME[t], rep=REP[t], best=best, sealed=owned.get(SEALED[t], 0)))
     total = sum(t['best'][0]['cost'] for t in tiers if t['best'])
+    total_net = sum(t['best'][0]['net'] for t in tiers if t['best'])
     reputation = dict(name=rep[0], standing=rep[1], value=rep[2], max=rep[3]) if rep else None
     sd = scan_date(prices)
     return dict(scanDate=sd.isoformat() if sd else None, character=who, reputation=reputation,
-                tiers=tiers, dailyTotal=total, dailyRep=sum(REP.values()))
+                tiers=tiers, dailyTotal=total, dailyNet=total_net, dailyRep=sum(REP.values()),
+                crates=crates(price, owned, besitz_zum_ah_preis, payouts, level, top), favor=favor, level=level)
+
+
+def crates(price, owned, besitz_zum_ah_preis, payouts, level, top):
+    """Per crate tier: every crate type with its cheapest bundle and the cost per point of Merchant's Favor."""
+    measured = payouts.get('crates') or {}
+    tiers = []
+    for t in CRATE_TIERS:
+        common, uncommon = CRATE_FAVOR[t]
+        sc, su = SEALED_CRATE[t]
+        mc, mu = sample_avg(measured.get(sc)), sample_avg(measured.get(su))
+        favor = mc if mc is not None else common
+        favor_green = mu if mu is not None else uncommon
+        if mc is not None:
+            favor_source = f"gemessen: {measured[sc]['n']}x abgegeben"
+        elif t in CRATE_FAVOR_GUESS:
+            favor_source = 'geschätzt, fortgeschrieben aus Lehrling 5, Geselle 10, Experte 15'
+        else:
+            favor_source = 'laut urgametips.com und wow.gg (Nov 2026)'
+        rows = []
+        for cid, tier, kind, options in crate_list():
+            if tier != t:
+                continue
+            cp, cn, _ = price(cid)
+            have_crate = owned.get(cid, 0) > 0
+            opts = []
+            for iid, qty, name in options:
+                ip, inn, _ = price(iid)
+                have = owned.get(iid, 0) >= qty
+                if have and not besitz_zum_ah_preis:
+                    cost = 0
+                elif ip is None:
+                    cost = None
+                else:
+                    cost = ip * qty
+                opts.append(dict(id=iid, name=name, qty=qty, unit=ip, cost=cost, listed=inn,
+                                 owned=owned.get(iid, 0), enough=have or inn >= qty))
+            priced = [o for o in opts if o['cost'] is not None]
+            # Cheapest bundle the AH can actually fill; a short supply only when nothing else is there.
+            best = min(priced, key=lambda o: (not o['enough'], o['cost'])) if priced else None
+            crate_cost = 0 if have_crate else cp
+            note = []
+            if have_crate:
+                note.append(f'Kiste im Besitz ({owned[cid]}x)')
+            elif cp is None:
+                note.append('leere Kiste nicht im AH (Drop von Gegnern)')
+            if best is None:
+                note.append('kein Bündel mit AH-Preis')
+            elif best['owned'] >= best['qty']:
+                note.append(f"Bündel im Besitz ({best['owned']}x {best['name']})")
+            elif not best['enough']:
+                note.append(f"nur {best['listed']}x {best['name']} im AH")
+            complete = best is not None and crate_cost is not None
+            cost = (crate_cost or 0) + (best['cost'] if best else 0)
+            rows.append(dict(crateId=cid, kind=kind, crateCost=crate_cost, crateListed=cn, haveCrate=have_crate,
+                             options=opts, best=best, cost=cost, complete=complete,
+                             per=cost / favor if complete else None,
+                             perGreen=cost / favor_green if complete else None, note=', '.join(note)))
+        rows.sort(key=lambda r: (not r['complete'], r['per'] if r['complete'] else r['cost']))
+        tiers.append(dict(tier=t, name=CRATE_TIER_NAME[t], level=CRATE_LEVEL[t],
+                          tooLow=level is not None and level < CRATE_LEVEL[t], favor=favor, favorGreen=favor_green,
+                          favorSource=favor_source, favorGuess=t in CRATE_FAVOR_GUESS and mc is None,
+                          sealedId=sc, rows=rows))
+    ranked = sorted((dict(r, tier=t['tier'], tierName=t['name'], favor=t['favor']) for t in tiers
+                     for r in t['rows'] if r['complete'] and not t['tooLow']), key=lambda r: r['per'])
+    return dict(tiers=tiers, best=ranked[:top])
 
 
 def fmt(c):
+    c = int(round(c))
+    if c < 0:
+        return '-' + fmt(-c)
     return f"{c // 10000}g {c % 10000 // 100:02d}s" if c >= 10000 else f"{c // 100}s {c % 100:02d}c"
 
 
@@ -357,12 +566,27 @@ def main():
             mark = '>>' if n == 0 else '  '
             q = f" ({b['qty']}x)" if b['qty'] > 1 else ''
             print(f" {mark} {b['name'] + q:<36} {b['prof']:<9} Verf. {fmt(b['wcost']):>8} + Item {fmt(b['icost']):>8}"
-                  f" = {fmt(b['cost']):>8}  {b['per'] / 100:.2f} s/Ruf  [{b['writs']} Verf. im AH] {b['note']}")
+                  f" - Beutel {fmt(b['payout']):>7} = netto {fmt(b['net']):>8}  {b['per'] / 100:.2f} s/Ruf"
+                  f"  [{b['writs']} Verf. im AH] {b['note']}")
         if t['sealed']:
             print(f"    Tipp: du hast {t['sealed']}x versiegelte Verfügung dieser Stufe – erst öffnen, "
                   f"vielleicht ist sie billiger.")
         print()
-    print(f"Pro Tag (je Stufe die beste): {fmt(r['dailyTotal'])} für {r['dailyRep']} Ruf")
+    print(f"Pro Tag (je Stufe die beste): {fmt(r['dailyTotal'])}, netto nach Münzbeuteln {fmt(r['dailyNet'])}"
+          f" für {r['dailyRep']} Ruf")
+    src = {b['payoutSource'] for t in r['tiers'] for b in t['best']}
+    print("Münzbeutel: " + ' | '.join(sorted(src)) + "\n")
+
+    print(f"== Handelskisten (Händlergunst{f', du hast {r['favor']}' if r['favor'] is not None else ''}) ==")
+    for t in r['crates']['tiers']:
+        low = f"  (erst ab Stufe {t['level']})" if t['tooLow'] else ''
+        print(f"-- {t['name']}: {t['favor']:g} Gunst, grün {t['favorGreen']:g} ({t['favorSource']}){low}")
+        for c in t['rows'][:a.top]:
+            b = c['best']
+            bundle = f"{b['qty']}x {b['name']} {fmt(b['cost'])}" if b else '-'
+            per = f"{c['per'] / 100:.2f} s/Gunst" if c['complete'] else 'unvollständig'
+            crate = fmt(c['crateCost']) if c['crateCost'] is not None else '?'
+            print(f"    {c['kind']:<18} Kiste {crate:>8} + {bundle:<40} = {fmt(c['cost']):>8}  {per}  {c['note']}")
 
 
 if __name__ == '__main__':

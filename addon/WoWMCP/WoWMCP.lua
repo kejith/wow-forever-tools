@@ -620,6 +620,120 @@ local function scanMerchant()
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Payouts: what writs and trade crates really return. A writ quest pays no gold itself, it hands out
+-- a coin pouch (four pouch items, one per writ tier) whose coins the server rolls when it is opened.
+-- Sealed crates pay Merchant's Favor on turn-in. The two halves of each payout arrive as separate
+-- events in no fixed order (bag change, money or currency change, quest turn-in), so each half is
+-- kept for PAIR_SECONDS and recorded once the matching half shows up. Stored account-wide in
+-- WoWMCP_Account.payouts: pouches[itemID] / crates[itemID] = {n, sum, min, max, last, updated},
+-- writQuests[questID] = {pouch, money, n, updated}.
+---------------------------------------------------------------------------------------------------
+
+local POUCHES = { 284583, 284584, 284585, 284586 }
+local FAVOR_CURRENCY = 3402
+local PAIR_SECONDS = 5
+local TRACKED = {}
+for _, id in ipairs(POUCHES) do TRACKED[id] = "pouch" end
+for id = 248765, 248779 do TRACKED[id] = "crate" end -- sealed crates: 5 tiers in common/uncommon/rare
+
+local trackedCounts -- item ID -> count in bags + bank at the last bag update
+local lastMoney
+local pend = {}
+
+local function payouts()
+    local p = type(WoWMCP_Account.payouts) == "table" and WoWMCP_Account.payouts or {}
+    p.pouches = type(p.pouches) == "table" and p.pouches or {}
+    p.crates = type(p.crates) == "table" and p.crates or {}
+    p.writQuests = type(p.writQuests) == "table" and p.writQuests or {}
+    WoWMCP_Account.payouts = p
+    return p
+end
+
+local function addSample(t, key, value)
+    local s = type(t[key]) == "table" and t[key] or { n = 0, sum = 0 }
+    s.n, s.sum = s.n + 1, s.sum + value
+    s.min, s.max = math.min(s.min or value, value), math.max(s.max or value, value)
+    s.last, s.updated = value, time()
+    t[key] = s
+end
+
+local function fresh(key)
+    local e = pend[key]
+    return e and GetTime() - e.t <= PAIR_SECONDS
+end
+
+local function take(a, b)
+    local x, y = pend[a], pend[b]
+    pend[a], pend[b] = nil, nil
+    return x, y
+end
+
+local function pairPayouts()
+    local p = payouts()
+    if fresh("quest") and fresh("pouchGained") then
+        local q, pouch = take("quest", "pouchGained")
+        local rec = type(p.writQuests[q.id]) == "table" and p.writQuests[q.id] or { n = 0 }
+        rec.n, rec.pouch, rec.money, rec.updated = rec.n + 1, pouch.id, q.money, time()
+        p.writQuests[q.id] = rec
+    end
+    if fresh("pouchUsed") and fresh("money") then
+        local pouch, money = take("pouchUsed", "money")
+        addSample(p.pouches, pouch.id, money.amount)
+    end
+    if fresh("crateUsed") and fresh("favor") then
+        local crate, favor = take("crateUsed", "favor")
+        addSample(p.crates, crate.id, favor.amount)
+    end
+end
+
+local function trackBags()
+    local seed = trackedCounts == nil
+    trackedCounts = trackedCounts or {}
+    for id, kind in pairs(TRACKED) do
+        local count = num(try(C_Item.GetItemCount, id, true)) or 0
+        local old = trackedCounts[id]
+        if not seed and old then
+            if count > old and kind == "pouch" then
+                pend.pouchGained = { id = id, t = GetTime() }
+            elseif count < old then
+                pend[kind == "pouch" and "pouchUsed" or "crateUsed"] = { id = id, t = GetTime() }
+            end
+        end
+        trackedCounts[id] = count
+    end
+    pairPayouts()
+end
+
+local function trackMoney()
+    local money = num(GetMoney())
+    if money and lastMoney and money > lastMoney then
+        pend.money = { amount = money - lastMoney, t = GetTime() }
+        pairPayouts()
+    end
+    lastMoney = money or lastMoney
+end
+
+local function trackQuest(questID, money)
+    questID = num(questID)
+    if not questID then return end
+    pend.quest = { id = questID, money = num(money) or 0, t = GetTime() }
+    pairPayouts()
+end
+
+local function trackCurrency(currencyType, change)
+    if num(currencyType) == FAVOR_CURRENCY and (num(change) or 0) > 0 then
+        pend.favor = { amount = num(change), t = GetTime() }
+        pairPayouts()
+    end
+end
+
+local function collectCurrencies()
+    local info = try(C_CurrencyInfo.GetCurrencyInfo, FAVOR_CURRENCY)
+    if type(info) ~= "table" then return {} end
+    return { [FAVOR_CURRENCY] = { name = str(info.name), quantity = num(info.quantity) or 0 } }
+end
+
+---------------------------------------------------------------------------------------------------
 -- Snapshot scheduling
 ---------------------------------------------------------------------------------------------------
 
@@ -632,6 +746,7 @@ local SECTIONS = {
     reputation = collectReputation,
     skills = collectSkills,
     talents = collectTalents,
+    currencies = collectCurrencies,
 }
 
 -- A failing section keeps its previous data and records the error for the server to report.
@@ -890,7 +1005,8 @@ for _, event in ipairs(SNAPSHOT_EVENTS) do
 end
 for _, event in ipairs({ "ADDON_LOADED", "PLAYER_REGEN_ENABLED", "AUCTION_HOUSE_CLOSED",
                          "BANKFRAME_OPENED", "BANKFRAME_CLOSED", "PLAYERBANKSLOTS_CHANGED",
-                         "TRADE_SKILL_SHOW", "TRADE_SKILL_LIST_UPDATE", "MERCHANT_SHOW", "MERCHANT_UPDATE" }) do
+                         "TRADE_SKILL_SHOW", "TRADE_SKILL_LIST_UPDATE", "MERCHANT_SHOW", "MERCHANT_UPDATE",
+                         "QUEST_TURNED_IN", "CURRENCY_DISPLAY_UPDATE" }) do
     register(event)
 end
 
@@ -913,7 +1029,7 @@ end
 
 local enteredWorld = false
 
-frame:SetScript("OnEvent", function(_, event, arg1)
+frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3)
     if event == "ADDON_LOADED" then
         if arg1 == ADDON_NAME then
             initSavedVariables()
@@ -942,7 +1058,14 @@ frame:SetScript("OnEvent", function(_, event, arg1)
         requestTradeSkillScan()
     elseif event == "MERCHANT_SHOW" or event == "MERCHANT_UPDATE" then
         pcall(scanMerchant)
+    elseif event == "QUEST_TURNED_IN" then
+        pcall(trackQuest, arg1, arg3)
+    elseif event == "CURRENCY_DISPLAY_UPDATE" then
+        pcall(trackCurrency, arg1, arg3)
+        requestSnapshot()
     elseif SNAPSHOT_EVENT[event] then
+        if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_ENTERING_WORLD" then pcall(trackBags) end
+        if event == "PLAYER_MONEY" or event == "PLAYER_ENTERING_WORLD" then pcall(trackMoney) end
         if event == "PLAYER_ENTERING_WORLD" and not enteredWorld then
             enteredWorld = true
             C_Timer.After(3, runAppRequest)
@@ -988,6 +1111,13 @@ SlashCmdList.WOWMCP = function(msg)
                 p.updated and date("%Y-%m-%d %H:%M", p.updated) or "?"))
         end
         if not next(db.recipes or {}) then print("  recipes: none yet (open each profession window once)") end
+        local p = payouts()
+        for _, kind in ipairs({ "pouches", "crates" }) do
+            for id, s in pairs(p[kind]) do
+                print(("  %s %d: %dx, avg %s"):format(kind == "pouches" and "coin pouch" or "crate favor", id, s.n,
+                    kind == "pouches" and ("%.2fs"):format(s.sum / s.n / 100) or ("%.1f"):format(s.sum / s.n)))
+            end
+        end
         local last = WoWMCP_Account.lastRequest
         if type(last) == "table" then
             print(("  last app request: #%s (%s) %s"):format(tostring(last.id), tostring(last.action),
@@ -1002,5 +1132,6 @@ SlashCmdList.WOWMCP = function(msg)
         print("WoWMCP: /wowmcp auto on|off - run the item export automatically when the auction house closes")
         print("WoWMCP: /wowmcp status - snapshot time, item export, recipes, app requests and export errors")
         print("WoWMCP: recipes are read when you open a profession window, vendor prices when you talk to a merchant")
+        print("WoWMCP: coin pouch gold and crate favor are recorded when you open a pouch or hand in a crate")
     end
 end

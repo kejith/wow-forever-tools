@@ -539,21 +539,82 @@ async function renderWrits() {
         <td><span class="item">${itemIcon(b.writId, 1)}<span>${i === 0 ? '★ ' : ''}${esc(b.name)}${b.qty > 1 ? ` <span class="muted">(${b.qty}x)</span>` : ''}</span></span></td>
         <td class="muted">${esc(b.prof)}</td>
         <td class="num">${money(b.wcost)}</td><td class="num">${money(b.icost)}</td>
-        <td class="num"><b>${money(b.cost)}</b></td>
-        <td class="num">${(b.per / 100).toFixed(2)} s</td>
+        <td class="num">${money(b.cost)}</td>
+        <td class="num" title="${esc(b.payoutSource)}"><span class="good">−${b.payoutMeasured ? '' : '≈'}${money(b.payout)}</span></td>
+        <td class="num"><b>${netMoney(b.net)}</b></td>
+        <td class="num">${perUnit(b.per)}</td>
         <td class="num muted">${b.writs}</td>
         <td class="small">${esc(b.note)}</td></tr>`).join('');
     const sealed = t.sealed ? `<p class="small notice">Du hast ${t.sealed}x „Versiegelte Verfügung“ dieser Stufe. Erst öffnen, vielleicht ist sie billiger.</p>` : '';
     return `<div class="card section"><div class="row"><h3>${esc(t.name)}</h3></div>
       ${rows ? `<table><thead><tr><th>Verfügung</th><th>Beruf</th><th class="num">Verfügung</th><th class="num">Item</th>
-        <th class="num">Summe</th><th class="num">pro Ruf</th><th class="num">im AH</th><th>Hinweis</th></tr></thead><tbody>${rows}</tbody></table>`
+        <th class="num">Summe</th><th class="num">Münzbeutel</th><th class="num">Netto</th><th class="num">pro Ruf</th>
+        <th class="num">im AH</th><th>Hinweis</th></tr></thead><tbody>${rows}</tbody></table>`
         : '<p class="muted">Keine Verfügung mit Preisdaten.</p>'}${sealed}</div>`;
   }).join('');
+  const sources = [...new Set(d.tiers.flatMap((t) => t.best.map((b) => b.payoutSource)))];
+  const estimated = d.tiers.some((t) => t.best.some((b) => !b.payoutMeasured));
   body.innerHTML = `${repHtml}
-    <div class="card"><div class="row"><div><h2>Pro Tag</h2><div class="big">${money(d.dailyTotal)}</div></div>
+    <div class="card"><div class="row"><div><h2>Pro Tag</h2><div class="big">${netMoney(d.dailyNet)}</div>
+        <div class="muted small">netto nach Münzbeuteln · ${money(d.dailyTotal)} Einkauf</div></div>
       <span class="spacer"></span><div class="muted">für ${d.dailyRep} Ruf (je Stufe die beste Verfügung)</div></div></div>
     ${tiers}
-    <p class="small muted">Items im Besitz zählen als 0. Verfügungsliste: wow.gg (Nov 2026).</p>`;
+    <p class="small muted">Items im Besitz zählen als 0. Die Quest selbst zahlt kein Gold, sie gibt einen Münzbeutel; Netto = Einkauf − Inhalt des Beutels,
+      sortiert nach Netto pro Ruf. Münzbeutel: ${sources.map(esc).join(' · ')}.${estimated ? ' Werte mit ≈ sind geschätzt; ab Addon 1.5 misst das Addon den Inhalt jedes geöffneten Beutels.' : ''}
+      Verfügungsliste: wow.gg (Nov 2026).</p>
+    ${cratesHtml(d)}`;
+}
+
+// Net cost: negative means the coin pouch pays more than the writ and item cost.
+function netMoney(copper) {
+  if (copper === null || copper === undefined) return money(copper);
+  const c = Math.round(copper);
+  return c < 0 ? `<span class="good">${money(-c)} Gewinn</span>` : money(c);
+}
+
+// Copper per unit (reputation or favor) as silver with two decimals.
+function perUnit(copper) {
+  if (copper === null || copper === undefined) return '<span class="muted">–</span>';
+  return `${(copper / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} s`;
+}
+
+function cratesHtml(d) {
+  const c = d.crates;
+  if (!c) return '';
+  const bundle = (o) => o ? `<span class="item">${itemIcon(o.id, 1, 'sm')}<span>${o.qty}x ${esc(o.name)}</span></span>` : '<span class="muted">–</span>';
+  const alternatives = (r) => r.options.filter((o) => o !== r.best && r.best && o.id !== r.best.id).map((o) =>
+    `${o.qty}x ${esc(o.name)} ${o.cost === null ? '<span class="muted">kein Preis</span>' : money(o.cost)}${o.enough ? '' : ' <span class="warn-text">(zu wenig im AH)</span>'}`).join(' · ');
+  const best = c.best.map((r, i) => `<tr class="${i === 0 ? 'best' : ''}">
+      <td><span class="item">${itemIcon(r.crateId, 1)}<span>${i === 0 ? '★ ' : ''}${esc(r.kind)} <span class="muted">(${esc(r.tierName)})</span></span></span></td>
+      <td>${bundle(r.best)}</td><td class="num"><b>${money(Math.round(r.cost))}</b></td>
+      <td class="num">${r.favor.toLocaleString('de-DE')}</td><td class="num">${perUnit(r.per)}</td></tr>`).join('');
+  const tiers = c.tiers.map((t) => {
+    const rows = t.rows.map((r, i) => `<tr class="${i === 0 && r.complete ? 'best' : ''}">
+        <td><span class="item">${itemIcon(r.crateId, 1)}<span>${i === 0 && r.complete ? '★ ' : ''}${esc(r.kind)}</span></span></td>
+        <td class="num">${r.crateCost === null ? '<span class="muted">nicht im AH</span>' : money(r.crateCost)}</td>
+        <td>${bundle(r.best)}${alternatives(r) ? `<div class="small muted">oder ${alternatives(r)}</div>` : ''}</td>
+        <td class="num">${r.best ? money(r.best.cost) : '<span class="muted">–</span>'}</td>
+        <td class="num"><b>${r.complete ? money(Math.round(r.cost)) : '<span class="muted">–</span>'}</b></td>
+        <td class="num">${perUnit(r.per)}</td><td class="num muted">${perUnit(r.perGreen)}</td>
+        <td class="small">${esc(r.note)}</td></tr>`).join('');
+    return `<div class="card section"><div class="row"><h3>${esc(t.name)}</h3>
+        <span class="badge ${t.favorGuess ? 'warn' : ''}" title="${esc(t.favorSource)}">${t.favor.toLocaleString('de-DE')} Gunst · grün ${t.favorGreen.toLocaleString('de-DE')}${t.favorGuess ? ' (geschätzt)' : ''}</span>
+        ${t.tooLow ? `<span class="badge bad">erst ab Stufe ${t.level}</span>` : `<span class="muted small">ab Stufe ${t.level}</span>`}</div>
+      <table><thead><tr><th>Kiste</th><th class="num">leere Kiste</th><th>günstigstes Bündel</th><th class="num">Bündel</th>
+        <th class="num">Summe</th><th class="num">pro Gunst</th><th class="num">pro Gunst (grün)</th><th>Hinweis</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+  }).join('');
+  return `<h2 class="section" id="crates">Handelskisten</h2>
+    <div class="card"><div class="row"><div><h2>Günstigste Händlergunst</h2>
+        <div class="muted small">eine leere Kiste + ein Bündel, versiegelt beim Handelsvertreter abgeben</div></div>
+      <span class="spacer"></span>${d.favor !== null && d.favor !== undefined ? `<div><div class="muted small">Deine Händlergunst</div><div class="big">${d.favor.toLocaleString('de-DE')}</div></div>` : ''}</div>
+      ${best ? `<table><thead><tr><th>Kiste</th><th>Bündel</th><th class="num">Summe</th><th class="num">Gunst</th><th class="num">pro Gunst</th></tr></thead><tbody>${best}</tbody></table>`
+        : '<p class="muted">Keine Kiste mit vollständigen Preisen.</p>'}</div>
+    ${tiers}
+    <p class="small muted">Kisten zahlen kein Gold und keinen Ruf, nur Händlergunst. Netto = leere Kiste (AH, im Besitz 0) + günstigstes Bündel, das das AH liefern kann
+      (eigene Items 0). „Pro Gunst“ rechnet mit der gewöhnlichen (weißen) versiegelten Kiste, die grüne bringt doppelt so viel; wovon die Qualität abhängt, ist nicht bekannt.
+      Gunst pro Kiste laut urgametips.com/wow.gg (Nov 2026), Fachmann geschätzt; ab Addon 1.5 misst das Addon jede Abgabe. Bündel-Mengen aus den Spieldaten geprüft.
+      Elitekisten sind nicht enthalten (Inhalt unbekannt).</p>`;
 }
 
 // ---------- Page: upgrades ----------
