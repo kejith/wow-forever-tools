@@ -1,15 +1,18 @@
-// Installing the addons the app ships (WoWMCP, GoldPerHour) and writing app requests. Pure file operations,
-// no Electron, so they can be tested against a scratch folder: node addon.test.js
+// Installing the addons the app works with (WoWMCP, GoldPerHour) and writing app requests. The addons live
+// in their own repositories; the app installs the latest GitHub release (releases.js) or, for development,
+// a local checkout. No Electron, so everything can be tested against a scratch folder: node addon.test.js
 const fs = require('node:fs');
 const path = require('node:path');
+const { latestRelease, tocVersion: versionOf, compareVersions } = require('./releases');
 
 const REQUEST_FILE = 'AppRequest.lua';
 
 // Every addon the app can install. Each one ships an AppRequest.lua stub that the app later overwrites with
-// a request; `global` is the variable the addon reads from it.
+// a request; `global` is the variable the addon reads from it. `env` names a local checkout that takes the
+// place of the release.
 const ADDONS = {
-  wowmcp: { name: 'WoWMCP', global: 'WoWMCP_AppRequest', obsolete: ['ItemQueue.lua'] },
-  goldperhour: { name: 'GoldPerHour', global: 'GoldPerHour_AppRequest', obsolete: [] },
+  wowmcp: { name: 'WoWMCP', repo: 'kejith/WoWMCP', env: 'WOWMCP_ADDON_DIR', global: 'WoWMCP_AppRequest', obsolete: ['ItemQueue.lua'] },
+  goldperhour: { name: 'GoldPerHour', repo: 'kejith/GoldPerHour', env: 'GOLDPERHOUR_ADDON_DIR', global: 'GoldPerHour_AppRequest', obsolete: [] },
 };
 
 function spec(key) {
@@ -18,23 +21,34 @@ function spec(key) {
   return s;
 }
 
-const sourceDir = (key = 'wowmcp') => path.resolve(__dirname, '..', 'addon', spec(key).name);
-const ADDON_SOURCE = sourceDir('wowmcp');
 const installedAddonDir = (wowDir, key = 'wowmcp') => path.join(wowDir, 'Interface', 'AddOns', spec(key).name);
 const tocName = (key) => `${spec(key).name}.toc`;
+const tocVersion = (dir, key) => versionOf(dir, spec(key).name);
 
-function tocVersion(dir, key) {
-  try {
-    const toc = fs.readFileSync(path.join(dir, tocName(key)), 'utf8');
-    return (toc.match(/^## Version:\s*(.+)$/m) || [])[1]?.trim() || null;
-  } catch {
-    return null;
+// Where the addon's files come from. A local checkout (opts.sources[key] from the app settings, or the
+// environment variable) wins, so a change can be tried in the game without publishing a release. Otherwise
+// the latest GitHub release, cached under opts.cacheDir. opts.force asks GitHub now instead of using the
+// last answer.
+async function resolveSource(key, opts = {}) {
+  const s = spec(key);
+  const local = opts.sources?.[key] || process.env[s.env];
+  if (local) {
+    const dir = path.resolve(local);
+    if (!fs.existsSync(path.join(dir, tocName(key)))) throw new Error(`Lokale Quelle ohne ${tocName(key)}: ${dir}`);
+    return { kind: 'local', dir, repo: s.repo, version: tocVersion(dir, key) };
   }
+  return latestRelease({ repo: s.repo, name: s.name, cacheDir: opts.cacheDir, api: opts.api, fetchFn: opts.fetchFn,
+    maxAge: opts.maxAge, force: opts.force });
 }
 
+// Files the .toc lists, with forward slashes. A path that leaves the addon folder is refused: these names
+// decide where the installer writes.
 function tocFiles(dir, key) {
   const toc = fs.readFileSync(path.join(dir, tocName(key)), 'utf8');
-  return toc.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const files = toc.split(/\r?\n/).map((l) => l.trim().replace(/\\/g, '/')).filter((l) => l && !l.startsWith('#'));
+  const bad = files.find((f) => f.startsWith('/') || f.includes(':') || f.split('/').includes('..'));
+  if (bad) throw new Error(`Unerlaubter Pfad in ${tocName(key)}: ${bad}`);
+  return files;
 }
 
 function requestText(wowDir, key) {
@@ -58,42 +72,62 @@ function readRequest(wowDir, key = 'wowmcp') {
   return out;
 }
 
-function addonInfo(wowDir, key = 'wowmcp') {
-  const source = sourceDir(key);
-  const target = installedAddonDir(wowDir, key);
-  const installed = fs.existsSync(path.join(target, tocName(key)));
-  const sourceFiles = [tocName(key), ...tocFiles(source, key)].filter((f) => f !== REQUEST_FILE);
+function changedFiles(source, target, key) {
   const changed = [];
-  for (const f of sourceFiles) {
+  for (const f of [tocName(key), ...tocFiles(source, key)].filter((x) => x !== REQUEST_FILE)) {
     let a = null;
     let b = null;
     try { a = fs.readFileSync(path.join(source, f)); } catch { /* missing in source */ }
     try { b = fs.readFileSync(path.join(target, f)); } catch { /* missing in install */ }
     if (!a || !b || !a.equals(b)) changed.push(f);
   }
+  return changed;
+}
+
+async function addonInfo(wowDir, key = 'wowmcp', opts = {}) {
+  const target = installedAddonDir(wowDir, key);
+  const installed = fs.existsSync(path.join(target, tocName(key)));
+  const installedVersion = installed ? tocVersion(target, key) : null;
+  let source = null;
+  let sourceError = null;
+  let changed = [];
+  try {
+    const found = await resolveSource(key, opts);
+    changed = changedFiles(found.dir, target, key);
+    source = found;
+  } catch (err) {
+    sourceError = err.message;
+  }
+  // Installed from a local checkout that is ahead of the release: nothing to update.
+  const ahead = !!source && installed && changed.length > 0 && compareVersions(installedVersion, source.version) > 0;
   // Forever re-reads the .toc on /reload (tested 15.11.2026: new files and new SavedVariables load), so an
   // update never needs a game restart.
   return {
-    key, name: spec(key).name, sourceDir: source, installedDir: target, installed,
-    sourceVersion: tocVersion(source, key), installedVersion: installed ? tocVersion(target, key) : null,
-    changed, upToDate: installed && changed.length === 0,
+    key, name: spec(key).name, repo: spec(key).repo, installedDir: target, installed, installedVersion,
+    source, sourceError, sourceDir: source?.dir || null, sourceVersion: source?.version || null,
+    // Without a source there is nothing to compare against; an installed addon then counts as current.
+    changed, ahead, upToDate: installed && (changed.length === 0 || ahead),
     auctionatorInstalled: fs.existsSync(path.join(wowDir, 'Interface', 'AddOns', 'Auctionator')),
     pendingRequest: readRequest(wowDir, key),
   };
 }
 
-function installAddon(wowDir, key = 'wowmcp') {
-  const source = sourceDir(key);
+async function installAddon(wowDir, key = 'wowmcp', opts = {}) {
+  const source = await resolveSource(key, opts);
   const target = installedAddonDir(wowDir, key);
-  const before = addonInfo(wowDir, key);
+  const wasInstalled = fs.existsSync(path.join(target, tocName(key)));
+  const files = [tocName(key), ...tocFiles(source.dir, key)];
+  const missing = files.filter((f) => !fs.existsSync(path.join(source.dir, f)));
+  if (missing.length) throw new Error(`In der Quelle fehlen Dateien aus der .toc: ${missing.join(', ')}`);
   fs.mkdirSync(target, { recursive: true });
-  for (const f of [tocName(key), ...tocFiles(source, key)]) {
+  for (const f of files) {
     // Keep a request the app already wrote; only ship the empty stub on first install.
     if (f === REQUEST_FILE && fs.existsSync(path.join(target, f))) continue;
-    fs.copyFileSync(path.join(source, f), path.join(target, f));
+    fs.mkdirSync(path.dirname(path.join(target, f)), { recursive: true });
+    fs.copyFileSync(path.join(source.dir, f), path.join(target, f));
   }
   for (const f of spec(key).obsolete) fs.rmSync(path.join(target, f), { force: true });
-  return { ...addonInfo(wowDir, key), firstInstall: !before.installed };
+  return { ...(await addonInfo(wowDir, key, { ...opts, force: false })), firstInstall: !wasInstalled };
 }
 
 function nextId(wowDir, key) {
@@ -101,12 +135,13 @@ function nextId(wowDir, key) {
   return Math.max(Math.floor(Date.now() / 1000), (readRequest(wowDir, key)?.id || 0) + 1);
 }
 
+const REQUEST_NOTE = '-- Written by the WoWMCP desktop app. The client re-reads this file on /reload; a request runs once.\n';
+
 function writeFile(wowDir, key, fields) {
   const target = installedAddonDir(wowDir, key);
   if (!fs.existsSync(path.join(target, tocName(key)))) throw new Error(`${spec(key).name} ist nicht installiert.`);
-  const body = '-- Written by the WoWMCP desktop app. The client re-reads this file on /reload; a request runs once.\n'
-    + `${spec(key).global} = { ${fields.join(', ')} }\n`;
-  fs.writeFileSync(path.join(target, REQUEST_FILE), body);
+  const value = fields ? `{ ${fields.join(', ')} }` : 'nil';
+  fs.writeFileSync(path.join(target, REQUEST_FILE), `${REQUEST_NOTE}${spec(key).global} = ${value}\n`);
 }
 
 function writeRequest(wowDir, action, opts = {}) {
@@ -152,15 +187,13 @@ function writeGphRequest(wowDir, { action, settings } = {}) {
   return { id, action: action || null, settings: settingsLua.length > 0 };
 }
 
-// Withdraws a request the game has not read yet: the stub again, so nothing runs on the next /reload.
+// Withdraws a request the game has not read yet: an empty request, so nothing runs on the next /reload.
 function clearGphRequest(wowDir) {
-  const target = installedAddonDir(wowDir, 'goldperhour');
-  if (!fs.existsSync(path.join(target, tocName('goldperhour')))) throw new Error('GoldPerHour ist nicht installiert.');
-  fs.copyFileSync(path.join(sourceDir('goldperhour'), REQUEST_FILE), path.join(target, REQUEST_FILE));
+  writeFile(wowDir, 'goldperhour', null);
   return { cleared: true };
 }
 
 module.exports = {
-  ADDONS, ADDON_SOURCE, sourceDir, installedAddonDir, addonInfo, installAddon, writeRequest, readRequest,
+  ADDONS, resolveSource, installedAddonDir, addonInfo, installAddon, writeRequest, readRequest,
   writeGphRequest, clearGphRequest, gphSettingsLua,
 };

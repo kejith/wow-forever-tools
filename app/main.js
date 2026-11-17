@@ -2,6 +2,8 @@
 // Talks to the game only through files: it reads the SavedVariables the WoWMCP and GoldPerHour addons and
 // Auctionator write on /reload or logout, and it writes AppRequest.lua into the installed addons, which the
 // client loads on the next /reload. All calculations run in the Python scripts via scripts/app_bridge.py.
+// The addons themselves come from their GitHub releases (addon.js, releases.js), cached in the app's data
+// folder; settings.addonSources = { wowmcp: <folder>, goldperhour: <folder> } installs from a checkout instead.
 
 const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
 const { execFile } = require('node:child_process');
@@ -175,9 +177,12 @@ function startWatcher() {
 
 ipcMain.handle('bridge', (_e, command, opts) => runBridge(command, opts));
 const addonKey = (key) => (Object.hasOwn(addon.ADDONS, key) ? key : 'wowmcp');
-ipcMain.handle('addon:info', (_e, key) => addon.addonInfo(settings.wowDir, addonKey(key)));
-ipcMain.handle('addon:install', (_e, key) => {
-  try { return addon.installAddon(settings.wowDir, addonKey(key)); } catch (err) { return { error: err.message }; }
+const addonOpts = (force) => ({
+  cacheDir: path.join(app.getPath('userData'), 'addons'), sources: settings.addonSources || {}, force: force === true,
+});
+ipcMain.handle('addon:info', (_e, key, opts) => addon.addonInfo(settings.wowDir, addonKey(key), addonOpts(opts?.force)));
+ipcMain.handle('addon:install', async (_e, key) => {
+  try { return await addon.installAddon(settings.wowDir, addonKey(key), addonOpts()); } catch (err) { return { error: err.message }; }
 });
 ipcMain.handle('gph:request', (_e, req) => {
   try { return addon.writeGphRequest(settings.wowDir, req || {}); } catch (err) { return { error: err.message }; }

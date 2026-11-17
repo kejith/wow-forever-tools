@@ -1,16 +1,25 @@
-# WoWMCP
+# wow-forever-tools
 
-Stellt Charakterdaten aus WoW Forever über MCP bereit: Charakter und Werte, Ausrüstung, Taschen, Bank, Questlog, abgeschlossene Quests, Ruf, Berufe/Skills, Talente (Klasse und Legacy).
+Werkzeuge für World of Warcraft: Forever: eine Desktop-App, ein MCP-Server und Skripte, die Charakterdaten, Auktionshaus-Scans und Berufe auswerten.
 
-Das Addon schreibt einen Snapshot in seine SavedVariables (pro Charakter). WoW schreibt die Datei erst bei `/reload` oder Logout auf die Platte, der MCP-Server liest sie von dort.
+Die Daten kommen aus dem Spiel über zwei Addons mit eigenen Repositories:
+
+| Addon | Repository | Wofür |
+| --- | --- | --- |
+| WoWMCP | [kejith/WoWMCP](https://github.com/kejith/WoWMCP) | exportiert Charakter, Ausrüstung, Taschen, Bank, Quests, Ruf, Berufe, Talente und AH-Items in seine SavedVariables |
+| GoldPerHour | [kejith/GoldPerHour](https://github.com/kejith/GoldPerHour) | Gold pro Stunde, getrennt nach Kräutern und Loot |
+
+WoW schreibt SavedVariables erst bei `/reload` oder Logout auf die Platte. App, Skripte und MCP-Server lesen sie von dort.
 
 ## Installation
 
-### 1. Addon
+### 1. Addons
 
-Ordner `addon/WoWMCP` nach `C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\WoWMCP` kopieren. Einmal einloggen, Bank einmal öffnen.
+Am einfachsten über die Desktop-App (siehe unten): Seite „Verbindung“ → „Addon installieren“. Die App lädt das neueste Release des Addons von GitHub, legt es in ihrem Datenordner ab und kopiert es nach `_forever_\Interface\AddOns`. „Nach Updates suchen“ fragt GitHub sofort, sonst höchstens alle 15 Minuten. Ohne Netz installiert die App das zuletzt geladene Release.
 
-Oder einfacher: über die Desktop-App (siehe unten), Seite „Verbindung“ → „Addon installieren“.
+Von Hand: das Zip aus dem neuesten Release ([WoWMCP](https://github.com/kejith/WoWMCP/releases/latest), [GoldPerHour](https://github.com/kejith/GoldPerHour/releases/latest)) nach `C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns` entpacken. Einmal einloggen, Bank einmal öffnen.
+
+Für die Entwicklung an einem Addon installiert die App statt des Release einen lokalen Checkout: `addonSources` in `%APPDATA%\wowmcp-app\settings.json` (`{ "addonSources": { "goldperhour": "<Ordner>" } }`) oder die Umgebungsvariablen `WOWMCP_ADDON_DIR` und `GOLDPERHOUR_ADDON_DIR`.
 
 In-game:
 
@@ -40,13 +49,13 @@ Benötigt Node.js und uv. Die App beobachtet `WTF\Account` und lädt neu, sobald
 
 So kommen App und Addon zusammen: Addons können keine Dateien schreiben oder ins Netz. Die App legt einen Auftrag in `Interface\AddOns\WoWMCP\AppRequest.lua` (bzw. `…\GoldPerHour\AppRequest.lua`) ab. Das Spiel lädt die Datei beim nächsten `/reload`, das Addon führt den Auftrag einmal aus und meldet das Ergebnis über seine SavedVariables. Auch Addon-Updates brauchen nur ein `/reload`, selbst wenn neue Dateien oder SavedVariables dazukommen.
 
-`npm test` prüft Installation und Aufträge gegen einen Testordner. `npm run capture` speichert Screenshots aller Seiten nach `app/captures`.
+`npm test` prüft Installation, Release-Download und Aufträge gegen einen Testordner und einen nachgebauten GitHub-Server, ohne Netz. `npm run capture` speichert Screenshots aller Seiten nach `app/captures`.
 
 ### 2. MCP-Server
 
 Benötigt [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`). Die Abhängigkeiten (`mcp`, `lupa`) stehen im Skript-Header und werden von `uv run` automatisch installiert.
 
-Der Server liegt unter `C:\Coding\wow\server\wow_mcp.py`. In Claude Code ist er über `.mcp.json` in diesem Ordner bereits eingetragen.
+Der Server liegt in diesem Repo unter `server/wow_mcp.py`. Die Beispiele nehmen einen Clone unter `C:\Coding\wow` an. `.mcp.json` trägt ihn für Claude Code unter Windows mit diesem Pfad ein.
 
 **Claude Code:**
 

@@ -11,3 +11,6 @@ app/captures/
 
 # Lokale Claude-Einstellungen
 .claude/settings.local.json
+
+# Persönliche Angaben für Claude (Account-Ordner, Windows-Benutzer)
+CLAUDE.local.md

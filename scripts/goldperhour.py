@@ -6,7 +6,7 @@
 
     uv run scripts/goldperhour.py [--wow <pfad>]
 
-The addon (addon/GoldPerHour, from 0.3) keeps the running session in GoldPerHourDB.gold/coin/items/elapsed,
+The addon (github.com/kejith/GoldPerHour, from 0.3) keeps the running session in GoldPerHourDB.gold/coin/items/elapsed,
 its metadata (start, zones, characters, gold curve) in .session and finished sessions in .history. WoW
 writes the file only on /reload or logout, so everything here is the state at that moment.
 """

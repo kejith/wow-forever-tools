@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('wow', {
   bridge: (command, opts) => ipcRenderer.invoke('bridge', command, opts),
-  addonInfo: (key) => ipcRenderer.invoke('addon:info', key),
+  addonInfo: (key, opts) => ipcRenderer.invoke('addon:info', key, opts),
   installAddon: (key) => ipcRenderer.invoke('addon:install', key),
   gphRequest: (req) => ipcRenderer.invoke('gph:request', req),
   gphClearRequest: () => ipcRenderer.invoke('gph:clear'),

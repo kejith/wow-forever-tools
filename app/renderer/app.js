@@ -270,9 +270,21 @@ api.onDataChanged(async () => {
 
 // ---------- Page: connection ----------
 
-// One card per addon the app ships; `key` is the addon key in addon.js (wowmcp, goldperhour).
+// Where an install takes its files from: the latest GitHub release, or a local checkout from the settings.
+function addonSource(a) {
+  const s = a.source;
+  if (!s) return `<span class="badge bad">nicht verfügbar</span> ${esc(a.sourceError || '')}`;
+  if (s.kind === 'local') return `${esc(s.version || '?')} <span class="badge">lokaler Ordner</span> <span class="muted">${esc(s.dir)}</span>`;
+  const stale = s.offline
+    ? ` <span class="badge warn" title="${esc(s.error || '')}">nicht geprüft, Stand ${when(s.checkedAt / 1000)}</span>` : '';
+  return `${esc(s.version || '?')} <span class="muted">Release ${esc(s.tag)} von github.com/${esc(s.repo)}</span>${stale}`;
+}
+
+// One card per addon the app installs; `key` is the addon key in addon.js (wowmcp, goldperhour).
 function addonCard(a, about = '') {
   const key = esc(a.key);
+  const check = a.source?.kind === 'local' ? ''
+    : `<button class="ghost" data-action="check-addon" data-addon="${key}">Nach Updates suchen</button>`;
   const hint = !a.lastInstall ? '' : a.lastInstall.firstInstall
     ? '<div class="notice small" style="margin:10px 0 0">Installiert. Im Spiel <code>/reload</code> eingeben. Taucht es danach nicht in der Addon-Liste auf, WoW einmal neu starten.</div>'
     : '<div class="notice small" style="margin:10px 0 0">Aktualisiert. Im Spiel <code>/reload</code> eingeben.</div>';
@@ -280,20 +292,26 @@ function addonCard(a, about = '') {
     return `<div class="card"><h2>${esc(a.name)}-Addon</h2>
       <h3><span class="badge bad">nicht installiert</span></h3>
       ${about ? `<p class="small">${about}</p>` : ''}
-      <p class="muted small">Ziel: ${esc(a.installedDir)}</p>
-      <button class="primary" data-action="install" data-addon="${key}">Addon installieren</button></div>`;
+      <dl class="kv small"><dt>Quelle</dt><dd>${addonSource(a)}</dd><dt>Ziel</dt><dd>${esc(a.installedDir)}</dd></dl>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" data-action="install" data-addon="${key}" ${a.source ? '' : 'disabled'}>Addon installieren</button>
+        ${check}
+      </div></div>`;
   }
-  const badge = a.upToDate ? '<span class="badge ok">aktuell</span>' : '<span class="badge warn">Update verfügbar</span>';
+  const badge = !a.source ? '<span class="badge">installiert</span>'
+    : a.ahead ? '<span class="badge ok">neuer als die Quelle</span>'
+    : a.upToDate ? '<span class="badge ok">aktuell</span>' : '<span class="badge warn">Update verfügbar</span>';
   return `<div class="card"><h2>${esc(a.name)}-Addon</h2>
     <h3>${badge}</h3>
     <dl class="kv small">
       <dt>Installiert</dt><dd>${esc(a.installedVersion || '?')}</dd>
-      <dt>Quelle</dt><dd>${esc(a.sourceVersion || '?')}</dd>
+      <dt>Quelle</dt><dd>${addonSource(a)}</dd>
       ${a.changed.length && !a.upToDate ? `<dt>Geändert</dt><dd>${esc(a.changed.join(', '))}</dd>` : ''}
       <dt>Auctionator</dt><dd>${a.auctionatorInstalled ? 'installiert' : '<span class="badge bad">fehlt</span>'}</dd>
     </dl>${hint}
     <div class="row" style="margin-top:10px">
       ${a.upToDate ? '' : `<button class="primary" data-action="install" data-addon="${key}">Addon aktualisieren</button>`}
+      ${check}
       <button class="ghost" data-action="open-addon" data-addon="${key}">Ordner öffnen</button>
     </div></div>`;
 }
@@ -404,7 +422,7 @@ async function renderConnection() {
   let hint = '';
   const outdated = [a, state.gphAddon].filter((x) => x?.installed && !x.upToDate && !x.lastInstall);
   if (outdated.length) {
-    hint = `<div class="notice">Die Quelle von ${esc(outdated.map((x) => x.name).join(' und '))} ist neuer als die Installation. „Addon aktualisieren“ kopiert sie ins Spiel, danach im Spiel <code>/reload</code>.</div>`;
+    hint = `<div class="notice">Für ${esc(outdated.map((x) => x.name).join(' und '))} gibt es eine andere Version als die installierte. „Addon aktualisieren“ kopiert sie ins Spiel, danach im Spiel <code>/reload</code>.</div>`;
   }
   content.innerHTML = `${hint}
     <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, GPH_ABOUT)}${auctionatorCard()}${itemExportCard()}${requestCard()}</div>
@@ -423,6 +441,11 @@ content.addEventListener('click', async (e) => {
     if (result.error) { alert(result.error); button.disabled = false; return; }
     if (gph) state.gphAddon = { ...result, lastInstall: result };
     else state.addon = { ...result, lastInstall: result };
+  } else if (action === 'check-addon') {
+    // Asks GitHub now; otherwise the app keeps the last answer for a quarter of an hour.
+    const result = await api.addonInfo(button.dataset.addon || 'wowmcp', { force: true });
+    if (gph) state.gphAddon = result;
+    else state.addon = result;
   } else if (action === 'open-addon') {
     api.openPath((gph ? state.gphAddon : state.addon).installedDir);
     button.disabled = false;
