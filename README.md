@@ -21,13 +21,14 @@ In-game:
 
 ## Desktop-App
 
-Electron-App in `app/` mit vier Seiten:
+Electron-App in `app/` mit sechs Seiten:
 
-- **Verbindung:** Läuft WoW Forever? Ist das Addon installiert und aktuell (Installieren/Aktualisieren per Klick)? Wie alt sind AH-Scan, Item-Export und die Charakter-Snapshots? Dazu Aufträge an das Addon: Item-Export, alle Items neu lesen, Charakter-Snapshot.
+- **Verbindung:** Läuft WoW Forever? Sind die Addons WoWMCP und GoldPerHour installiert und aktuell (Installieren/Aktualisieren per Klick)? Wie alt sind AH-Scan, Item-Export und die Charakter-Snapshots? Dazu Aufträge an das Addon: Item-Export, alle Items neu lesen, Charakter-Snapshot.
 - **Charakter:** Werte, Ausrüstung mit Punkten, Berufe, Talente
 - **Verfügungen:** die günstigste Handwerksverfügung pro Stufe netto nach Münzbeutel, dazu die Handelskisten nach Silber pro Händlergunst (`scripts/verfuegungen.py`)
 - **AH-Upgrades:** Upgrades pro Ausrüstungsplatz mit Budget, Vorschau und Markierung neuer Forever-Items (`scripts/upgrades.py`)
 - **Berufe:** Gewinn pro Herstellung der gelernten Rezepte und noch fehlende Rezepte, die mehr bringen, mit Quelle und Preis des Rezepts (`scripts/recipes.py`)
+- **Gold pro Stunde:** die laufende Sitzung des Addons GoldPerHour (Kräuter und Loot, pro Stunde, Items, Zonen, Goldkurve), Start/Stop/Zurücksetzen, die Einstellungen des Addons und der Verlauf abgeschlossener Sitzungen (`scripts/goldperhour.py`)
 
 ```
 cd app
@@ -37,7 +38,7 @@ npm start
 
 Benötigt Node.js und uv. Die App beobachtet `WTF\Account` und lädt neu, sobald WoW SavedVariables schreibt (`/reload`, Logout). Berechnet wird in Python über `scripts/app_bridge.py`.
 
-So kommen App und Addon zusammen: Addons können keine Dateien schreiben oder ins Netz. Die App legt einen Auftrag in `Interface\AddOns\WoWMCP\AppRequest.lua` ab. Das Spiel lädt die Datei beim nächsten `/reload`, das Addon führt den Auftrag einmal aus und meldet das Ergebnis über seine SavedVariables. Auch Addon-Updates brauchen nur ein `/reload`, selbst wenn neue Dateien oder SavedVariables dazukommen.
+So kommen App und Addon zusammen: Addons können keine Dateien schreiben oder ins Netz. Die App legt einen Auftrag in `Interface\AddOns\WoWMCP\AppRequest.lua` (bzw. `…\GoldPerHour\AppRequest.lua`) ab. Das Spiel lädt die Datei beim nächsten `/reload`, das Addon führt den Auftrag einmal aus und meldet das Ergebnis über seine SavedVariables. Auch Addon-Updates brauchen nur ein `/reload`, selbst wenn neue Dateien oder SavedVariables dazukommen.
 
 `npm test` prüft Installation und Aufträge gegen einen Testordner. `npm run capture` speichert Screenshots aller Seiten nach `app/captures`.
 

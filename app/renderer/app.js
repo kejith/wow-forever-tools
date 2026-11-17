@@ -7,6 +7,7 @@ const PAGES = {
   writs: { title: 'Handwerksverfügungen', render: renderWrits },
   upgrades: { title: 'AH-Upgrades', render: renderUpgrades },
   recipes: { title: 'Berufe und Rezepte', render: renderRecipes },
+  goldperhour: { title: 'Gold pro Stunde', render: renderGoldPerHour },
 };
 
 const state = {
@@ -14,12 +15,14 @@ const state = {
   char: null,
   status: null,
   addon: null,
+  gphAddon: null,
   game: null,
   cache: new Map(),
   lastLoad: null,
   writs: { top: 3, besitzZumAhPreis: false },
   upgrades: { maxPreis: '', vorschau: 4, top: 3, profil: '', sort: 'gewinn' },
   recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false },
+  gph: { open: null, notice: null },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -185,11 +188,12 @@ async function cached(key, fn) {
 }
 
 async function loadStatus() {
-  const [status, addon, game] = await Promise.all([
-    api.bridge('status'), api.addonInfo(), api.wowRunning(),
+  const [status, addon, gphAddon, game] = await Promise.all([
+    api.bridge('status'), api.addonInfo('wowmcp'), api.addonInfo('goldperhour'), api.wowRunning(),
   ]);
   state.status = status;
   state.addon = addon;
+  state.gphAddon = gphAddon;
   state.game = game;
   state.lastLoad = Date.now();
   fillCharacterSelect();
@@ -259,34 +263,42 @@ $('#refresh').addEventListener('click', async () => {
 api.onDataChanged(async () => {
   // WoW wrote SavedVariables (/reload or logout): reload everything that depends on them.
   state.cache.clear();
+  state.gph.notice = null;
   await loadStatus();
   showPage(state.page);
 });
 
 // ---------- Page: connection ----------
 
-function addonCard() {
-  const a = state.addon;
+// One card per addon the app ships; `key` is the addon key in addon.js (wowmcp, goldperhour).
+function addonCard(a, about = '') {
+  const key = esc(a.key);
+  const hint = !a.lastInstall ? '' : a.lastInstall.firstInstall
+    ? '<div class="notice small" style="margin:10px 0 0">Installiert. Im Spiel <code>/reload</code> eingeben. Taucht es danach nicht in der Addon-Liste auf, WoW einmal neu starten.</div>'
+    : '<div class="notice small" style="margin:10px 0 0">Aktualisiert. Im Spiel <code>/reload</code> eingeben.</div>';
   if (!a.installed) {
-    return `<div class="card"><h2>WoWMCP-Addon</h2>
+    return `<div class="card"><h2>${esc(a.name)}-Addon</h2>
       <h3><span class="badge bad">nicht installiert</span></h3>
+      ${about ? `<p class="small">${about}</p>` : ''}
       <p class="muted small">Ziel: ${esc(a.installedDir)}</p>
-      <button class="primary" data-action="install">Addon installieren</button></div>`;
+      <button class="primary" data-action="install" data-addon="${key}">Addon installieren</button></div>`;
   }
   const badge = a.upToDate ? '<span class="badge ok">aktuell</span>' : '<span class="badge warn">Update verfügbar</span>';
-  return `<div class="card"><h2>WoWMCP-Addon</h2>
+  return `<div class="card"><h2>${esc(a.name)}-Addon</h2>
     <h3>${badge}</h3>
     <dl class="kv small">
       <dt>Installiert</dt><dd>${esc(a.installedVersion || '?')}</dd>
       <dt>Quelle</dt><dd>${esc(a.sourceVersion || '?')}</dd>
       ${a.changed.length && !a.upToDate ? `<dt>Geändert</dt><dd>${esc(a.changed.join(', '))}</dd>` : ''}
       <dt>Auctionator</dt><dd>${a.auctionatorInstalled ? 'installiert' : '<span class="badge bad">fehlt</span>'}</dd>
-    </dl>
+    </dl>${hint}
     <div class="row" style="margin-top:10px">
-      ${a.upToDate ? '' : '<button class="primary" data-action="install">Addon aktualisieren</button>'}
-      <button class="ghost" data-action="open-addon">Ordner öffnen</button>
+      ${a.upToDate ? '' : `<button class="primary" data-action="install" data-addon="${key}">Addon aktualisieren</button>`}
+      <button class="ghost" data-action="open-addon" data-addon="${key}">Ordner öffnen</button>
     </div></div>`;
 }
+
+const GPH_ABOUT = 'Gold pro Stunde, getrennt nach Kräuterkunde und Loot. Die App zeigt Sitzungen, Verlauf und Einstellungen.';
 
 function gameCard() {
   const s = state.status;
@@ -390,16 +402,12 @@ async function renderConnection() {
   }
   const a = state.addon;
   let hint = '';
-  if (a.installed && !a.upToDate) {
-    hint = '<div class="notice">Die Addon-Quelle ist neuer als die Installation. „Addon aktualisieren“ kopiert sie ins Spiel, danach im Spiel <code>/reload</code>.</div>';
-  }
-  if (a.lastInstall?.firstInstall) {
-    hint = '<div class="notice">Addon installiert. Im Spiel <code>/reload</code> eingeben. Taucht es danach nicht in der Addon-Liste auf, WoW einmal neu starten.</div>';
-  } else if (a.lastInstall) {
-    hint = '<div class="notice">Addon aktualisiert. Im Spiel <code>/reload</code> eingeben.</div>';
+  const outdated = [a, state.gphAddon].filter((x) => x?.installed && !x.upToDate && !x.lastInstall);
+  if (outdated.length) {
+    hint = `<div class="notice">Die Quelle von ${esc(outdated.map((x) => x.name).join(' und '))} ist neuer als die Installation. „Addon aktualisieren“ kopiert sie ins Spiel, danach im Spiel <code>/reload</code>.</div>`;
   }
   content.innerHTML = `${hint}
-    <div class="grid">${gameCard()}${addonCard()}${auctionatorCard()}${itemExportCard()}${requestCard()}</div>
+    <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, GPH_ABOUT)}${auctionatorCard()}${itemExportCard()}${requestCard()}</div>
     <div class="section"><h2>Charaktere</h2>${charactersTable()}</div>`;
 }
 
@@ -407,20 +415,24 @@ content.addEventListener('click', async (e) => {
   const button = e.target.closest('button[data-action]');
   if (!button) return;
   const action = button.dataset.action;
+  const gph = button.dataset.addon === 'goldperhour';
+  if (action.startsWith('gph-')) return gphAction(action, button);
   button.disabled = true;
   if (action === 'install') {
-    const result = await api.installAddon();
+    const result = await api.installAddon(button.dataset.addon || 'wowmcp');
     if (result.error) { alert(result.error); button.disabled = false; return; }
-    state.addon = { ...result, lastInstall: result };
+    if (gph) state.gphAddon = { ...result, lastInstall: result };
+    else state.addon = { ...result, lastInstall: result };
   } else if (action === 'open-addon') {
-    api.openPath(state.addon.installedDir);
+    api.openPath((gph ? state.gphAddon : state.addon).installedDir);
     button.disabled = false;
   } else if (action.startsWith('request-')) {
     const result = await api.createRequest(action === 'request-sync' ? 'sync' : 'items', { full: action === 'request-items-full' });
     if (result.error) { alert(result.error); button.disabled = false; return; }
-    state.addon = await api.addonInfo();
+    state.addon = await api.addonInfo('wowmcp');
   }
   if (state.page === 'connection') renderConnection();
+  if (state.page === 'goldperhour') renderGoldPerHour();
 });
 
 // ---------- Page: character ----------
@@ -862,6 +874,230 @@ async function renderRecipes() {
   $('#r-profit').addEventListener('change', (e) => { o.onlyProfit = e.target.checked; renderRecipes(); });
   $('#r-learnable').addEventListener('change', (e) => { o.onlyLearnable = e.target.checked; renderRecipes(); });
 }
+
+// ---------- Page: GoldPerHour ----------
+// GoldPerHourDB is account-wide, so this page ignores the character selection. WoW writes it on /reload or
+// logout; the app changes the addon only through AppRequest.lua (start/stop/reset and settings).
+
+const GPH_CATS = [['herb', 'Kräuter'], ['loot', 'Loot']];
+
+function duration(sec) {
+  const s = Math.max(0, Math.round(sec || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return h ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+}
+
+// Gold per hour rounded like the addon: copper is noise once gold is involved.
+function rate(copper) {
+  if (copper === null || copper === undefined) return '<span class="muted" title="Erst ab einer Minute Sitzungszeit">–</span>';
+  const c = Math.round(copper);
+  return money(c >= 10000 ? c - (c % 100) : c);
+}
+
+// Cumulative gold of one session over session time: herbs, loot and the sum.
+function gphChart(samples, { width = 640, height = 170, small = false } = {}) {
+  if (!samples || samples.length < 2) {
+    return '<p class="muted small">Für eine Kurve braucht es mindestens zwei Messpunkte (alle 5 Minuten Sitzungszeit, dazu bei Start und Stop).</p>';
+  }
+  const pad = small ? 3 : 2;
+  const T = samples[samples.length - 1].t || 1;
+  const hi = Math.max(1, ...samples.map((s) => s.herb + s.loot));
+  const x = (t) => pad + (t / T) * (width - 2 * pad);
+  const y = (v) => pad + ((hi - v) / hi) * (height - 2 * pad);
+  const line = (f) => samples.map((s) => `${x(s.t).toFixed(1)},${y(f(s)).toFixed(1)}`).join(' ');
+  const g = (c) => `${(c / 10000).toLocaleString('de-DE', { maximumFractionDigits: c >= 100000 ? 0 : 1 })} g`;
+  // Labels stay HTML: the SVG stretches to the card width and would distort text.
+  const axis = small ? '' : `<line class="axis" x1="0" x2="${width}" y1="${y(0)}" y2="${y(0)}"/>
+    <line class="grid" x1="0" x2="${width}" y1="${y(hi)}" y2="${y(hi)}"/>`;
+  const tip = samples.map((s) => `${duration(s.t)}: ${g(s.herb + s.loot)} (Kräuter ${g(s.herb)}, Loot ${g(s.loot)})`).join('\n');
+  const svg = `<svg class="gph-chart${small ? ' small' : ''}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Gold über die Sitzungszeit">
+      <title>${esc(tip)}</title>${axis}
+      <polyline class="herb" points="${line((s) => s.herb)}"/>
+      <polyline class="loot" points="${line((s) => s.loot)}"/>
+      <polyline class="total" points="${line((s) => s.herb + s.loot)}"/>
+    </svg>`;
+  if (small) return svg;
+  return `<div class="chart-axis small muted"><span>${g(hi)}</span></div>${svg}
+    <div class="chart-axis small muted"><span>0</span><span>${duration(T)}</span></div>
+    <div class="legend small"><span class="key total"></span>Gesamt <span class="key herb"></span>Kräuter <span class="key loot"></span>Loot</div>`;
+}
+
+function gphItemsTable(cat, label, limit = 0) {
+  const items = limit ? cat.items.slice(0, limit) : cat.items;
+  if (!items.length && !cat.coin) return `<p class="muted small">${esc(label)}: noch nichts.</p>`;
+  const share = (v) => (cat.gold ? `${Math.round((v / cat.gold) * 100)} %` : '');
+  const rows = items.map((e) => `<tr>
+      <td><span class="item">${itemIcon(e.id, e.quality, 'sm')}<span class="${quality(e.quality)}">${esc(e.name)}</span></span></td>
+      <td class="num">${e.count.toLocaleString('de-DE')}</td><td class="num">${money(e.value)}</td><td class="num muted">${share(e.value)}</td></tr>`).join('');
+  const more = cat.items.length > items.length ? `<tr><td colspan="4" class="muted small">+${cat.items.length - items.length} weitere</td></tr>` : '';
+  const coin = cat.coin ? `<tr><td class="muted">Münzen</td><td></td><td class="num">${money(cat.coin)}</td><td class="num muted">${share(cat.coin)}</td></tr>` : '';
+  return `<table class="compact"><thead><tr><th>${esc(label)}</th><th class="num">Anzahl</th><th class="num">Wert</th><th class="num">Anteil</th></tr></thead>
+    <tbody>${rows}${more}${coin}</tbody></table>`;
+}
+
+function gphRequestState(d) {
+  const pending = state.gphAddon?.pendingRequest;
+  const done = d.lastRequest;
+  const what = (r) => [r.action && { start: 'Start', stop: 'Stop', reset: 'Zurücksetzen' }[r.action], r.settings && 'Einstellungen']
+    .filter(Boolean).join(' + ') || 'Auftrag';
+  if (pending && (!done || done.id !== pending.id)) {
+    return `<div class="notice small" style="margin:10px 0 0"><b>${esc(what(pending))} wartet</b> (Auftrag #${pending.id}).
+      Im Spiel <code>/reload</code> eingeben, das Addon führt ihn einmal aus. Die App zeigt das Ergebnis nach dem nächsten Speichern (wieder <code>/reload</code> oder Logout).
+      <div class="row" style="margin-top:8px"><button class="ghost" data-action="gph-clear">Auftrag zurückziehen</button></div></div>`;
+  }
+  if (done) {
+    const err = done.error ? ` <span class="badge bad" title="${esc(done.error)}">Fehler</span>` : '';
+    return `<p class="small" style="margin:10px 0 0"><span class="badge ok">erledigt</span> ${esc(what(done))} ${when(done.done)}${err}</p>`;
+  }
+  return '';
+}
+
+function gphSettingsCard(d) {
+  const s = d.settings;
+  const disabled = state.gphAddon?.installed ? '' : 'disabled';
+  const extra = s.herbSpells.join(', ');
+  return `<div class="card" id="gph-settings"><h2>Einstellungen im Addon</h2>
+    <div class="controls" style="margin-bottom:12px">
+      <label class="check"><input type="checkbox" id="gph-shown" ${s.shown ? 'checked' : ''}> Fenster anzeigen</label>
+      <label class="check"><input type="checkbox" id="gph-resume" ${s.resumeAfterReload ? 'checked' : ''}> läuft nach /reload weiter</label>
+      <label class="check"><input type="checkbox" id="gph-auto" ${s.autoStart ? 'checked' : ''}> startet beim ersten Loot</label>
+    </div>
+    <div class="controls">
+      <label>Skalierung<input type="number" id="gph-scale" min="0.5" max="2" step="0.05" value="${esc(s.scale)}"></label>
+      <label>Items im Tooltip<input type="number" id="gph-tooltip" min="1" max="30" value="${esc(s.tooltipItems)}"></label>
+      <label>Preise<select id="gph-price">
+        <option value="auctionator" ${s.priceSource !== 'vendor' ? 'selected' : ''}>Auctionator, sonst Händler</option>
+        <option value="vendor" ${s.priceSource === 'vendor' ? 'selected' : ''}>nur Händlerpreis</option></select></label>
+      <label>Weitere Kräuter-Zauber (IDs)<input type="text" id="gph-herbs" value="${esc(extra)}" placeholder="z. B. 2368, 3570"></label>
+    </div>
+    <p class="small muted">Kräutersammeln (${esc(d.herbGathering)}) und Zauber mit demselben Namen zählen immer. Die Preisquelle gilt für neu
+      aufgehobene Items, Bisheriges behält seinen Wert.</p>
+    <div class="row"><button class="primary" data-action="gph-save" ${disabled}>An das Addon senden</button>
+      ${d.legacy && d.found ? '<span class="small muted">Version 0.2 kennt diese Einstellungen noch nicht: zuerst aktualisieren.</span>' : ''}</div></div>`;
+}
+
+function gphHistoryTable(d) {
+  if (!d.history.length) {
+    return '<p class="muted small">Noch keine abgeschlossene Sitzung. Beim Zurücksetzen (im Spiel oder hier) landet die Sitzung im Verlauf, höchstens 100.</p>';
+  }
+  const best = d.summary.best;
+  const rows = d.history.map((h) => {
+    const id = h.started || h.archived;
+    const open = state.gph.open === id;
+    const zones = h.zones.slice(0, 2).map((z) => esc(z.zone)).join(', ') + (h.zones.length > 2 ? ` <span class="muted">+${h.zones.length - 2}</span>` : '');
+    const row = `<tr class="clickable${open ? ' open' : ''}" data-gph-open="${esc(id)}">
+      <td class="nowrap">${when(h.started || h.archived)}</td><td class="nowrap">${duration(h.elapsed)}</td>
+      <td>${esc(h.chars.join(', ')) || '<span class="muted">–</span>'}</td><td>${zones || '<span class="muted">–</span>'}</td>
+      <td class="num">${money(h.categories.herb.gold)}</td><td class="num">${money(h.categories.loot.gold)}</td>
+      <td class="num"><b>${money(h.total)}</b></td>
+      <td class="num">${rate(h.perHour)}${id === best ? ' <span class="badge new">beste</span>' : ''}</td>
+      <td>${gphChart(h.samples, { width: 110, height: 26, small: true })}</td></tr>`;
+    if (!open) return row;
+    return `${row}<tr class="detail"><td colspan="9"><div class="gph-detail">
+      <div>${gphItemsTable(h.categories.herb, 'Kräuter', 8)}</div><div>${gphItemsTable(h.categories.loot, 'Loot', 8)}</div>
+      <div>${gphChart(h.samples)}</div></div></td></tr>`;
+  }).join('');
+  return `<table><thead><tr><th>Beginn</th><th>Dauer</th><th>Charakter</th><th>Zonen</th><th class="num">Kräuter</th><th class="num">Loot</th>
+    <th class="num">Gesamt</th><th class="num">pro Stunde</th><th>Verlauf</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function renderGoldPerHour() {
+  if (!state.status) await loadStatus();
+  const a = state.gphAddon;
+  // Opening a history row re-renders from the cache; no spinner then, so the page keeps its scroll position.
+  if (!state.cache.has('goldperhour')) content.innerHTML = loading('Lade GoldPerHour …');
+  const d = await cached('goldperhour', () => api.bridge('goldperhour'));
+  if (d.error) { content.innerHTML = errorBox(d.error); return; }
+  const top = [];
+  if (!a.installed || !a.upToDate || a.lastInstall) top.push(`<div class="grid" style="margin-bottom:16px">${addonCard(a, GPH_ABOUT)}</div>`);
+  if (state.gph.notice) top.push(`<div class="notice">${state.gph.notice}</div>`);
+  if (!d.found) {
+    content.innerHTML = `${top.join('')}<div class="notice">Noch keine GoldPerHour-Daten. ${a.installed
+      ? 'Im Spiel <code>/reload</code> eingeben, dann <code>/gph</code> öffnet das Fenster. WoW speichert die Werte bei jedem /reload und Logout.'
+      : 'Erst das Addon installieren.'}</div>${gphSettingsCard(d)}`;
+    return;
+  }
+  const c = d.current;
+  const saved = d.updated || d.modified;
+  const runBadge = c.runningAtSave ? '<span class="badge ok">lief beim Speichern</span>'
+    : c.elapsed ? '<span class="badge">pausiert</span>' : '<span class="badge">nicht gestartet</span>';
+  const disabled = a.installed ? '' : 'disabled';
+  const catCard = ([key, label]) => {
+    const cat = c.categories[key];
+    return `<div class="card"><h2>${label}</h2><div class="big">${money(cat.gold)}</div>
+      <dl class="kv small"><dt>pro Stunde</dt><dd>${rate(cat.perHour)}</dd>
+        <dt>Items</dt><dd>${cat.itemCount.toLocaleString('de-DE')} (${cat.items.length} Sorten)</dd>
+        ${cat.coin ? `<dt>Münzen</dt><dd>${money(cat.coin)}</dd>` : ''}</dl></div>`;
+  };
+  const sum = d.summary;
+  content.innerHTML = `${top.join('')}
+    <p class="small muted" style="margin-top:0">Stand beim letzten Speichern ${when(saved)} (${ago(saved)}). WoW schreibt die Werte nur bei <code>/reload</code> oder Logout,
+      laufende Sitzungen zählen im Spiel weiter.</p>
+    <div class="grid">
+      <div class="card"><h2>Aktuelle Sitzung</h2><div class="big">${money(c.total)}</div>
+        <h3 style="margin-top:4px">${rate(c.perHour)} <span class="muted small">pro Stunde</span></h3>
+        <dl class="kv small"><dt>Dauer</dt><dd>${duration(c.elapsed)} ${runBadge}</dd>
+          ${c.started ? `<dt>Begonnen</dt><dd>${when(c.started)}</dd>` : ''}
+          ${c.chars.length ? `<dt>Charakter</dt><dd>${esc(c.chars.join(', '))}</dd>` : ''}</dl></div>
+      ${GPH_CATS.map(catCard).join('')}
+      <div class="card"><h2>Steuerung</h2>
+        <div class="row">
+          <button class="primary" data-action="gph-start" ${disabled}>Start</button>
+          <button class="ghost" data-action="gph-stop" ${disabled}>Stop</button>
+          <button class="ghost" data-action="gph-reset" ${disabled}>Zurücksetzen</button>
+        </div>
+        <p class="small muted" style="margin:8px 0 0">Wirkt beim nächsten <code>/reload</code>. Im Spiel geht es sofort: <code>/gph start</code>, <code>/gph stop</code>, Reset-Knopf im Fenster.</p>
+        ${gphRequestState(d)}</div>
+    </div>
+    <div class="section"><h2>Gold über die Sitzung</h2><div class="card">${gphChart(c.samples)}</div></div>
+    <div class="section gph-two">
+      <div class="card"><h2>Items der Sitzung</h2>${gphItemsTable(c.categories.herb, 'Kräuter')}<div style="height:12px"></div>${gphItemsTable(c.categories.loot, 'Loot')}</div>
+      <div class="card"><h2>Zonen</h2>${c.zones.length ? `<table class="compact"><thead><tr><th>Zone</th><th class="num">Gold</th><th class="num">Anteil</th></tr></thead><tbody>
+        ${c.zones.map((z) => `<tr><td>${esc(z.zone)}</td><td class="num">${money(z.value)}</td><td class="num muted">${c.total ? Math.round((z.value / c.total) * 100) : 0} %</td></tr>`).join('')}</tbody></table>`
+        : `<p class="muted small">${d.legacy ? 'Zonen zeichnet das Addon ab Version 0.3 auf.' : 'Noch nichts aufgehoben.'}</p>`}</div>
+    </div>
+    <div class="section">${gphSettingsCard(d)}</div>
+    <div class="section"><h2>Verlauf</h2>
+      ${sum.sessions ? `<p class="small muted" style="margin-top:0">${sum.sessions} Sitzungen, zusammen ${duration(sum.elapsed)} und ${money(sum.total)}, im Schnitt ${rate(sum.perHour)} pro Stunde.
+        Zeile anklicken für Items und Kurve.</p>` : ''}
+      <div class="card">${gphHistoryTable(d)}</div></div>`;
+}
+
+function gphFormSettings() {
+  const v = (id) => $(`#${id}`);
+  return {
+    shown: v('gph-shown').checked,
+    resumeAfterReload: v('gph-resume').checked,
+    autoStart: v('gph-auto').checked,
+    scale: Number(v('gph-scale').value),
+    tooltipItems: Number(v('gph-tooltip').value),
+    priceSource: v('gph-price').value,
+    herbSpells: v('gph-herbs').value.split(/[\s,;]+/).filter(Boolean).map(Number).filter((n) => Number.isInteger(n) && n > 0),
+  };
+}
+
+async function gphAction(action, button) {
+  if (action === 'gph-reset' && !confirm('GoldPerHour-Sitzung beim nächsten /reload zurücksetzen? Sie landet dann im Verlauf.')) return;
+  button.disabled = true;
+  let result;
+  if (action === 'gph-clear') result = await api.gphClearRequest();
+  else if (action === 'gph-save') result = await api.gphRequest({ settings: gphFormSettings() });
+  else result = await api.gphRequest({ action: action.slice(4) });
+  if (result.error) { alert(result.error); button.disabled = false; return; }
+  state.gph.notice = action === 'gph-clear' ? 'Auftrag zurückgezogen.'
+    : 'Gesendet. Im Spiel <code>/reload</code> eingeben, damit das Addon den Auftrag ausführt.';
+  state.gphAddon = await api.addonInfo('goldperhour');
+  renderGoldPerHour();
+}
+
+content.addEventListener('click', (e) => {
+  const row = e.target.closest('[data-gph-open]');
+  if (!row) return;
+  const id = Number(row.dataset.gphOpen);
+  state.gph.open = state.gph.open === id ? null : id;
+  renderGoldPerHour();
+});
 
 // ---------- Start ----------
 

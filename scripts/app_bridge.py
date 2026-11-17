@@ -11,6 +11,7 @@
                                           [--profil leveln|dungeon] [--sort gewinn|preis]
     uv run scripts/app_bridge.py recipes --char Malgruk [--beruf Alchimie]
     uv run scripts/app_bridge.py icons --ids 9492,287004
+    uv run scripts/app_bridge.py goldperhour
 
 Prints exactly one JSON object on stdout; failures come back as {"error": "..."} with exit code 0,
 so the app can show the message.
@@ -26,6 +27,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import goldperhour  # noqa: E402
 import recipes  # noqa: E402
 import upgrades  # noqa: E402
 import verfuegungen as v  # noqa: E402
@@ -110,7 +112,7 @@ def character(wow: str, name: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "icons"])
+    ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "icons", "goldperhour"])
     ap.add_argument("--wow", default=os.environ.get("WOW_FOREVER_DIR") or v.DEFAULT_WOW)
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=3)
@@ -131,6 +133,8 @@ def main() -> None:
             import icons  # pillow is only needed here
 
             r = icons.resolve(a.wow, [int(i) for i in a.ids.split(",") if i.strip().isdigit()])
+        elif a.command == "goldperhour":
+            r = goldperhour.compute(a.wow)
         elif a.command == "recipes":
             r = recipes.compute(a.wow, a.char, a.beruf)
         elif a.command == "writs":

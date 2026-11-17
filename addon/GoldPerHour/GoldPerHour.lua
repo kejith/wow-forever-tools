@@ -6,7 +6,19 @@ local CATEGORIES = { HERB, LOOT }
 local CAST_WINDOW = 15      -- seconds between the gathering cast and its loot
 local MONEY_GRACE = 1.5     -- seconds after LOOT_CLOSED in which PLAYER_MONEY still counts as loot
 local HERB_GATHERING = 2366 -- retail spell ID; add others with /gph herbid <id>
-local TOOLTIP_ITEMS = 6     -- items listed per category in the tooltip
+local SAMPLE_EVERY = 300    -- seconds of session time between two points of the gold curve
+local MAX_SAMPLES = 288     -- 24 h at 5 min; above that every second point is dropped
+local MAX_HISTORY = 100     -- finished sessions kept for the WoWMCP app
+
+-- Settings the WoWMCP app can change through AppRequest.lua (window visibility and herb spells live in
+-- db.hidden and db.herbSpells, as before 0.3).
+local DEFAULTS = {
+    scale = 1,                 -- window scale
+    tooltipItems = 6,          -- items listed per category in the tooltip
+    priceSource = "auctionator", -- "auctionator" (vendor price as fallback) or "vendor"
+    resumeAfterReload = true,  -- a running session keeps running across /reload
+    autoStart = false,         -- the first loot window starts a stopped session
+}
 
 local ICON = {
     addon = "Interface\\Icons\\INV_Misc_Coin_01",
@@ -22,6 +34,9 @@ local L = {
     coins = "Coins", nothing = "Nothing yet", more = "+%d more",
     prices = "Prices", auction = "Auctionator, vendor price as fallback",
     vendorOnly = "vendor only (Auctionator not loaded)",
+    vendorSetting = "vendor price (setting)",
+    applied = "settings from the WoWMCP app applied",
+    resumed = "session continues after /reload",
     hint = "Drag to move",
     resetConfirm = "Reset the GoldPerHour session?",
     hidden = "window hidden, /gph shows it again",
@@ -35,6 +50,9 @@ if GetLocale() == "deDE" then
     L.coins, L.nothing, L.more = "Münzen", "Noch nichts", "+%d weitere"
     L.prices, L.auction = "Preise", "Auctionator, sonst Händlerpreis"
     L.vendorOnly = "nur Händlerpreis (Auctionator nicht geladen)"
+    L.vendorSetting = "Händlerpreis (Einstellung)"
+    L.applied = "Einstellungen aus der WoWMCP-App übernommen"
+    L.resumed = "Sitzung läuft nach /reload weiter"
     L.hint = "Ziehen zum Verschieben"
     L.resetConfirm = "GoldPerHour-Sitzung zurücksetzen?"
     L.hidden = "Fenster versteckt, /gph zeigt es wieder"
@@ -61,6 +79,47 @@ end
 
 local function Elapsed()
     return db.elapsed + (running and (GetTime() - startedAt) or 0)
+end
+
+local function Setting(key)
+    local value = db and db.settings[key]
+    if value == nil then return DEFAULTS[key] end
+    return value
+end
+
+-- Metadata of the running session for the app: wall-clock start, zones, characters and the gold curve.
+local function NewSession()
+    return { zones = {}, chars = {}, samples = {} }
+end
+
+local function Sample()
+    local s = db.session.samples
+    local t = math.floor(Elapsed())
+    local point = { t, math.floor(db.gold[HERB] + 0.5), math.floor(db.gold[LOOT] + 0.5) }
+    if s[#s] and s[#s][1] == t then
+        s[#s] = point
+    else
+        s[#s + 1] = point
+    end
+    if #s > MAX_SAMPLES then
+        local thinned = {}
+        for i = 1, #s, 2 do thinned[#thinned + 1] = s[i] end
+        if thinned[#thinned] ~= s[#s] then thinned[#thinned + 1] = s[#s] end
+        db.session.samples = thinned
+    end
+end
+
+-- Where and by whom the gold was earned; zone and name are taken when the loot is picked up.
+local function Where()
+    local zone = GetRealZoneText()
+    if not zone or zone == "" or IsSecret(zone) then zone = "?" end
+    return zone, (UnitName("player"))
+end
+
+local function Attribute(zone, char, copper)
+    db.session.zones[zone] = (db.session.zones[zone] or 0) + copper
+    if char then db.session.chars[char] = true end
+    db.session.lastActive = time()
 end
 
 ---------------------------------------------------------------------------
@@ -103,13 +162,13 @@ local function AuctionPrice(link)
     if ok and type(price) == "number" and price > 0 then return price end
 end
 
--- Only call once the item data is loaded.
+-- Only call once the item data is loaded. Returns the value of one item and its quality.
 local function ItemValue(link)
     local _, _, quality, _, _, _, _, _, _, _, sellPrice, _, _, bindType = C_Item.GetItemInfo(link)
     sellPrice = sellPrice or 0
     -- Poor quality (0) and bind-on-pickup (1) cannot be auctioned.
-    if quality == 0 or bindType == 1 then return sellPrice end
-    return AuctionPrice(link) or sellPrice
+    if quality == 0 or bindType == 1 or Setting("priceSource") == "vendor" then return sellPrice, quality end
+    return AuctionPrice(link) or sellPrice, quality
 end
 
 ---------------------------------------------------------------------------
@@ -216,14 +275,15 @@ local function AddCategory(category)
         1, 0.82, 0, 1, 1, 1)
 
     local items = SortedItems(category)
-    for i = 1, math.min(#items, TOOLTIP_ITEMS) do
+    local shown = Setting("tooltipItems")
+    for i = 1, math.min(#items, shown) do
         local entry = items[i]
         local icon = C_Item.GetItemIconByID(entry.id)
         GameTooltip:AddDoubleLine(("%s %s x%d"):format(icon and IconText(icon) or "", entry.link, entry.count),
             Money(entry.value), 1, 1, 1, 1, 1, 1)
     end
-    if #items > TOOLTIP_ITEMS then
-        GameTooltip:AddLine(L.more:format(#items - TOOLTIP_ITEMS), 0.6, 0.6, 0.6)
+    if #items > shown then
+        GameTooltip:AddLine(L.more:format(#items - shown), 0.6, 0.6, 0.6)
     end
     if db.coin[category] > 0 then
         GameTooltip:AddDoubleLine(L.coins, Money(db.coin[category]), 1, 1, 1, 1, 1, 1)
@@ -242,7 +302,9 @@ local function FillTooltip()
         AddCategory(category)
     end
     GameTooltip:AddLine(" ")
-    if AuctionatorAPI() then
+    if Setting("priceSource") == "vendor" then
+        GameTooltip:AddDoubleLine(L.prices, L.vendorSetting, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
+    elseif AuctionatorAPI() then
         GameTooltip:AddDoubleLine(L.prices, L.auction, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
     else
         GameTooltip:AddDoubleLine(L.prices, L.vendorOnly, 0.6, 0.6, 0.6, 1, 0.3, 0.3)
@@ -296,9 +358,16 @@ end
 ---------------------------------------------------------------------------
 -- Session
 ---------------------------------------------------------------------------
+local nextSample = 0
+
 local function Start()
     if running then return end
     running, startedAt = true, GetTime()
+    db.session.started = db.session.started or time()
+    local _, char = Where()
+    if char then db.session.chars[char] = true end
+    nextSample = (math.floor(Elapsed() / SAMPLE_EVERY) + 1) * SAMPLE_EVERY
+    Sample()
     Refresh()
 end
 
@@ -306,12 +375,40 @@ local function Stop()
     if not running then return end
     db.elapsed = Elapsed()
     running = false
+    Sample()
     Refresh()
 end
 
+-- A finished session goes into db.history for the app; the item links are reduced to name and quality.
+local function Archive()
+    if db.elapsed < 1 and db.gold[HERB] + db.gold[LOOT] == 0 then return end
+    local entry = {
+        started = db.session.started, ended = db.session.lastActive or time(), archived = time(),
+        elapsed = math.floor(db.elapsed), gold = {}, coin = {}, items = {},
+        zones = db.session.zones, chars = db.session.chars, samples = db.session.samples,
+    }
+    for _, category in ipairs(CATEGORIES) do
+        entry.gold[category] = math.floor(db.gold[category] + 0.5)
+        entry.coin[category] = db.coin[category]
+        local list = {}
+        for _, item in ipairs(SortedItems(category)) do
+            list[#list + 1] = { id = item.id, name = item.link:match("%[(.-)%]"), quality = item.quality,
+                count = item.count, value = math.floor(item.value + 0.5) }
+        end
+        entry.items[category] = list
+    end
+    table.insert(db.history, entry)
+    while #db.history > MAX_HISTORY do table.remove(db.history, 1) end
+end
+
 local function Reset()
-    running = false
+    if running then
+        db.elapsed = Elapsed()
+        running = false
+    end
+    Archive()
     db.elapsed = 0
+    db.session = NewSession()
     for _, category in ipairs(CATEGORIES) do
         db.gold[category], db.coin[category] = 0, 0
         wipe(db.items[category])
@@ -336,24 +433,30 @@ StaticPopupDialogs["GOLDPERHOUR_RESET"] = {
 local function CreditMoney(category, copper)
     db.coin[category] = db.coin[category] + copper
     db.gold[category] = db.gold[category] + copper
+    local zone, char = Where()
+    Attribute(zone, char, copper)
     Refresh()
 end
 
 local function CreditItem(category, link, quantity)
     local item = Item:CreateFromItemLink(link)
     if item:IsItemEmpty() then return end
+    local zone, char = Where()
     -- Sell price and quality are only available once the item is cached.
     item:ContinueOnItemLoad(function()
         local id = item:GetItemID()
-        local value = ItemValue(link) * quantity
+        local unit, quality = ItemValue(link)
+        local value = unit * quantity
         local entry = db.items[category][id]
         if not entry then
             entry = { id = id, link = link, count = 0, value = 0 }
             db.items[category][id] = entry
         end
+        entry.quality = quality
         entry.count = entry.count + quantity
         entry.value = entry.value + value
         db.gold[category] = db.gold[category] + value
+        Attribute(zone, char, value)
         Refresh()
     end)
 end
@@ -388,6 +491,7 @@ local function SnapshotLoot()
     if not loot.open then
         loot.open = true
         wipe(loot.slots)
+        if not running and Setting("autoStart") then Start() end
         loot.category = ClassifyLoot(slotCount)
         if debug then
             Print("loot:", loot.category, "slots:", slotCount, "source:", (GetLootSourceInfo(1)))
@@ -423,7 +527,15 @@ function handlers.ADDON_LOADED(name)
         db.coin[category] = db.coin[category] or 0
         db.items[category] = db.items[category] or {}
     end
+    db.settings = db.settings or {}
+    db.history = db.history or {}
+    db.session = db.session or NewSession()
+    db.session.zones = db.session.zones or {}
+    db.session.chars = db.session.chars or {}
+    db.session.samples = db.session.samples or {}
+    db.version = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version") or nil
 
+    frame:SetScale(Setting("scale"))
     frame:ClearAllPoints()
     if db.pos then
         frame:SetPoint(db.pos[1], UIParent, db.pos[2], db.pos[3], db.pos[4])
@@ -438,8 +550,70 @@ function handlers.PLAYER_LOGIN()
     lastMoney = GetMoney()
 end
 
+-- Requests from the WoWMCP app (AppRequest.lua in this folder, read by the client on /reload).
+-- Each id runs once; the result goes to db.lastRequest, which the app reads after the next /reload.
+local function ApplySettings(s)
+    for key, default in pairs(DEFAULTS) do
+        local value = s[key]
+        if value ~= nil and type(value) == type(default) then db.settings[key] = value end
+    end
+    db.settings.scale = math.min(2, math.max(0.5, Setting("scale")))
+    db.settings.tooltipItems = math.min(30, math.max(1, math.floor(Setting("tooltipItems"))))
+    if db.settings.priceSource ~= "vendor" then db.settings.priceSource = "auctionator" end
+    if type(s.herbSpells) == "table" then
+        wipe(db.herbSpells)
+        for _, id in ipairs(s.herbSpells) do
+            if tonumber(id) then db.herbSpells[tonumber(id)] = true end
+        end
+    end
+    frame:SetScale(Setting("scale"))
+    if s.shown ~= nil then
+        db.hidden = not s.shown or nil
+        frame:SetShown(s.shown and true or false)
+    end
+end
+
+local ACTIONS = { start = function() Start() end, stop = function() Stop() end, reset = function() Reset() end }
+
+local function RunAppRequest()
+    local r = GoldPerHour_AppRequest
+    if type(r) ~= "table" or type(r.id) ~= "number" or r.id == db.lastRequestId then return end
+    db.lastRequestId = r.id
+    local result = { id = r.id, action = r.action, done = time() }
+    local ok, err = pcall(function()
+        if type(r.settings) == "table" then
+            ApplySettings(r.settings)
+            result.settings = true
+            Print(L.applied)
+        end
+        if r.action ~= nil then
+            local fn = ACTIONS[r.action]
+            if not fn then error("unknown action " .. tostring(r.action)) end
+            fn()
+        end
+    end)
+    if not ok then result.error = tostring(err) end
+    db.lastRequest = result
+    Refresh()
+end
+
+local entered = false
+function handlers.PLAYER_ENTERING_WORLD(_, isReloadingUi)
+    if entered then return end -- fires again on every loading screen
+    entered = true
+    if isReloadingUi and db.resume and Setting("resumeAfterReload") then
+        Start()
+        Print(L.resumed)
+    end
+    db.resume = nil
+    RunAppRequest()
+end
+
 function handlers.PLAYER_LOGOUT()
-    Stop() -- GetTime() does not survive a logout, so the session pauses
+    -- GetTime() does not survive a logout, so the session pauses. On /reload it continues (resumeAfterReload).
+    db.resume = running or nil
+    Stop()
+    db.updated = time()
 end
 
 function handlers.UNIT_SPELLCAST_SENT(unit, _, _, spellID)
@@ -507,6 +681,14 @@ frame:SetScript("OnUpdate", function(_, dt)
     if sinceRefresh >= 0.5 then
         sinceRefresh = 0
         Refresh()
+    end
+end)
+
+-- The gold curve also grows while the window is hidden (OnUpdate only runs for shown frames).
+C_Timer.NewTicker(5, function()
+    if running and Elapsed() >= nextSample then
+        Sample()
+        nextSample = nextSample + SAMPLE_EVERY
     end
 end)
 

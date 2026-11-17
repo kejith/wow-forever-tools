@@ -1,7 +1,7 @@
 // WoWMCP desktop app: main process.
-// Talks to the game only through files: it reads the SavedVariables the WoWMCP addon and Auctionator write
-// on /reload or logout, and it writes AppRequest.lua into the installed addon, which the client loads on the
-// next /reload. All calculations run in the Python scripts via scripts/app_bridge.py.
+// Talks to the game only through files: it reads the SavedVariables the WoWMCP and GoldPerHour addons and
+// Auctionator write on /reload or logout, and it writes AppRequest.lua into the installed addons, which the
+// client loads on the next /reload. All calculations run in the Python scripts via scripts/app_bridge.py.
 
 const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
 const { execFile } = require('node:child_process');
@@ -161,7 +161,7 @@ function startWatcher() {
   const dir = path.join(settings.wowDir, 'WTF', 'Account');
   try {
     watcher = fs.watch(dir, { recursive: true }, (_event, file) => {
-      if (!file || !/(WoWMCP|Auctionator)\.lua$/i.test(file)) return;
+      if (!file || !/(WoWMCP|Auctionator|GoldPerHour)\.lua$/i.test(file)) return;
       clearTimeout(debounce);
       // WoW writes several SavedVariables files in a row on /reload; wait until it is done.
       debounce = setTimeout(() => win?.webContents.send('data-changed', { file }), 1500);
@@ -174,9 +174,16 @@ function startWatcher() {
 // ---------- IPC ----------
 
 ipcMain.handle('bridge', (_e, command, opts) => runBridge(command, opts));
-ipcMain.handle('addon:info', () => addon.addonInfo(settings.wowDir));
-ipcMain.handle('addon:install', () => {
-  try { return addon.installAddon(settings.wowDir); } catch (err) { return { error: err.message }; }
+const addonKey = (key) => (Object.hasOwn(addon.ADDONS, key) ? key : 'wowmcp');
+ipcMain.handle('addon:info', (_e, key) => addon.addonInfo(settings.wowDir, addonKey(key)));
+ipcMain.handle('addon:install', (_e, key) => {
+  try { return addon.installAddon(settings.wowDir, addonKey(key)); } catch (err) { return { error: err.message }; }
+});
+ipcMain.handle('gph:request', (_e, req) => {
+  try { return addon.writeGphRequest(settings.wowDir, req || {}); } catch (err) { return { error: err.message }; }
+});
+ipcMain.handle('gph:clear', () => {
+  try { return addon.clearGphRequest(settings.wowDir); } catch (err) { return { error: err.message }; }
 });
 ipcMain.handle('request:create', (_e, action, opts) => {
   try { return addon.writeRequest(settings.wowDir, action, opts); } catch (err) { return { error: err.message }; }
@@ -209,7 +216,7 @@ function createWindow() {
 async function runCapture(dir) {
   const out = path.resolve(__dirname, dir);
   fs.mkdirSync(out, { recursive: true });
-  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes'];
+  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'goldperhour'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   for (const page of pages) {
     await win.webContents.executeJavaScript(`window.__showPage(${JSON.stringify(page)})`);
@@ -222,6 +229,12 @@ async function runCapture(dir) {
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
+    if (page === 'goldperhour') {
+      // Open the first finished session, then shoot settings and history.
+      await win.webContents.executeJavaScript('document.querySelector("[data-gph-open]")?.click()');
+      await wait(600);
+      await captureScrolled(out, wait, '#gph-settings', 'goldperhour-history');
+    }
   }
   app.quit();
 }

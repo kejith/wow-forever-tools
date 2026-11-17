@@ -42,6 +42,42 @@ try {
   assert.equal(info.firstInstall, false);
   assert.ok(!fs.existsSync(path.join(target, 'ItemQueue.lua')));
   assert.deepEqual(addon.readRequest(wow), { id: r2.id, action: 'sync' });
+
+  // GoldPerHour installs next to WoWMCP into its own folder and has its own requests.
+  const gph = addon.installedAddonDir(wow, 'goldperhour');
+  assert.equal(addon.addonInfo(wow, 'goldperhour').installed, false);
+  assert.throws(() => addon.writeGphRequest(wow, { action: 'start' }), /nicht installiert/);
+  info = addon.installAddon(wow, 'goldperhour');
+  assert.equal(info.installed, true);
+  assert.equal(info.upToDate, true);
+  assert.equal(info.name, 'GoldPerHour');
+  assert.ok(fs.existsSync(path.join(gph, 'GoldPerHour.lua')));
+  assert.equal(addon.readRequest(wow, 'goldperhour'), null);
+  assert.deepEqual(addon.readRequest(wow), { id: r2.id, action: 'sync' }); // WoWMCP's request untouched
+
+  const g1 = addon.writeGphRequest(wow, {
+    action: 'reset',
+    settings: { scale: 9, tooltipItems: '4', priceSource: 'vendor"; os.exit() --', autoStart: true, shown: false,
+      herbSpells: [2366, '1234', -1, 'x', 1234], evil: 'print(1)' },
+  });
+  const gText = fs.readFileSync(path.join(gph, 'AppRequest.lua'), 'utf8');
+  assert.match(gText, new RegExp(`GoldPerHour_AppRequest = \\{ id = ${g1.id}, action = "reset", settings = \\{ shown = false, autoStart = true, scale = 2, tooltipItems = 4, herbSpells = \\{ 2366, 1234 \\} \\} \\}`));
+  assert.doesNotMatch(gText, /os\.exit|evil|print/);
+  assert.deepEqual(addon.readRequest(wow, 'goldperhour'), { id: g1.id, action: 'reset', settings: true });
+  assert.throws(() => addon.writeGphRequest(wow, { action: 'explode' }), /Unbekannte Aktion/);
+  assert.throws(() => addon.writeGphRequest(wow, {}), /Nichts zu senden/);
+  const g2 = addon.writeGphRequest(wow, { settings: { priceSource: 'auctionator' } });
+  assert.ok(g2.id > g1.id);
+  assert.equal(g2.action, null);
+
+  // An update keeps the request, withdrawing restores the stub.
+  fs.writeFileSync(path.join(gph, 'GoldPerHour.toc'), '## Interface: 16001\n## Version: 0.2.0\n\nGoldPerHour.lua\n');
+  assert.equal(addon.addonInfo(wow, 'goldperhour').installedVersion, '0.2.0');
+  info = addon.installAddon(wow, 'goldperhour');
+  assert.equal(info.upToDate, true);
+  assert.equal(addon.readRequest(wow, 'goldperhour').id, g2.id);
+  addon.clearGphRequest(wow);
+  assert.equal(addon.readRequest(wow, 'goldperhour'), null);
   console.log('addon.test.js: ok');
 } finally {
   fs.rmSync(wow, { recursive: true, force: true });
