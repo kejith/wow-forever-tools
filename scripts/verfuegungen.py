@@ -9,8 +9,11 @@ Nach einem vollen AH-Scan einmal /reload oder ausloggen, damit Auctionator speic
 """
 import argparse, datetime, glob, os, re, struct, sys
 
-DEFAULT_WOW = r"C:\Program Files (x86)\World of Warcraft\_forever_"
-REP = {"J": 75, "E": 125, "A": 200}
+# WOW_FOREVER_DIR wins; under WSL the Windows install is reached through /mnt/c.
+DEFAULT_WOW = os.environ.get("WOW_FOREVER_DIR") or (
+    "/mnt/c/Program Files (x86)/World of Warcraft/_forever_" if os.name == "posix"
+    else r"C:\Program Files (x86)\World of Warcraft\_forever_")
+REP ={"J": 75, "E": 125, "A": 200}
 TIER_NAME = {"J": "Geselle (75 Ruf)", "E": "Experte (125 Ruf)", "A": "Fachmann (200 Ruf)"}
 SEALED = {"J": 262888, "E": 262889, "A": 262890}
 

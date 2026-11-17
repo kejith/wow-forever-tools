@@ -25,7 +25,9 @@ from lupa.lua54 import LuaError, LuaRuntime, lua_type
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-DEFAULT_ROOT = r"C:\Program Files (x86)\World of Warcraft\_forever_"
+# Under WSL the Windows install is reached through /mnt/c.
+DEFAULT_ROOT = ("/mnt/c/Program Files (x86)/World of Warcraft/_forever_" if os.name == "posix"
+                else r"C:\Program Files (x86)\World of Warcraft\_forever_")
 SV_FILE = "WoWMCP.lua"
 SV_GLOBAL = "WoWMCP_Char"
 
