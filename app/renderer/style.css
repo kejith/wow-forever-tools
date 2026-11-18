@@ -61,6 +61,8 @@ button, select, input { font: inherit; color: inherit; }
 .dot.warn { background: var(--warn); }
 .dot.bad { background: var(--bad); }
 .sidebar-foot { margin-top: auto; color: var(--muted); font-size: 12px; padding: 8px; }
+.lang-select { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.lang-select select { width: 100%; font-size: 12px; }
 
 /* ---------- Main ---------- */
 main { flex: 1; display: flex; flex-direction: column; min-width: 0; }

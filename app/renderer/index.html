@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: wowicon:">
-  <title>WoWMCP</title>
+  <title>WoW Forever Tools</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,34 +11,41 @@
     <div class="brand">
       <div class="brand-mark">W</div>
       <div>
-        <div class="brand-name">WoWMCP</div>
-        <div class="brand-sub">WoW Forever</div>
+        <div class="brand-name">Forever Tools</div>
+        <div class="brand-sub">WoW: Forever <span id="app-version"></span></div>
       </div>
     </div>
     <nav id="nav">
-      <button data-page="connection" class="active"><span class="dot" id="nav-dot"></span>Verbindung</button>
-      <button data-page="character">Charakter</button>
-      <button data-page="writs">Verfügungen</button>
-      <button data-page="upgrades">AH-Upgrades</button>
-      <button data-page="recipes">Berufe</button>
-      <button data-page="goldperhour">Gold pro Stunde</button>
+      <button data-page="connection"><span class="dot" id="nav-dot"></span><span data-i18n="Connection">Connection</span></button>
+      <button data-page="character" data-i18n="Character">Character</button>
+      <button data-page="writs" data-i18n="Writs">Writs</button>
+      <button data-page="upgrades" data-i18n="AH upgrades">AH upgrades</button>
+      <button data-page="recipes" data-i18n="Professions">Professions</button>
+      <button data-page="goldperhour" data-i18n="Gold per hour">Gold per hour</button>
     </nav>
-    <div class="sidebar-foot" id="live-state">Warte auf Daten …</div>
+    <div class="sidebar-foot">
+      <label class="lang-select" data-i18n-title="Automatic follows the language of the game client"><span data-i18n="Language">Language</span>
+        <select id="lang-select">
+          <option value="auto" data-i18n="Automatic">Automatic</option>
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+        </select>
+      </label>
+      <div id="live-state" data-i18n="Waiting for data …">Waiting for data …</div>
+    </div>
   </aside>
-
   <main>
     <header class="topbar">
-      <h1 id="page-title">Verbindung</h1>
+      <h1 id="page-title"></h1>
       <div class="topbar-right">
-        <label class="char-select">Charakter
+        <label class="char-select"><span data-i18n="Character">Character</span>
           <select id="char-select"></select>
         </label>
-        <button id="refresh" class="ghost" title="Neu laden">↻ Aktualisieren</button>
+        <button id="refresh" class="ghost" data-i18n="↻ Refresh" data-i18n-title="Reload">↻ Refresh</button>
       </div>
     </header>
     <section id="content" class="content"></section>
   </main>
-
   <div id="wtip"></div>
   <script type="module" src="app.js"></script>
 </body>

@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const { t } = require('./i18n');
 
 const API = 'https://api.github.com';
 const MAX_AGE_MS = 15 * 60 * 1000; // GitHub allows 60 anonymous API calls per hour and address
@@ -24,20 +25,20 @@ function crc32(buf) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-// Files of a zip as [{ name, data }]. Handles what `git archive` and ordinary zip tools write (stored or
+// Files of a zip as [{ name, data }]. Handles what the release packager and ordinary zip tools write (stored or
 // deflated, no zip64, no encryption) and checks size and CRC of every file.
 function readZip(buf) {
   let eocd = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 0xffff); i--) {
     if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
   }
-  if (eocd < 0) throw new Error('keine Zip-Datei');
+  if (eocd < 0) throw new Error(t('not a zip file'));
   const count = buf.readUInt16LE(eocd + 10);
   let pos = buf.readUInt32LE(eocd + 16);
   const files = [];
   let total = 0;
   for (let i = 0; i < count; i++) {
-    if (pos + 46 > buf.length || buf.readUInt32LE(pos) !== 0x02014b50) throw new Error('Zip-Verzeichnis beschädigt');
+    if (pos + 46 > buf.length || buf.readUInt32LE(pos) !== 0x02014b50) throw new Error(t('zip directory is damaged'));
     const flags = buf.readUInt16LE(pos + 8);
     const method = buf.readUInt16LE(pos + 10);
     const crc = buf.readUInt32LE(pos + 16);
@@ -50,17 +51,17 @@ function readZip(buf) {
     const name = buf.toString('utf8', pos + 46, pos + 46 + nameLen);
     pos += 46 + nameLen + extraLen + commentLen;
     if (name.endsWith('/')) continue; // folder entry
-    if (flags & 1) throw new Error(`${name}: verschlüsselt`);
+    if (flags & 1) throw new Error(t('{name}: encrypted', { name }));
     total += size;
-    if (total > MAX_UNPACKED_BYTES) throw new Error('Zip entpackt zu groß');
-    if (local + 30 > buf.length || buf.readUInt32LE(local) !== 0x04034b50) throw new Error(`${name}: Eintrag beschädigt`);
+    if (total > MAX_UNPACKED_BYTES) throw new Error(t('zip is too large when unpacked'));
+    if (local + 30 > buf.length || buf.readUInt32LE(local) !== 0x04034b50) throw new Error(t('{name}: entry is damaged', { name }));
     const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
     const raw = buf.subarray(start, start + packed);
     let data;
     if (method === 0) data = Buffer.from(raw);
     else if (method === 8) data = zlib.inflateRawSync(raw, { maxOutputLength: Math.max(size, 1) });
-    else throw new Error(`${name}: unbekannte Kompression ${method}`);
-    if (data.length !== size || crc32(data) !== crc) throw new Error(`${name}: Prüfsumme stimmt nicht`);
+    else throw new Error(t('{name}: unknown compression {method}', { name, method }));
+    if (data.length !== size || crc32(data) !== crc) throw new Error(t('{name}: checksum does not match', { name }));
     files.push({ name, data });
   }
   return files;
@@ -71,12 +72,12 @@ function readZip(buf) {
 function extractAddon(buf, name, target) {
   const files = readZip(buf);
   const prefix = `${name}/`;
-  if (!files.length) throw new Error('Zip ist leer');
+  if (!files.length) throw new Error(t('zip is empty'));
   for (const f of files) {
     const rel = f.name.startsWith(prefix) ? f.name.slice(prefix.length) : null;
     const parts = rel ? rel.split('/') : [];
     if (!rel || f.name.includes('\\') || parts.some((p) => !p || p === '.' || p === '..' || p.includes(':'))) {
-      throw new Error(`Unerwarteter Eintrag im Zip: ${f.name}`);
+      throw new Error(t('Unexpected entry in the zip: {name}', { name: f.name }));
     }
     const file = path.join(target, ...parts);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -117,11 +118,11 @@ async function request(fetchFn, url, accept) {
       signal: AbortSignal.timeout(15000),
     });
   } catch (err) {
-    throw new Error(`GitHub nicht erreichbar (${err.cause?.code || err.name || err.message})`);
+    throw new Error(t('GitHub cannot be reached ({reason})', { reason: err.cause?.code || err.name || err.message }));
   }
-  if (res.status === 404) throw Object.assign(new Error('kein Release gefunden'), { notFound: true });
-  if (res.status === 403 || res.status === 429) throw new Error('GitHub-Limit erreicht, später erneut versuchen');
-  if (!res.ok) throw new Error(`GitHub antwortet mit ${res.status}`);
+  if (res.status === 404) throw Object.assign(new Error(t('no release found')), { notFound: true });
+  if (res.status === 403 || res.status === 429) throw new Error(t('GitHub rate limit reached, try again later'));
+  if (!res.ok) throw new Error(t('GitHub answered with {status}', { status: res.status }));
   return res;
 }
 
@@ -141,7 +142,7 @@ function cachedSource(root, name, state, extra = {}) {
 // Newest release of `repo` unpacked under `<cacheDir>/<name>/<tag>`. Asks GitHub at most every `maxAge` ms
 // (`force` asks now). Without network the last download is returned with `offline` and the reason.
 async function latestRelease({ repo, name, cacheDir, api = API, fetchFn = fetch, maxAge = MAX_AGE_MS, force = false }) {
-  if (!cacheDir) throw new Error('Kein Cache-Ordner für Addon-Releases.');
+  if (!cacheDir) throw new Error(t('No cache folder for addon releases.'));
   const root = path.join(cacheDir, name);
   const stateFile = path.join(root, 'release.json');
   const state = readState(stateFile);
@@ -151,23 +152,23 @@ async function latestRelease({ repo, name, cacheDir, api = API, fetchFn = fetch,
   try {
     const release = await (await request(fetchFn, `${api}/repos/${repo}/releases/latest`, 'application/vnd.github+json')).json();
     const tag = String(release.tag_name || '');
-    if (!SAFE_NAME.test(tag)) throw new Error(`Unerwarteter Release-Name: ${tag.slice(0, 40)}`);
+    if (!SAFE_NAME.test(tag)) throw new Error(t('Unexpected release name: {tag}', { tag: tag.slice(0, 40) }));
     const zips = (release.assets || []).filter((a) => typeof a.name === 'string' && a.name.toLowerCase().endsWith('.zip'));
     const asset = zips.find((a) => a.name === `${name}-${tag}.zip`) || zips[0];
-    if (!asset || !Number.isInteger(asset.id)) throw new Error(`Release ${tag} hat kein Zip`);
-    if (asset.size > MAX_ZIP_BYTES) throw new Error(`Zip von Release ${tag} ist zu groß`);
+    if (!asset || !Number.isInteger(asset.id)) throw new Error(t('Release {tag} has no zip', { tag }));
+    if (asset.size > MAX_ZIP_BYTES) throw new Error(t('The zip of release {tag} is too large', { tag }));
 
     const dir = path.join(root, tag);
     if (!fs.existsSync(path.join(dir, `${name}.toc`))) {
       // The asset is addressed by its id on the API host, never by a URL taken from the response.
       const res = await request(fetchFn, `${api}/repos/${repo}/releases/assets/${asset.id}`, 'application/octet-stream');
       const zip = Buffer.from(await res.arrayBuffer());
-      if (zip.length > MAX_ZIP_BYTES) throw new Error(`Zip von Release ${tag} ist zu groß`);
+      if (zip.length > MAX_ZIP_BYTES) throw new Error(t('The zip of release {tag} is too large', { tag }));
       const tmp = path.join(root, `.${tag}.${process.pid}.tmp`);
       fs.rmSync(tmp, { recursive: true, force: true });
       try {
         extractAddon(zip, name, tmp);
-        if (!fs.existsSync(path.join(tmp, `${name}.toc`))) throw new Error(`Zip von Release ${tag} enthält keine ${name}.toc`);
+        if (!fs.existsSync(path.join(tmp, `${name}.toc`))) throw new Error(t('The zip of release {tag} contains no {toc}', { tag, toc: `${name}.toc` }));
         fs.rmSync(dir, { recursive: true, force: true });
         fs.renameSync(tmp, dir);
       } finally {
@@ -183,9 +184,9 @@ async function latestRelease({ repo, name, cacheDir, api = API, fetchFn = fetch,
     }
     return cachedSource(root, name, next);
   } catch (err) {
-    const reason = err.notFound ? `${repo} hat noch kein Release.` : err.message;
+    const reason = err.notFound ? t('{repo} has no release yet.', { repo }) : err.message;
     if (cached) return { ...cached, offline: true, error: reason };
-    throw new Error(err.notFound ? reason : `Release von ${repo} nicht geladen: ${reason}`);
+    throw new Error(err.notFound ? reason : t('Release of {repo} not loaded: {reason}', { repo, reason }));
   }
 }
 

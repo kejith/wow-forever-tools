@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const addon = require('./addon');
+const i18n = require('./i18n');
 const releases = require('./releases');
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'wowmcp-test-'));
@@ -35,7 +36,7 @@ const gphFiles = (version) => ({
   'GoldPerHour.lua': `-- GoldPerHour ${version}\n`,
 });
 
-// A zip like `git archive --prefix=<Name>/` writes it: folder entry, deflated files, archive comment.
+// A zip with what real ones contain: a folder entry, stored and deflated files, an archive comment.
 function zip(entries, comment = '') {
   const locals = [];
   const centrals = [];
@@ -99,13 +100,13 @@ async function main() {
   const files = releases.readZip(addonZip('WoWMCP', wowmcpFiles('1.5.0')));
   assert.deepEqual(files.map((f) => f.name), ['WoWMCP/WoWMCP.toc', 'WoWMCP/AppRequest.lua', 'WoWMCP/WoWMCP.lua']);
   assert.equal(files[2].data.toString(), '-- WoWMCP 1.5.0\n');
-  assert.throws(() => releases.readZip(zip([{ name: 'WoWMCP/x.lua', data: 'x', crc: 1 }])), /Prüfsumme/);
-  assert.throws(() => releases.readZip(Buffer.from('<html>not a zip</html>')), /keine Zip-Datei/);
+  assert.throws(() => releases.readZip(zip([{ name: 'WoWMCP/x.lua', data: 'x', crc: 1 }])), /checksum does not match/);
+  assert.throws(() => releases.readZip(Buffer.from('<html>not a zip</html>')), /not a zip file/);
   // Nothing may land outside the addon's folder.
   for (const name of ['../evil.lua', 'WoWMCP/../../evil.lua', 'Other/x.lua', '/abs.lua', 'WoWMCP/a\\..\\b.lua']) {
     const out = path.join(scratch, 'extract', 'WoWMCP');
     assert.throws(() => releases.extractAddon(zip([{ name: 'WoWMCP/ok.lua', data: 'ok' }, { name, data: 'x' }].reverse()), 'WoWMCP', out),
-      /Unerwarteter Eintrag/, name);
+      /Unexpected entry in the zip/, name);
     assert.ok(!fs.existsSync(path.join(scratch, 'evil.lua')) && !fs.existsSync(path.join(scratch, 'extract', 'evil.lua')));
   }
 
@@ -118,7 +119,7 @@ async function main() {
   assert.equal(info.installed, false);
   assert.equal(info.source.kind, 'local');
   assert.equal(info.sourceVersion, '1.5.0');
-  assert.throws(() => addon.writeRequest(wow, 'items'), /nicht installiert/);
+  assert.throws(() => addon.writeRequest(wow, 'items'), /WoWMCP is not installed/);
 
   // Fresh install ships every file from the .toc.
   info = await addon.installAddon(wow, 'wowmcp', local);
@@ -158,15 +159,15 @@ async function main() {
 
   // A .toc must not send the installer outside the addon folder.
   const evil = writeTree(path.join(scratch, 'src', 'evil'), { 'WoWMCP.toc': '## Version: 9\n\n..\\..\\evil.lua\n', 'evil.lua': 'x' });
-  await assert.rejects(addon.installAddon(wow, 'wowmcp', { sources: { wowmcp: evil } }), /Unerlaubter Pfad/);
+  await assert.rejects(addon.installAddon(wow, 'wowmcp', { sources: { wowmcp: evil } }), /Path not allowed in WoWMCP\.toc/);
   info = await addon.addonInfo(wow, 'wowmcp', { sources: { wowmcp: path.join(scratch, 'nowhere') } });
-  assert.match(info.sourceError, /Lokale Quelle ohne WoWMCP\.toc/);
+  assert.match(info.sourceError, /Local source without WoWMCP\.toc/);
   assert.equal(info.upToDate, true); // nothing to compare against, the install is left alone
 
   // GoldPerHour installs next to WoWMCP into its own folder and has its own requests.
   const gph = addon.installedAddonDir(wow, 'goldperhour');
   assert.equal((await addon.addonInfo(wow, 'goldperhour', local)).installed, false);
-  assert.throws(() => addon.writeGphRequest(wow, { action: 'start' }), /nicht installiert/);
+  assert.throws(() => addon.writeGphRequest(wow, { action: 'start' }), /GoldPerHour is not installed/);
   info = await addon.installAddon(wow, 'goldperhour', local);
   assert.equal(info.installed, true);
   assert.equal(info.upToDate, true);
@@ -184,8 +185,8 @@ async function main() {
   assert.match(gText, new RegExp(`GoldPerHour_AppRequest = \\{ id = ${g1.id}, action = "reset", settings = \\{ shown = false, autoStart = true, scale = 2, tooltipItems = 4, herbSpells = \\{ 2366, 1234 \\} \\} \\}`));
   assert.doesNotMatch(gText, /os\.exit|evil|print/);
   assert.deepEqual(addon.readRequest(wow, 'goldperhour'), { id: g1.id, action: 'reset', settings: true });
-  assert.throws(() => addon.writeGphRequest(wow, { action: 'explode' }), /Unbekannte Aktion/);
-  assert.throws(() => addon.writeGphRequest(wow, {}), /Nichts zu senden/);
+  assert.throws(() => addon.writeGphRequest(wow, { action: 'explode' }), /Unknown action: explode/);
+  assert.throws(() => addon.writeGphRequest(wow, {}), /Nothing to send/);
   const g2 = addon.writeGphRequest(wow, { settings: { priceSource: 'auctionator' } });
   assert.ok(g2.id > g1.id);
   assert.equal(g2.action, null);
@@ -209,9 +210,9 @@ async function main() {
 
   // No release yet and nothing cached: the reason is reported and nothing can be installed.
   info = await addon.addonInfo(wow2, 'goldperhour', gh);
-  assert.match(info.sourceError, /kejith\/GoldPerHour hat noch kein Release/);
+  assert.match(info.sourceError, /kejith\/GoldPerHour has no release yet/);
   assert.equal(info.source, null);
-  await assert.rejects(addon.installAddon(wow2, 'goldperhour', gh), /noch kein Release/);
+  await assert.rejects(addon.installAddon(wow2, 'goldperhour', gh), /has no release yet/);
 
   // First release: downloaded through the asset id, unpacked into the cache, installed from there.
   published['kejith/GoldPerHour'] = { tag: 'v0.3.0', id: 11, zip: addonZip('GoldPerHour', gphFiles('0.3.0')) };
@@ -240,7 +241,7 @@ async function main() {
   published['kejith/GoldPerHour'] = { tag: 'v0.5.0', id: 13, zip: zip([{ name: 'GoldPerHour/GoldPerHour.toc', data: '## Version: 0.5.0\n' }, { name: '../evil.lua', data: 'x' }]) };
   info = await addon.addonInfo(wow2, 'goldperhour', { ...gh, force: true });
   assert.deepEqual([info.sourceVersion, info.source.offline, info.upToDate], ['0.4.0', true, true]);
-  assert.match(info.source.error, /Unerwarteter Eintrag/);
+  assert.match(info.source.error, /Unexpected entry in the zip/);
   assert.ok(!fs.existsSync(path.join(cacheDir, 'evil.lua')) && !fs.existsSync(path.join(cacheDir, 'GoldPerHour', 'v0.5.0')));
   assert.deepEqual(fs.readdirSync(path.join(cacheDir, 'GoldPerHour')).sort(), ['release.json', 'v0.4.0']);
 
@@ -254,11 +255,18 @@ async function main() {
   await new Promise((resolve) => server.close(resolve));
   info = await addon.addonInfo(wow2, 'goldperhour', { ...gh, force: true });
   assert.deepEqual([info.source.offline, info.sourceVersion], [true, '0.4.0']);
-  assert.match(info.source.error, /GitHub nicht erreichbar/);
+  assert.match(info.source.error, /GitHub cannot be reached/);
   info = await addon.installAddon(wow2, 'goldperhour', { ...gh, force: true });
   assert.deepEqual([info.installedVersion, info.upToDate], ['0.4.0', true]);
   info = await addon.addonInfo(wow2, 'wowmcp', gh);
+  assert.match(info.sourceError, /Release of kejith\/WoWMCP not loaded: GitHub cannot be reached/);
+
+  // The same messages in German when the app runs in German.
+  i18n.setLanguage('de');
+  info = await addon.addonInfo(wow2, 'wowmcp', gh);
   assert.match(info.sourceError, /Release von kejith\/WoWMCP nicht geladen: GitHub nicht erreichbar/);
+  assert.throws(() => addon.writeGphRequest(wow, { action: 'explode' }), /Unbekannte Aktion: explode/);
+  i18n.setLanguage('en');
 
   console.log('addon.test.js: ok');
 }

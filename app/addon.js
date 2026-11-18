@@ -3,6 +3,7 @@
 // a local checkout. No Electron, so everything can be tested against a scratch folder: node addon.test.js
 const fs = require('node:fs');
 const path = require('node:path');
+const { t } = require('./i18n');
 const { latestRelease, tocVersion: versionOf, compareVersions } = require('./releases');
 
 const REQUEST_FILE = 'AppRequest.lua';
@@ -17,7 +18,7 @@ const ADDONS = {
 
 function spec(key) {
   const s = ADDONS[key];
-  if (!s) throw new Error(`Unbekanntes Addon: ${key}`);
+  if (!s) throw new Error(t('Unknown addon: {key}', { key }));
   return s;
 }
 
@@ -34,7 +35,7 @@ async function resolveSource(key, opts = {}) {
   const local = opts.sources?.[key] || process.env[s.env];
   if (local) {
     const dir = path.resolve(local);
-    if (!fs.existsSync(path.join(dir, tocName(key)))) throw new Error(`Lokale Quelle ohne ${tocName(key)}: ${dir}`);
+    if (!fs.existsSync(path.join(dir, tocName(key)))) throw new Error(t('Local source without {toc}: {dir}', { toc: tocName(key), dir }));
     return { kind: 'local', dir, repo: s.repo, version: tocVersion(dir, key) };
   }
   return latestRelease({ repo: s.repo, name: s.name, cacheDir: opts.cacheDir, api: opts.api, fetchFn: opts.fetchFn,
@@ -47,7 +48,7 @@ function tocFiles(dir, key) {
   const toc = fs.readFileSync(path.join(dir, tocName(key)), 'utf8');
   const files = toc.split(/\r?\n/).map((l) => l.trim().replace(/\\/g, '/')).filter((l) => l && !l.startsWith('#'));
   const bad = files.find((f) => f.startsWith('/') || f.includes(':') || f.split('/').includes('..'));
-  if (bad) throw new Error(`Unerlaubter Pfad in ${tocName(key)}: ${bad}`);
+  if (bad) throw new Error(t('Path not allowed in {toc}: {path}', { toc: tocName(key), path: bad }));
   return files;
 }
 
@@ -100,7 +101,7 @@ async function addonInfo(wowDir, key = 'wowmcp', opts = {}) {
   }
   // Installed from a local checkout that is ahead of the release: nothing to update.
   const ahead = !!source && installed && changed.length > 0 && compareVersions(installedVersion, source.version) > 0;
-  // Forever re-reads the .toc on /reload (tested 15.11.2026: new files and new SavedVariables load), so an
+  // Forever re-reads the .toc on /reload (tested 2026-11-15: new files and new SavedVariables load), so an
   // update never needs a game restart.
   return {
     key, name: spec(key).name, repo: spec(key).repo, installedDir: target, installed, installedVersion,
@@ -118,7 +119,7 @@ async function installAddon(wowDir, key = 'wowmcp', opts = {}) {
   const wasInstalled = fs.existsSync(path.join(target, tocName(key)));
   const files = [tocName(key), ...tocFiles(source.dir, key)];
   const missing = files.filter((f) => !fs.existsSync(path.join(source.dir, f)));
-  if (missing.length) throw new Error(`In der Quelle fehlen Dateien aus der .toc: ${missing.join(', ')}`);
+  if (missing.length) throw new Error(t('The source lacks files listed in the .toc: {files}', { files: missing.join(', ') }));
   fs.mkdirSync(target, { recursive: true });
   for (const f of files) {
     // Keep a request the app already wrote; only ship the empty stub on first install.
@@ -135,11 +136,11 @@ function nextId(wowDir, key) {
   return Math.max(Math.floor(Date.now() / 1000), (readRequest(wowDir, key)?.id || 0) + 1);
 }
 
-const REQUEST_NOTE = '-- Written by the WoWMCP desktop app. The client re-reads this file on /reload; a request runs once.\n';
+const REQUEST_NOTE = '-- Written by the WoW Forever Tools desktop app. The client re-reads this file on /reload; a request runs once.\n';
 
 function writeFile(wowDir, key, fields) {
   const target = installedAddonDir(wowDir, key);
-  if (!fs.existsSync(path.join(target, tocName(key)))) throw new Error(`${spec(key).name} ist nicht installiert.`);
+  if (!fs.existsSync(path.join(target, tocName(key)))) throw new Error(t('{name} is not installed.', { name: spec(key).name }));
   const value = fields ? `{ ${fields.join(', ')} }` : 'nil';
   fs.writeFileSync(path.join(target, REQUEST_FILE), `${REQUEST_NOTE}${spec(key).global} = ${value}\n`);
 }
@@ -176,9 +177,9 @@ function gphSettingsLua(s) {
 }
 
 function writeGphRequest(wowDir, { action, settings } = {}) {
-  if (action != null && !GPH_ACTIONS.includes(action)) throw new Error(`Unbekannte Aktion: ${action}`);
+  if (action != null && !GPH_ACTIONS.includes(action)) throw new Error(t('Unknown action: {action}', { action }));
   const settingsLua = settings ? gphSettingsLua(settings) : [];
-  if (!action && !settingsLua.length) throw new Error('Nichts zu senden.');
+  if (!action && !settingsLua.length) throw new Error(t('Nothing to send.'));
   const id = nextId(wowDir, 'goldperhour');
   const fields = [`id = ${id}`];
   if (action) fields.push(`action = "${action}"`);

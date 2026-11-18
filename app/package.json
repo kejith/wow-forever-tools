@@ -1,13 +1,21 @@
 {
-  "name": "wowmcp-app",
-  "version": "1.0.0",
+  "name": "wow-forever-tools",
+  "productName": "WoW Forever Tools",
+  "version": "1.1.0",
   "private": true,
-  "description": "Desktop-App für WoW Forever: Addons WoWMCP und GoldPerHour, Charakter, Verfügungen, AH-Upgrades, Berufe und Gold pro Stunde.",
+  "description": "Desktop app for WoW: Forever: installs the WoWMCP and GoldPerHour addons and shows character, writs, AH upgrades, professions and gold per hour.",
+  "author": "kejith",
+  "homepage": "https://github.com/kejith/wow-forever-tools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kejith/wow-forever-tools.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "capture": "electron . --capture=captures",
-    "test": "node addon.test.js"
+    "test": "node addon.test.js && node i18n.test.js",
+    "dist": "electron-builder --win nsis --publish never"
   },
   "devDependencies": {
     "electron": "^45.3.2"

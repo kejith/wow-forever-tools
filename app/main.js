@@ -1,9 +1,11 @@
-// WoWMCP desktop app: main process.
+// WoW Forever Tools, the desktop app: main process.
 // Talks to the game only through files: it reads the SavedVariables the WoWMCP and GoldPerHour addons and
 // Auctionator write on /reload or logout, and it writes AppRequest.lua into the installed addons, which the
 // client loads on the next /reload. All calculations run in the Python scripts via scripts/app_bridge.py.
 // The addons themselves come from their GitHub releases (addon.js, releases.js), cached in the app's data
 // folder; settings.addonSources = { wowmcp: <folder>, goldperhour: <folder> } installs from a checkout instead.
+// Language: settings.language (auto, en, de); auto follows the game client (textLocale in WTF/Config.wtf) and,
+// without a client, the operating system. The bridge gets the same language, so its texts match the page.
 
 const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
 const { execFile } = require('node:child_process');
@@ -11,17 +13,29 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const addon = require('./addon');
+const i18n = require('./i18n');
 
-const REPO = path.resolve(__dirname, '..');
-const BRIDGE = path.join(REPO, 'scripts', 'app_bridge.py');
-const DEFAULT_WOW = 'C:\\Program Files (x86)\\World of Warcraft\\_forever_';
-const ICON_DIR = path.join(REPO, 'scripts', 'cache', 'icons');
+const { t } = i18n;
+
+// The Python scripts: in the installed app next to app.asar (extraResources), otherwise in the checkout.
+const ROOT = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, '..');
+const BRIDGE = path.join(ROOT, 'scripts', 'app_bridge.py');
+// Under WSL and Linux the Windows install is reached through /mnt/c.
+const DEFAULT_WOW = process.platform === 'win32'
+  ? 'C:\\Program Files (x86)\\World of Warcraft\\_forever_' : '/mnt/c/Program Files (x86)/World of Warcraft/_forever_';
+
+// The data folder keeps the name it had before the app was renamed, so settings and downloaded addons stay.
+app.setPath('userData', path.join(app.getPath('appData'), 'wowmcp-app'));
+// Downloaded game data and icons (scripts/icons.py). The installed app cannot write next to its scripts.
+const cacheDir = () => (app.isPackaged ? path.join(app.getPath('userData'), 'cache') : path.join(ROOT, 'scripts', 'cache'));
+const argValue = (name) => (process.argv.find((a) => a.startsWith(`--${name}=`)) || '').split('=')[1] || '';
 
 // Item icons reach the page as wowicon://<FileDataID>.png, served from the cache scripts/icons.py fills.
 protocol.registerSchemesAsPrivileged([{ scheme: 'wowicon', privileges: { standard: true, secure: true } }]);
 
 let win;
 let settings = {};
+let language = 'en';
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 
 function loadSettings() {
@@ -31,7 +45,20 @@ function loadSettings() {
     settings = {};
   }
   settings.wowDir ||= process.env.WOW_FOREVER_DIR || DEFAULT_WOW;
+  applyLanguage();
 }
+
+// --lang=en|de on the command line (screenshots) wins over the setting; "auto" follows the game client.
+function applyLanguage() {
+  const wanted = argValue('lang') || settings.language;
+  const fixed = i18n.LANGUAGES.includes(wanted) ? wanted : null;
+  language = i18n.setLanguage(fixed || i18n.languageOf(i18n.clientLocale(settings.wowDir) || app.getLocale()));
+}
+
+const publicSettings = () => ({
+  ...settings, language: i18n.LANGUAGES.includes(settings.language) ? settings.language : 'auto',
+  activeLanguage: language, clientLocale: i18n.clientLocale(settings.wowDir), version: app.getVersion(),
+});
 
 function saveSettings() {
   fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
@@ -43,6 +70,9 @@ function saveSettings() {
 function uvCandidates() {
   const list = [];
   if (settings.uvPath) list.push(settings.uvPath);
+  // The installer ships uv; it fetches Python and the scripts' dependencies on the first call.
+  const bundled = path.join(process.resourcesPath || '', 'bin', process.platform === 'win32' ? 'uv.exe' : 'uv');
+  if (app.isPackaged && fs.existsSync(bundled)) list.push(bundled);
   list.push('uv');
   const local = process.env.LOCALAPPDATA;
   if (local) {
@@ -60,16 +90,16 @@ function uvCandidates() {
 function execUv(uv, args) {
   return new Promise((resolve, reject) => {
     execFile(uv, args, {
-      cwd: REPO, timeout: 180000, maxBuffer: 64 * 1024 * 1024, windowsHide: true,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      cwd: ROOT, timeout: 300000, maxBuffer: 64 * 1024 * 1024, windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', WOW_TOOLS_CACHE: cacheDir() },
     }, (err, stdout, stderr) => {
       if (err && err.code === 'ENOENT') return reject(err);
       const text = stdout.trim();
-      if (!text) return reject(new Error((stderr || String(err || 'keine Ausgabe')).trim().split('\n').slice(-3).join('\n')));
+      if (!text) return reject(new Error((stderr || String(err || t('no output'))).trim().split('\n').slice(-3).join('\n')));
       try {
         resolve(JSON.parse(text.split('\n').pop()));
       } catch {
-        reject(new Error(`Ungültige Antwort der Bridge: ${text.slice(0, 200)}`));
+        reject(new Error(t('Invalid answer from the bridge: {text}', { text: text.slice(0, 200) })));
       }
     });
   });
@@ -77,15 +107,15 @@ function execUv(uv, args) {
 
 let workingUv;
 async function runBridge(command, opts = {}) {
-  const args = ['run', '--quiet', BRIDGE, command, '--wow', settings.wowDir];
+  const args = ['run', '--quiet', BRIDGE, command, '--wow', settings.wowDir, '--lang', language];
   if (opts.char) args.push('--char', opts.char);
   if (opts.top) args.push('--top', String(opts.top));
-  if (opts.maxPreis) args.push('--max-preis', String(opts.maxPreis));
-  if (opts.vorschau !== undefined) args.push('--vorschau', String(opts.vorschau));
-  if (opts.besitzZumAhPreis) args.push('--besitz-zum-ah-preis');
-  if (['leveln', 'dungeon'].includes(opts.profil)) args.push('--profil', opts.profil);
-  if (['gewinn', 'preis'].includes(opts.sort)) args.push('--sort', opts.sort);
-  if (typeof opts.beruf === 'string' && opts.beruf) args.push('--beruf', opts.beruf);
+  if (opts.maxPrice) args.push('--max-price', String(opts.maxPrice));
+  if (opts.preview !== undefined) args.push('--preview', String(opts.preview));
+  if (opts.ownedAtAhPrice) args.push('--owned-at-ah-price');
+  if (['leveling', 'dungeon'].includes(opts.profile)) args.push('--profile', opts.profile);
+  if (['gain', 'price'].includes(opts.sort)) args.push('--sort', opts.sort);
+  if (typeof opts.profession === 'string' && opts.profession) args.push('--profession', opts.profession);
   if (Array.isArray(opts.ids)) args.push('--ids', opts.ids.map(Number).filter((n) => n > 0).join(','));
   const candidates = workingUv ? [workingUv] : uvCandidates();
   let lastErr;
@@ -100,9 +130,9 @@ async function runBridge(command, opts = {}) {
     }
   }
   if (lastErr && lastErr.code === 'ENOENT') {
-    return { error: 'uv wurde nicht gefunden. Installieren: winget install astral-sh.uv' };
+    return { error: t('uv was not found. Install it with: winget install astral-sh.uv') };
   }
-  return { error: lastErr ? lastErr.message : 'Bridge fehlgeschlagen' };
+  return { error: lastErr ? lastErr.message : t('The bridge failed') };
 }
 
 // ---------- Item icons ----------
@@ -135,7 +165,7 @@ function serveIcons() {
   protocol.handle('wowicon', (request) => {
     const name = new URL(request.url).hostname;
     if (!/^\d+\.png$/.test(name)) return new Response('', { status: 404 });
-    return net.fetch(pathToFileURL(path.join(ICON_DIR, name)).toString());
+    return net.fetch(pathToFileURL(path.join(cacheDir(), 'icons', name)).toString());
   });
 }
 
@@ -196,12 +226,14 @@ ipcMain.handle('request:create', (_e, action, opts) => {
 ipcMain.handle('icons', (_e, ids) => resolveIcons(Array.isArray(ids) ? ids : []));
 ipcMain.handle('wow:running', () => wowRunning());
 ipcMain.handle('open:path', (_e, p) => shell.openPath(p));
-ipcMain.handle('settings:get', () => ({ ...settings, repo: REPO }));
+ipcMain.handle('settings:get', () => publicSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
-  Object.assign(settings, patch || {});
+  const { activeLanguage, clientLocale, version, ...rest } = patch || {};
+  Object.assign(settings, rest);
   saveSettings();
+  applyLanguage();
   startWatcher();
-  return settings;
+  return publicSettings();
 });
 
 // ---------- Window ----------
@@ -209,7 +241,7 @@ ipcMain.handle('settings:set', (_e, patch) => {
 function createWindow() {
   win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 980, minHeight: 640, backgroundColor: '#14110f',
-    title: 'WoWMCP', autoHideMenuBar: true,
+    title: 'WoW Forever Tools', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
@@ -218,6 +250,7 @@ function createWindow() {
 }
 
 // "npm run capture": renders every page once and saves screenshots, for checking the UI without clicking.
+// With --lang=en or --lang=de the pages come in that language, whatever the settings say.
 async function runCapture(dir) {
   const out = path.resolve(__dirname, dir);
   fs.mkdirSync(out, { recursive: true });

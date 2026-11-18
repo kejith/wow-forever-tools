@@ -1,4 +1,5 @@
 // Exposes a small, fixed API to the renderer; the page itself has no Node access.
+// getSettings() also tells the page its language: { language: auto|en|de, activeLanguage: en|de, clientLocale }.
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('wow', {

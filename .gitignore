@@ -1,16 +1,17 @@
-# Abhängigkeiten und Build
+# Dependencies and build output
 node_modules/
 app/out/
 app/dist/
 __pycache__/
 *.pyc
 
-# Heruntergeladene Spieldaten (wago.tools) und App-Screenshots
+# Downloaded game data (wago.tools), app screenshots, tools the release build downloads
 scripts/cache/
 app/captures/
+app/build/bin/
 
-# Lokale Claude-Einstellungen
+# Local Claude settings
 .claude/settings.local.json
 
-# Persönliche Angaben für Claude (Account-Ordner, Windows-Benutzer)
+# Personal notes for Claude (account folder, Windows user)
 CLAUDE.local.md
