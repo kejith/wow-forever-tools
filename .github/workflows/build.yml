@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: 22
       - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: false # the scripts carry their dependencies in the header, there is no lock file to key a cache on
       - name: Install the app's dependencies
         # The tests need no Electron binary; this checks that package-lock.json fits package.json.
         working-directory: app
@@ -50,6 +52,8 @@ jobs:
         with:
           node-version: 22
       - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: false # the scripts carry their dependencies in the header, there is no lock file to key a cache on
       - name: Put uv into the app
         # The installed app runs its Python scripts with this uv, so nobody has to install anything else.
         run: |
