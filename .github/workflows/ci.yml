@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  tag:
+    name: Tag a new version
+    # A push to main whose version in app/package.json has no tag yet becomes a release: this job creates
+    # the tag and starts the release workflow for it. Nothing happens while the version stays the same.
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create the tag and start the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./app/package.json').version")
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "::notice::$tag exists, nothing to release."
+            exit 0
+          fi
+          git tag "$tag"
+          git push origin "$tag"
+          gh workflow run release.yml --ref "$tag"
+          echo "::notice::Started the release of $tag"

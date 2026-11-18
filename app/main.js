@@ -26,8 +26,9 @@ const DEFAULT_WOW = process.platform === 'win32'
 
 // The data folder keeps the name it had before the app was renamed, so settings and downloaded addons stay.
 app.setPath('userData', path.join(app.getPath('appData'), 'wowmcp-app'));
-// Downloaded game data and icons (scripts/icons.py). The installed app cannot write next to its scripts.
-const cacheDir = () => (app.isPackaged ? path.join(app.getPath('userData'), 'cache') : path.join(ROOT, 'scripts', 'cache'));
+// Downloaded game data and icons (scripts/icons.py). The installed app cannot write next to its scripts, and
+// "cache" is taken: Chromium keeps its own Cache folder in userData and Windows ignores case.
+const cacheDir = () => (app.isPackaged ? path.join(app.getPath('userData'), 'game-data') : path.join(ROOT, 'scripts', 'cache'));
 const argValue = (name) => (process.argv.find((a) => a.startsWith(`--${name}=`)) || '').split('=')[1] || '';
 
 // Item icons reach the page as wowicon://<FileDataID>.png, served from the cache scripts/icons.py fills.
@@ -251,18 +252,43 @@ function createWindow() {
 
 // "npm run capture": renders every page once and saves screenshots, for checking the UI without clicking.
 // With --lang=en or --lang=de the pages come in that language, whatever the settings say.
+// Next to the screenshots goes report.json with the error each page showed, if any. With --require=<pages>
+// (comma separated) the app exits with code 1 when one of these pages shows an error or never finishes;
+// CI uses that as a smoke test of the built app.
 async function runCapture(dir) {
-  const out = path.resolve(__dirname, dir);
+  const required = argValue('require').split(',').filter(Boolean);
+  let failed = [];
+  try {
+    failed = await capturePages(path.resolve(app.isPackaged ? process.cwd() : __dirname, dir), required);
+  } catch (err) {
+    console.error(`capture failed: ${err.stack || err}`);
+    app.exit(1);
+    return;
+  }
+  for (const line of failed) console.error(`capture: ${line}`);
+  app.exit(failed.length ? 1 : 0);
+}
+
+async function capturePages(out, required) {
   fs.mkdirSync(out, { recursive: true });
   const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'goldperhour'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const report = { language, version: app.getVersion(), packaged: app.isPackaged, uv: null, pages: {} };
   for (const page of pages) {
     await win.webContents.executeJavaScript(`window.__showPage(${JSON.stringify(page)})`);
-    for (let i = 0; i < 120; i++) {
-      if (await win.webContents.executeJavaScript('window.__idle === true')) break;
-      await wait(500);
+    let idle = false;
+    for (let i = 0; i < 600 && !idle; i++) {
+      idle = await win.webContents.executeJavaScript('window.__idle === true');
+      if (!idle) await wait(500);
     }
     await wait(400);
+    // "error": the page as a whole failed. "notices": error boxes inside a page that otherwise rendered,
+    // e.g. no Auctionator scan yet.
+    const { error, notices } = await win.webContents.executeJavaScript(`({
+      error: (document.querySelector('#content > .notice.error') || {}).textContent || null,
+      notices: [...document.querySelectorAll('#content .notice.error')].map((el) => el.textContent),
+    })`);
+    report.pages[page] = { idle, error, notices: notices.filter((text) => text !== error) };
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
@@ -274,7 +300,16 @@ async function runCapture(dir) {
       await captureScrolled(out, wait, '#gph-settings', 'goldperhour-history');
     }
   }
-  app.quit();
+  report.uv = workingUv || null; // the uv that answered: the bundled one in an installed app
+  fs.writeFileSync(path.join(out, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
+  const failed = [];
+  for (const page of required) {
+    const result = report.pages[page];
+    if (!result) failed.push(`unknown page ${page}`);
+    else if (!result.idle) failed.push(`${page} did not finish`);
+    else if (result.error) failed.push(`${page}: ${result.error}`);
+  }
+  return failed;
 }
 
 // Second shot of a long page, scrolled to `selector`; scrolls back to the top afterwards.

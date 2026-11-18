@@ -15,9 +15,71 @@
     "start": "electron .",
     "capture": "electron . --capture=captures",
     "test": "node addon.test.js && node i18n.test.js",
-    "dist": "electron-builder --win nsis --publish never"
+    "dist": "electron-builder --win nsis --publish never",
+    "pack": "electron-builder --dir --publish never"
   },
   "devDependencies": {
-    "electron": "^45.3.2"
+    "electron": "^45.3.2",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "io.github.kejith.wowforevertools",
+    "productName": "WoW Forever Tools",
+    "copyright": "Copyright © 2026 kejith",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "*.js",
+      "!*.test.js",
+      "locales/**",
+      "renderer/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../scripts",
+        "to": "scripts",
+        "filter": [
+          "*.py",
+          "data/**",
+          "!test_*.py"
+        ]
+      },
+      {
+        "from": "build/bin",
+        "to": "bin",
+        "filter": [
+          "uv",
+          "uv.exe"
+        ]
+      }
+    ],
+    "asar": true,
+    "artifactName": "WoW-Forever-Tools-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "WoW-Forever-Tools-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    },
+    "publish": null
   }
 }

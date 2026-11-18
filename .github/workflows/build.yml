@@ -1,0 +1,94 @@
+name: Build
+
+# Tests and the Windows installer. Called by CI for every push and by the release workflow for a tag, so a
+# release is built exactly the way CI built it.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: Install the app's dependencies
+        # The tests need no Electron binary; this checks that package-lock.json fits package.json.
+        working-directory: app
+        run: npm ci --ignore-scripts
+      - name: App tests (addon install, releases, translations)
+        working-directory: app
+        run: npm test
+      - name: Script and MCP server tests
+        shell: bash
+        run: |
+          for test in scripts/test_*.py server/test_*.py; do
+            echo "::group::$test"
+            uv run "$test"
+            echo "::endgroup::"
+          done
+
+  package:
+    name: Windows installer
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: Put uv into the app
+        # The installed app runs its Python scripts with this uv, so nobody has to install anything else.
+        run: |
+          mkdir -p app/build/bin
+          cp "$(command -v uv)" app/build/bin/uv.exe
+          app/build/bin/uv.exe --version
+      - name: Install the app's dependencies
+        working-directory: app
+        run: npm ci
+      - name: Build the installer
+        working-directory: app
+        run: npm run dist
+      - name: Start the built app once
+        # Renders every page against the test data and fails when the app, its bundled uv or the scripts
+        # do not work. The screenshots are uploaded below.
+        working-directory: app
+        env:
+          WOW_FOREVER_DIR: ${{ github.workspace }}\scripts\fixtures\goldperhour
+        run: |
+          status=0
+          "dist/win-unpacked/WoW Forever Tools.exe" --capture=smoke --lang=en --require=connection,goldperhour || status=$?
+          cat smoke/report.json || true
+          if [ "$status" != 0 ]; then
+            echo "::error::The built app failed its smoke test (exit code $status)"
+            exit 1
+          fi
+          node -e "
+            const report = require('./smoke/report.json');
+            if (!report.packaged) throw new Error('not the packaged app');
+            if (!/resources[\\\\/]bin[\\\\/]uv\.exe$/.test(report.uv || '')) throw new Error('the bundled uv was not used: ' + report.uv);
+          "
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer
+          path: app/dist/*.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screenshots
+          path: app/smoke
+          if-no-files-found: ignore

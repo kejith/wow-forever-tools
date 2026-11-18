@@ -12,7 +12,7 @@ MODE="${WOW_RC_PERMISSION_MODE:-auto}"
 
 if ! tmux has-session -t "$SESSION" 2>/dev/null; then
   tmux new-session -d -s "$SESSION" -x 200 -y 50 -c "$REPO" \
-    "claude remote-control --name 'WoW Forever (orebound)' --permission-mode $MODE; echo 'remote-control beendet'; sleep 600"
-  echo "Remote Control gestartet in tmux-Sitzung $SESSION ($REPO)."
+    "claude remote-control --name 'WoW Forever (orebound)' --permission-mode $MODE; echo 'remote-control ended'; sleep 600"
+  echo "Remote Control started in tmux session $SESSION ($REPO)."
 fi
 while tmux has-session -t "$SESSION" 2>/dev/null; do sleep 60; done
