@@ -7,6 +7,7 @@ import { renderCharacter } from './pages/character.js';
 import { renderWrits } from './pages/writs.js';
 import { renderUpgrades } from './pages/upgrades.js';
 import { renderRecipes } from './pages/recipes.js';
+import { renderConsumables } from './pages/consumables.js';
 import { renderGoldPerHour } from './pages/goldperhour.js';
 
 Object.assign(pages, {
@@ -15,6 +16,7 @@ Object.assign(pages, {
   writs: { title: mark("Craftsman's writs"), render: renderWrits },
   upgrades: { title: mark('AH upgrades'), render: renderUpgrades },
   recipes: { title: mark('Professions and recipes'), render: renderRecipes },
+  consumables: { title: mark('Consumables for your level'), render: renderConsumables },
   goldperhour: { title: mark('Gold per hour'), render: renderGoldPerHour },
 });
 

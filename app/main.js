@@ -271,7 +271,7 @@ async function runCapture(dir) {
 
 async function capturePages(out, required) {
   fs.mkdirSync(out, { recursive: true });
-  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'goldperhour'];
+  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'consumables', 'goldperhour'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const report = { language, version: app.getVersion(), packaged: app.isPackaged, uv: null, pages: {} };
   for (const page of pages) {
@@ -293,6 +293,7 @@ async function capturePages(out, required) {
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
+    if (page === 'consumables') await captureScrolled(out, wait, '#c-buffs', 'consumables-buffs');
     if (page === 'goldperhour') {
       // Open the first finished session, then shoot settings and history.
       await win.webContents.executeJavaScript('document.querySelector("[data-gph-open]")?.click()');

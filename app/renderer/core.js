@@ -16,6 +16,7 @@ export const state = {
   writs: { top: 3, ownedAtAhPrice: false },
   upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain' },
   recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false },
+  consumables: { top: 5, onlyAvailable: false, allBuffs: false },
   gph: { open: null, notice: null },
 };
 

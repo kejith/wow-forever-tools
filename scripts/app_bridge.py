@@ -10,6 +10,7 @@
     uv run scripts/app_bridge.py upgrades --char Malgruk [--max-price 1] [--preview 4] [--top 3]
                                           [--profile leveling|dungeon] [--sort gain|price]
     uv run scripts/app_bridge.py recipes --char Malgruk [--profession Alchemy]
+    uv run scripts/app_bridge.py consumables --char Malgruk [--top 5]
     uv run scripts/app_bridge.py icons --ids 9492,287004
     uv run scripts/app_bridge.py goldperhour
 
@@ -28,6 +29,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import consumables  # noqa: E402
 import goldperhour  # noqa: E402
 import i18n  # noqa: E402
 import recipes  # noqa: E402
@@ -118,7 +120,8 @@ def character(wow: str, name: str) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "icons", "goldperhour"])
+    ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "consumables", "icons",
+                                           "goldperhour"])
     ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=3)
@@ -145,13 +148,16 @@ def main() -> None:
             r = goldperhour.compute(a.wow)
         elif a.command == "recipes":
             r = recipes.compute(a.wow, a.char, a.profession)
+        elif a.command == "consumables":
+            # Every buff group; the window hides the ones that do not help the class.
+            r = consumables.compute(a.wow, a.char, a.top, all_buffs=True)
         elif a.command == "writs":
             r = writs.compute(a.wow, a.char, a.top, a.owned_at_ah_price)
         else:
             r = upgrades.compute(a.wow, a.char, 0, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort)
         r["generated"] = datetime.datetime.now().timestamp()
         r["language"] = language
-    except (FileNotFoundError, LookupError, ValueError) as e:
+    except (FileNotFoundError, LookupError, ValueError, RuntimeError) as e:
         r = {"error": str(e)}
     except SystemExit as e:  # helpers that still call sys.exit(message)
         r = {"error": str(e.code)}

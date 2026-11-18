@@ -306,3 +306,9 @@ tr.clickable { cursor: pointer; }
 tr.clickable:hover td, tr.clickable.open td { background: var(--panel-2); }
 tr.detail > td { background: #18140f; }
 .nowrap { white-space: nowrap; }
+
+/* Consumables */
+.cons-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); }
+.cons-card h3 { color: var(--gold); }
+.cons-card table td { vertical-align: top; }
+.cons-next { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
