@@ -63,6 +63,13 @@ def _build_number(path: str) -> int:
     return int(m.group(1)) if m else 0
 
 
+def is_table(data: bytes) -> bool:
+    """True for a CSV export with an ID column. wago.tools answers an unknown build or table with a web page.
+    ID is not always the first column (SkillLineAbility starts with its text columns)."""
+    header = data.split(b"\n", 1)[0].strip().split(b",")
+    return b"ID" in header and len(header) > 1
+
+
 def table(name: str, build: str | None, locale: str | None = None) -> list[dict]:
     """DB2 table as rows; downloads it for `build`, otherwise uses the newest cached copy. Tables with text
     (LOCALIZED) are fetched and cached per locale, e.g. ItemSparse-1.60.1.70938-deDE.csv."""
@@ -75,9 +82,12 @@ def table(name: str, build: str | None, locale: str | None = None) -> list[dict]
     if path and not os.path.exists(path):
         try:
             data = _get(f"https://wago.tools/db2/{name}/csv?build={build}{query}", timeout=60)
-            if data.startswith(b"ID,"):
-                with open(path, "wb") as f:
+            if is_table(data):
+                # Several bridge processes may fetch the same table at once: write it in one step.
+                part = f"{path}.{os.getpid()}.part"
+                with open(part, "wb") as f:
                     f.write(data)
+                os.replace(part, path)
         except OSError:
             pass
     if not path or not os.path.exists(path):

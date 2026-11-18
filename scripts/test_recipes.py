@@ -200,6 +200,25 @@ def test_tables_and_catalog_are_cached_per_locale():
     print("ok test_tables_and_catalog_are_cached_per_locale")
 
 
+def test_download_keeps_tables_and_drops_everything_else():
+    """A table is stored whatever its first column is; an error page is not. Without network."""
+    import tempfile
+
+    cache = tempfile.mkdtemp()
+    answers = {"SkillLineAbility": b"AbilityVerb_lang,ID,SkillLine,Spell\n,7,171,2329\n",
+               "Item": b"<!DOCTYPE html><html>ID, not found</html>"}
+    saved = icons.CACHE, icons._get
+    icons.CACHE = cache
+    icons._get = lambda url, timeout=30: answers[url.split("/db2/")[1].split("/")[0]]
+    try:
+        assert icons.table("SkillLineAbility", "1.0.0.5")[0]["Spell"] == "2329"
+        assert os.listdir(cache) == ["SkillLineAbility-1.0.0.5.csv"]  # stored, and no .part file left
+        assert icons.table("Item", "1.0.0.5") == [] and len(os.listdir(cache)) == 1
+    finally:
+        icons.CACHE, icons._get = saved
+    print("ok test_download_keeps_tables_and_drops_everything_else")
+
+
 if __name__ == "__main__":
     i18n.set_language("en")
     test_tables_and_catalog_are_cached_per_locale()
@@ -212,3 +231,4 @@ if __name__ == "__main__":
     test_history_per_full_scan_day()
     test_history_uses_day_middle_and_skips_days_without_reagent_price()
     test_trend()
+    test_download_keeps_tables_and_drops_everything_else()

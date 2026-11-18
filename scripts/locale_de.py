@@ -6,6 +6,8 @@ test_i18n.py checks that every text handed to tr() or mark() has an entry here a
 TEXT = {
     # ---- app_bridge.py, shared ----
     'No WoWMCP export found for "{char}".': "Kein WoWMCP-Export für „{char}“ gefunden.",
+    "The recipe data could not be loaded from wago.tools. Check the network connection and refresh.":
+        "Die Rezeptdaten konnten nicht von wago.tools geladen werden. Netzwerkverbindung prüfen und aktualisieren.",
 
     # ---- writs.py ----
     "estimate from conquestcapped.com (Nov 2026): Journeyman 22–45 s, Expert 50–90 s, Artisan about 75 s":

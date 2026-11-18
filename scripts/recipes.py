@@ -439,6 +439,9 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", profession: str = "", 
     # Names in the catalog are in the client's language, like everything else that comes from the game.
     locale = cl.get("locale") or i18n.client_locale(wow) or i18n.DEFAULT_LOCALE
     catalog = load_catalog(build or icons.client_build(wow), locale)
+    if not catalog["lines"]:
+        raise RuntimeError(tr("The recipe data could not be loaded from wago.tools. Check the network connection "
+                              "and refresh."))
     market = Market(prices, vendor, catalog["items"])
     owned = owned_counts(c)
     scans = {int(k): s for k, s in (c.get("recipes") or {}).items()}
