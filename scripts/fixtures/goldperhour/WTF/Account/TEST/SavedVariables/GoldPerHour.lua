@@ -17,7 +17,7 @@ GoldPerHourDB = {
 		[1] = {
 			["archived"] = 1763400600,
 			["chars"] = {
-				["Malgruk"] = true,
+				["Tester"] = true,
 			},
 			["coin"] = {
 				["herb"] = 0,
@@ -35,7 +35,7 @@ GoldPerHourDB = {
 					[1] = {
 						["count"] = 3,
 						["id"] = 2447,
-						["name"] = "Friedensblume",
+						["name"] = "Peacebloom",
 						["quality"] = 1,
 						["value"] = 3000,
 					},
@@ -60,7 +60,7 @@ GoldPerHourDB = {
 			},
 			["started"] = 1763400100,
 			["zones"] = {
-				["Brachland"] = 3500,
+				["The Barrens"] = 3500,
 			},
 		},
 	},
@@ -70,7 +70,7 @@ GoldPerHourDB = {
 			[2447] = {
 				["count"] = 2,
 				["id"] = 2447,
-				["link"] = "|cffffffff|Hitem:2447::::::::20:::::|h[Friedensblume]|h|r",
+				["link"] = "|cffffffff|Hitem:2447::::::::20:::::|h[Peacebloom]|h|r",
 				["quality"] = 1,
 				["value"] = 20,
 			},
@@ -79,14 +79,14 @@ GoldPerHourDB = {
 	["lastRequest"] = {
 		["action"] = "explode",
 		["done"] = 1763400600,
-		["error"] = "[string \"GoldPerHour.lua\"]:591: unknown action explode",
+		["error"] = "[string \"GoldPerHour.lua\"]:561: unknown action explode",
 		["id"] = 8,
 	},
 	["lastRequestId"] = 8,
 	["resume"] = true,
 	["session"] = {
 		["chars"] = {
-			["Malgruk"] = true,
+			["Tester"] = true,
 		},
 		["lastActive"] = 1763400600,
 		["samples"] = {
@@ -98,7 +98,7 @@ GoldPerHourDB = {
 		},
 		["started"] = 1763400600,
 		["zones"] = {
-			["Brachland"] = 20,
+			["The Barrens"] = 20,
 		},
 	},
 	["settings"] = {
@@ -108,5 +108,5 @@ GoldPerHourDB = {
 		["tooltipItems"] = 3,
 	},
 	["updated"] = 1763400600,
-	["version"] = "0.3.0",
+	["version"] = "0.3.1",
 }

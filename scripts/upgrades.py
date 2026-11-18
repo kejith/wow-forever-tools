@@ -2,20 +2,23 @@
 # requires-python = ">=3.11"
 # dependencies = ["lupa>=2.0"]
 # ///
-"""Ausrüstungs-Upgrades aus dem Auktionshaus für einen Charakter (Standard: Gebrechen-Hexer).
+"""Gear upgrades from the auction house for a character (default: Affliction warlock).
 
-Bewertung: Gewichte pro Wert wie bei Pawn (1 Punkt = 1 Schatten-Zaubermacht), aber aus dem Charakter abgeleitet
-(Treffer nur bis zum Cap, Krit nach Talenten) und immer für das ganze Set gerechnet. Dazu das beste Paket für
-das Budget (Rucksackproblem über alle Plätze, mit Ring-Paaren und Waffenhand + Schildhand gegen Zweihand).
+Rating: one weight per stat like Pawn (1 point = 1 shadow spell power), but derived from the character (hit
+only up to the cap, crit by talents) and always calculated for the whole set. Plus the best package for the
+budget (knapsack over all slots, with ring pairs and main hand + off hand against a two-hander).
 
-Liest
-  * den Auctionator-Scan (Mindest-Sofortkauf, wie scripts/verfuegungen.py),
-  * aus WoWMCP.lua die angelegte Ausrüstung (pro Charakter) und den Item-Export des Addons
-    (Account-weit, WoWMCP_Items: Werte und Tooltips aller ausrüstbaren Items aus den Auctionator-Scans).
+Reads
+  * the Auctionator scan (lowest buyout, like scripts/writs.py),
+  * from WoWMCP.lua the equipped gear (per character) and the addon's item export
+    (account-wide, WoWMCP_Items: stats and tooltips of every equippable item in the Auctionator scans).
 
-Ablauf: im AH scannen, AH schließen (das Addon liest neue Items automatisch) oder "/wowmcp items",
-auf die Meldung warten, dann /reload. Danach:
-  uv run scripts\\upgrades.py --char Malgruk
+Steps: scan the auction house, close it (the addon reads new items by itself) or type "/wowmcp items",
+wait for the message, then /reload. After that:
+  uv run scripts/upgrades.py --char Malgruk
+
+Works with an English and a German client: stats come from the game's locale-independent keys, the few
+tooltip lines that are read are matched in both languages, talents by spell ID.
 """
 
 from __future__ import annotations
@@ -28,61 +31,90 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import verfuegungen as v  # noqa: E402  (load_prices, DEFAULT_WOW)
+import i18n  # noqa: E402
+import writs  # noqa: E402  (load_prices, DEFAULT_WOW)
+from i18n import mark, tr  # noqa: E402
 
-# Bewertung im Stil von Pawn: jeder Wert bekommt ein Gewicht, die Einheit ist 1 Punkt Schatten-Zaubermacht.
-# Anders als eine feste Pawn-Skala hängen Treffer und Krit vom Charakter ab (build_scale), und bewertet wird
-# immer das ganze Set (set_value). So zählt Treffer nur bis zum Cap.
+# Rating in the style of Pawn: every stat gets a weight, the unit is 1 point of shadow spell power.
+# Unlike a fixed Pawn scale, hit and crit depend on the character (build_scale), and the whole set is
+# always rated (set_value). That way hit only counts up to the cap.
 PROFILES = {
-    # target: Stufenvorsprung der Gegner, aff_share: Anteil des Schadens aus Gebrechen-Zaubern (DoTs, Entzüge).
-    # mana_share: 1 % mehr Vorrat (Mana + per Aderlass nutzbares Leben) zählt wie mana_share % mehr Schaden.
-    # survival_share: 1 % mehr Leben zählt zusätzlich wie survival_share % mehr Schaden (Überleben, weniger Rast).
-    # Beide sind Erfahrungswerte (so gewählt, dass Malgruk auf Stufe 46 ungefähr bei den alten festen Gewichten
-    # landet); Intelligenz und Ausdauer rechnet build_scale daraus mit Stufe, Werten und Talenten aus.
-    # weights: feste Gewichte; stamina/intellect nur, wenn der Export keine Leben-/Mana-Werte hat.
-    "leveln": dict(label="Leveln", target=2, aff_share=0.75, mana_share=0.10, survival_share=0.05,
-                   weights={"stamina": 0.5, "intellect": 0.35, "spirit": 0.25, "mp5": 0.7, "hp5": 0.15,
-                            "armor": 0.01, "wand_dps": 0.6}),
-    "dungeon": dict(label="Dungeon/Raid", target=3, aff_share=0.75, mana_share=0.06, survival_share=0.02,
+    # target: how many levels the enemies are above you, aff_share: share of the damage from Affliction
+    # spells (DoTs, drains).
+    # mana_share: 1% more pool (mana + health usable through Life Tap) counts like mana_share % more damage.
+    # survival_share: 1% more health additionally counts like survival_share % more damage (survival,
+    # less downtime). Both are judgement values (chosen so that a level 46 warlock lands near the older
+    # fixed weights); build_scale derives intellect and stamina from them with level, stats and talents.
+    # weights: fixed weights; stamina/intellect only when the export has no health and mana values.
+    "leveling": dict(label=mark("Leveling"), target=2, aff_share=0.75, mana_share=0.10, survival_share=0.05,
+                     weights={"stamina": 0.5, "intellect": 0.35, "spirit": 0.25, "mp5": 0.7, "hp5": 0.15,
+                              "armor": 0.01, "wand_dps": 0.6}),
+    "dungeon": dict(label=mark("Dungeon/raid"), target=3, aff_share=0.75, mana_share=0.06, survival_share=0.02,
                     weights={"stamina": 0.25, "intellect": 0.25, "spirit": 0.05, "mp5": 0.3, "hp5": 0.0,
                              "armor": 0.0, "wand_dps": 0.1}),
 }
-BASE_SPELL_CRIT = 1.7  # Zauberkrit ohne Intelligenz (Hexer); nur für Exporte ohne critFromIntellect (Addon < 1.3)
-MANA_PER_INT = 15  # MANA_PER_INTELLECT im Spiel
-HP_PER_STAMINA = 10  # UnitHPPerStamina im Spiel
-IMPROVED_LIFE_TAP = 0.1  # Verbesserter Aderlass: +10 % Mana pro Rang (Classic-Wert, in Forever nicht geprüft)
-# Fehlschlagchance von Zaubern gegen Gegner mit +0 bis +3 Stufen. Quelle: Forevers eigene Charakteranzeige
+BASE_SPELL_CRIT = 1.7  # spell crit without intellect (warlock); only for exports without critFromIntellect (addon < 1.3)
+MANA_PER_INT = 15  # MANA_PER_INTELLECT in the game
+HP_PER_STAMINA = 10  # UnitHPPerStamina in the game
+IMPROVED_LIFE_TAP = 0.1  # Improved Life Tap: +10% mana per rank (Classic value, not checked in Forever)
+# Talents by spell ID, so the client language does not matter.
+SUPPRESSION, IMPROVED_LIFE_TAP_ID, PANDEMIC = 18174, 18182, 427712
+# Chance of spells to miss enemies 0 to 3 levels above you. Source: Forever's own character pane
 # (Blizzard_UIPanels_Game/Camelot/PaperDollFrameStats.lua, spellMissChances).
 SPELL_MISS = {0: 4.0, 1: 5.0, 2: 6.0, 3: 17.0}
-MIN_MISS = 1.0  # wie in Classic: 1 % Fehlschlag bleibt immer
-SUPPRESSION_PER_RANK = 2.0  # Unterdrückung: Trefferchance für Gebrechen-Zauber pro Rang (Classic-Wert)
-BASE_PER_LEVEL = 13  # Grundschaden / Zaubermacht-Koeffizient der Hexer-Zauber: in Classic rund 13 pro Stufe
-CRIT_BONUS = 0.5  # Zauber-Krits machen 150 % Schaden
-DEFAULT_RATINGS = {"hit": 10.0, "crit": 14.0}  # Wertung pro 1 %, wird aus den Tooltips des Exports nachgemessen
+MIN_MISS = 1.0  # as in Classic: 1% miss always remains
+SUPPRESSION_PER_RANK = 2.0  # Suppression: hit chance for Affliction spells per rank (Classic value)
+BASE_PER_LEVEL = 13  # base damage / spell power coefficient of warlock spells: about 13 per level in Classic
+CRIT_BONUS = 0.5  # spell crits deal 150% damage
+DEFAULT_RATINGS = {"hit": 10.0, "crit": 14.0}  # rating per 1%, measured again from the tooltips of the export
 SP_KEYS = ("spell_power", "spell_damage_done", "shadow_damage_done")
 LINEAR_KEYS = {"stamina": "stamina", "intellect": "intellect", "spirit": "spirit", "mana_regeneration": "mp5",
                "health_regen": "hp5", "armor": "armor"}
-PCT_LINE = {"hit": re.compile(r"Verbessert Eure Trefferchance um ([\d.,]+)\s*%"),
-            "crit": re.compile(r"Erhöht Eure kritische Trefferchance um ([\d.,]+)\s*%")}
-# "Anlegen:"-Zeilen, die nur einen Wert aus `stats` ausschreiben. Alles andere gilt als Spezialeffekt.
+# Tooltip lines the scripts read, for an English and a German client.
+PCT_LINE = {
+    "hit": re.compile(r"(?:Improves your chance to hit by|Verbessert Eure Trefferchance um) ([\d.,]+)\s*%"),
+    "crit": re.compile(r"(?:Improves your chance to get a critical strike by|Erhöht Eure kritische Trefferchance um)"
+                       r" ([\d.,]+)\s*%"),
+}
+EQUIP_PREFIX = ("Equip:", "Anlegen:")
+USE_PREFIX = ("Use:", "Benutzen:")
+CLASSES_PREFIX = ("Classes:", "Klassen:")
+WARLOCK_NAMES = ("Warlock", "Hexenmeister", "Hexenmeisterin")
+# "Equip:" lines that only spell out a value from `stats`. Everything else counts as a special effect.
 STAT_LINE = re.compile(
-    r"^Anlegen: (Erhöht (?!.*Schaden gegen ).*(Schaden|Heilung).*um bis zu \d+|\+\d+ Angriffskraft"
+    r"^(?:Equip: (?:Increases (?!damage done to ).*(?:damage|healing).*by up to \d+|\+\d+ Attack Power"
+    r"|Improves your chance to hit by|Improves your chance to get a critical strike by|Your spells pierce \d+"
+    r"|Decreases the magical resistances of your spell targets by \d+"
+    r"|Restores \d+ (?:mana|health) per \d+ sec|Increased Defense \+\d+)"
+    r"|Anlegen: (?:Erhöht (?!.*Schaden gegen ).*(?:Schaden|Heilung).*um bis zu \d+|\+\d+ Angriffskraft"
     r"|Verbessert Eure Trefferchance um|Erhöht Eure kritische Trefferchance um|Eure Zauber durchdringen \d+"
-    r"|Stellt alle \d+ Sek\. \d+ (Mana|Gesundheit) wieder her|Verteidigung \+\d+)")
+    r"|Stellt alle \d+ Sek\. \d+ (?:Mana|Gesundheit) wieder her|Verteidigung \+\d+))")
+LIFE_TAP_TEXT = re.compile(r"([\d.,]+)\s*(?:Health|Gesundheit)\D+?([\d.,]+)\s*Mana")
+SKILL_REQ = re.compile(r"^(?:Requires|Benötigt) (.+?) \((\d+)\)$")
 
-SLOT_OF = {  # equipLoc -> Inventarplätze
+SLOT_OF = {  # equipLoc -> inventory slots
     "INVTYPE_HEAD": [1], "INVTYPE_NECK": [2], "INVTYPE_SHOULDER": [3], "INVTYPE_CHEST": [5], "INVTYPE_ROBE": [5],
     "INVTYPE_WAIST": [6], "INVTYPE_LEGS": [7], "INVTYPE_FEET": [8], "INVTYPE_WRIST": [9], "INVTYPE_HAND": [10],
     "INVTYPE_FINGER": [11, 12], "INVTYPE_TRINKET": [13, 14], "INVTYPE_CLOAK": [15],
     "INVTYPE_WEAPON": [16], "INVTYPE_WEAPONMAINHAND": [16], "INVTYPE_HOLDABLE": [17],
     "INVTYPE_RANGED": [18], "INVTYPE_RANGEDRIGHT": [18], "INVTYPE_2HWEAPON": [16, 17],
 }
-SLOT_NAME = {1: "Kopf", 2: "Hals", 3: "Schulter", 5: "Brust", 6: "Taille", 7: "Beine", 8: "Füße", 9: "Handgelenk",
-             10: "Hände", 11: "Finger", 12: "Finger", 13: "Schmuck", 14: "Schmuck", 15: "Rücken",
-             16: "Waffenhand", 17: "Schildhand", 18: "Zauberstab"}
-USABLE_WEAPONS = {7, 10, 15, 19}  # Einhandschwert, Stab, Dolch, Zauberstab
-NEW_ID = 200000  # Item-IDs darüber gibt es nur in Forever
-PAIRS = {11: (11, 12), 12: (11, 12), 13: (13, 14), 14: (13, 14)}  # Plätze, die es doppelt gibt
+SLOT_NAME = {1: mark("Head"), 2: mark("Neck"), 3: mark("Shoulder"), 5: mark("Chest"), 6: mark("Waist"),
+             7: mark("Legs"), 8: mark("Feet"), 9: mark("Wrist"), 10: mark("Hands"), 11: mark("Finger"),
+             12: mark("Finger"), 13: mark("Trinket"), 14: mark("Trinket"), 15: mark("Back"),
+             16: mark("Main Hand"), 17: mark("Off Hand"), 18: mark("Wand")}
+USABLE_WEAPONS = {7, 10, 15, 19}  # one-handed sword, staff, dagger, wand
+NEW_ID = 200000  # item IDs above this exist only in Forever
+PAIRS = {11: (11, 12), 12: (11, 12), 13: (13, 14), 14: (13, 14)}  # slots that exist twice
+
+
+def slot_name(slot: int) -> str:
+    return tr(SLOT_NAME[slot])
+
+
+def number(text: str) -> float:
+    """A whole number from a tooltip, with the thousands separator of either language (1,234 or 1.234)."""
+    return float(re.sub(r"[.,]", "", text))
 
 
 def stat_key(k: str) -> str:
@@ -158,30 +190,31 @@ def crit_per_intellect(st: dict, gear_crit: float = 0.0) -> tuple[float | None, 
     if intellect <= 0:
         return None, ""
     if st.get("critFromIntellect") is not None:
-        return st["critFromIntellect"] / intellect, "laut Spiel"
+        return st["critFromIntellect"] / intellect, tr("from the game")
     crit = (st.get("spellCrit") or {}).get("shadow")
     if crit is None:
         return None, ""
-    return max(0.0, (crit - BASE_SPELL_CRIT - gear_crit) / intellect), f"geschätzt: Zauberkrit − {BASE_SPELL_CRIT:g} %"
+    return (max(0.0, (crit - BASE_SPELL_CRIT - gear_crit) / intellect),
+            tr("estimated: spell crit − {base:g}%", base=BASE_SPELL_CRIT))
 
 
 def life_tap_ratio(st: dict, level: int, ilt_rank: int) -> tuple[float, str]:
     """Mana per point of health from Life Tap, with Improved Life Tap, and a note on the source."""
     lt = st.get("lifeTap")
     text = (lt or {}).get("text") or ""
-    m = re.search(r"([\d.]+)\s*Gesundheit\D+?([\d.]+)\s*Mana", text)
-    if m and float(m.group(1).replace(".", "")) > 0:
-        ratio = float(m.group(2).replace(".", "")) / float(m.group(1).replace(".", ""))
-        source = "laut Zaubertext"
-    elif lt is None and "hpPerStamina" in st:  # Addon 1.3 exportiert und kennt keinen Aderlass
-        return 0.0, "Aderlass nicht bekannt"
+    m = LIFE_TAP_TEXT.search(text)
+    if m and number(m.group(1)) > 0:
+        ratio = number(m.group(2)) / number(m.group(1))
+        source = tr("from the spell text")
+    elif lt is None and "hpPerStamina" in st:  # addon 1.3 exports and knows no Life Tap
+        return 0.0, tr("Life Tap not known")
     elif level < 6:
-        return 0.0, "Aderlass erst ab Stufe 6"
+        return 0.0, tr("Life Tap only from level 6")
     else:
-        ratio, source = 1.0, "Annahme 1:1"
+        ratio, source = 1.0, tr("assumed 1:1")
     if ilt_rank:
         ratio *= 1 + IMPROVED_LIFE_TAP * ilt_rank
-        source += f", Verbesserter Aderlass {ilt_rank}/2"
+        source += tr(", Improved Life Tap {rank}/2", rank=ilt_rank)
     return ratio, source
 
 
@@ -196,9 +229,9 @@ def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0, gear_crit:
     ch = char.get("character") or {}
     st = ch.get("stats") or {}
     level = ch.get("level") or 60
-    profile = profile if profile in PROFILES else ("leveln" if level < 60 else "dungeon")
+    profile = profile if profile in PROFILES else ("leveling" if level < 60 else "dungeon")
     p = PROFILES[profile]
-    talents = {t.get("name"): t.get("rank") or 0 for tree in ((char.get("talents") or {}).get("class") or [])
+    talents = {t.get("spellID"): t.get("rank") or 0 for tree in ((char.get("talents") or {}).get("class") or [])
                for t in (tree.get("talents") or []) if isinstance(t, dict)}
     spell_power = (st.get("spellDamage") or {}).get("shadow") or 0
     pct = (BASE_PER_LEVEL * level + spell_power) / 100
@@ -206,31 +239,35 @@ def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0, gear_crit:
     base_hit = st.get("spellHit") or 0  # GetSpellHitModifier: hit from talents and auras, without gear
     cap = SPELL_MISS[p["target"]] - MIN_MISS
     need = max(0.0, cap - base_hit)
-    suppression = SUPPRESSION_PER_RANK * talents.get("Unterdrückung", 0)
+    suppression = SUPPRESSION_PER_RANK * talents.get(SUPPRESSION, 0)
     need_aff = max(0.0, need - suppression)
     hit_steps = [(need_aff, p["aff_share"]), (need, 1 - p["aff_share"])]
 
-    pandemic = talents.get("Pandemie", 0)
-    crit_share = 0.25 + 0.6 * min(pandemic, 3) / 3  # ohne Pandemie kritten nur Schattenblitz und Co.
+    pandemic = talents.get(PANDEMIC, 0)
+    crit_share = 0.25 + 0.6 * min(pandemic, 3) / 3  # without Pandemic only Shadow Bolt and the like crit
     weights = {"sp": 1.0, "crit": round(pct * crit_share * CRIT_BONUS, 2), **p["weights"]}
 
     hit_now = pct * sum(share for limit, share in hit_steps if gear_hit < limit)
     if need <= 0:
-        hit_note = f"{base_hit:g} % ohne Ausrüstung vorhanden, Cap gegen +{p['target']} Stufen ist {cap:g} %: schon erreicht"
+        hit_note = tr("{base:g}% without gear, the cap against +{target} levels is {cap:g}%: already reached",
+                      base=base_hit, target=p["target"], cap=cap)
     else:
-        hit_note = (f"Cap gegen +{p['target']} Stufen {cap:g} %, {base_hit:g} % vorhanden, es fehlen {need:g} %"
-                    + (f" (Gebrechen-Zauber durch Unterdrückung nur {need_aff:g} %)" if suppression else "")
-                    + f", Ausrüstung bringt {gear_hit:g} %")
-    crit_note = f"1 % Schaden = {pct:.1f} Zaubermacht, {crit_share:.0%} des Schadens kann kritisch treffen"
+        hit_note = tr("cap against +{target} levels {cap:g}%, you have {base:g}%, {need:g}% missing",
+                      target=p["target"], cap=cap, base=base_hit, need=need)
+        if suppression:
+            hit_note += tr(" (Affliction spells only {need:g}% thanks to Suppression)", need=need_aff)
+        hit_note += tr(", gear gives {gear:g}%", gear=gear_hit)
+    crit_note = tr("1% damage = {points:.1f} spell power, {share:.0%} of the damage can crit", points=pct, share=crit_share)
     if pandemic:
-        crit_note += " (Annahme: Pandemie lässt DoTs kritisch treffen)"
+        crit_note += tr(" (assumption: Pandemic lets DoTs crit)")
 
     # Intellect and stamina: what one point gives at this level, valued against the mana pool.
-    stamina_note, intellect_note = "Leben, über Aderlass auch Mana (fester Wert)", "15 Mana und etwas Krit (fester Wert)"
+    stamina_note = tr("health, and mana through Life Tap (fixed value)")
+    intellect_note = tr("15 mana and some crit (fixed value)")
     mana, health = st.get("powerMax") or 0, st.get("healthMax") or 0
     cpi, cpi_source = crit_per_intellect(st, gear_crit)
     if mana > 0 and health > 0 and cpi is not None:
-        tap, tap_source = life_tap_ratio(st, level, talents.get("Verbesserter Aderlass", 0))
+        tap, tap_source = life_tap_ratio(st, level, talents.get(IMPROVED_LIFE_TAP_ID, 0))
         pool = mana + health * tap
         per_mana = p["mana_share"] * pct * 100 / pool
         per_health = p["survival_share"] * pct * 100 / health
@@ -240,26 +277,29 @@ def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0, gear_crit:
         sta_tap, sta_live = hps * tap * per_mana, hps * per_health
         weights["intellect"] = round(int_mana + int_crit, 3)
         weights["stamina"] = round(sta_tap + sta_live, 3)
-        intellect_note = (f"{mpi:g} Mana = {int_mana:.2f}, {cpi:.4f} % Krit ({cpi_source}) = {int_crit:.2f}. "
-                          f"1 Mana = {per_mana:.3f}: Vorrat {pool:.0f} (Mana + Leben über Aderlass), "
-                          f"1 % mehr Vorrat zählt wie {p['mana_share']:g} % Schaden")
-        stamina_note = (f"{hps:g} Leben: über Aderlass {hps * tap:.1f} Mana ({tap_source}) = {sta_tap:.2f}, "
-                        f"Überleben = {sta_live:.2f} (1 % mehr Leben zählt wie {p['survival_share']:g} % Schaden)")
+        intellect_note = tr("{mana:g} mana = {manaValue:.2f}, {crit:.4f}% crit ({source}) = {critValue:.2f}. "
+                            "1 mana = {perMana:.3f}: pool {pool:.0f} (mana + health through Life Tap), "
+                            "1% more pool counts like {share:g}% damage", mana=mpi, manaValue=int_mana, crit=cpi,
+                            source=cpi_source, critValue=int_crit, perMana=per_mana, pool=pool, share=p["mana_share"])
+        stamina_note = tr("{health:g} health: {tapMana:.1f} mana through Life Tap ({source}) = {tapValue:.2f}, "
+                          "survival = {liveValue:.2f} (1% more health counts like {share:g}% damage)", health=hps,
+                          tapMana=hps * tap, source=tap_source, tapValue=sta_tap, liveValue=sta_live,
+                          share=p["survival_share"])
     w = weights
     rows = [
-        dict(label="Schatten-/Zaubermacht", weight=1.0, note="Bezugsgröße"),
-        dict(label="Ausdauer", weight=w["stamina"], note=stamina_note),
-        dict(label="Intelligenz", weight=w["intellect"], note=intellect_note),
-        dict(label="Willenskraft", weight=w["spirit"], note="Regeneration außerhalb des Kampfes"),
-        dict(label="Mana pro 5 Sek.", weight=w["mp5"], note=""),
-        dict(label="Treffer, nächstes 1 %", weight=round(hit_now, 2), note=hit_note),
-        dict(label="Krit, je 1 %", weight=w["crit"], note=crit_note),
-        dict(label="Zauberstab-DPS", weight=w["wand_dps"], note="nur im Zauberstab-Platz"),
+        dict(label=tr("Shadow / spell power"), weight=1.0, note=tr("reference")),
+        dict(label=tr("Stamina"), weight=w["stamina"], note=stamina_note),
+        dict(label=tr("Intellect"), weight=w["intellect"], note=intellect_note),
+        dict(label=tr("Spirit"), weight=w["spirit"], note=tr("regeneration out of combat")),
+        dict(label=tr("Mana per 5 sec."), weight=w["mp5"], note=""),
+        dict(label=tr("Hit, next 1%"), weight=round(hit_now, 2), note=hit_note),
+        dict(label=tr("Crit, per 1%"), weight=w["crit"], note=crit_note),
+        dict(label=tr("Wand DPS"), weight=w["wand_dps"], note=tr("wand slot only")),
     ]
-    text = (f"Schatten/Zaubermacht 1, Ausdauer {w['stamina']:.2f}, Int {w['intellect']:.2f}, Willenskraft {w['spirit']:g}, "
-            f"Mana/5s {w['mp5']:g}, Treffer 1 % = {hit_now:.1f}, Krit 1 % = {w['crit']:.1f}, "
-            f"Zauberstab-DPS {w['wand_dps']:g}")
-    return dict(profile=profile, label=p["label"], pct=pct, weights=weights, hitSteps=hit_steps, rows=rows, text=text)
+    text = tr("Shadow/spell power 1, Stamina {stamina:.2f}, Int {intellect:.2f}, Spirit {spirit:g}, Mana/5s {mp5:g}, "
+              "Hit 1% = {hit:.1f}, Crit 1% = {crit:.1f}, Wand DPS {wand:g}", stamina=w["stamina"],
+              intellect=w["intellect"], spirit=w["spirit"], mp5=w["mp5"], hit=hit_now, crit=w["crit"], wand=w["wand_dps"])
+    return dict(profile=profile, label=tr(p["label"]), pct=pct, weights=weights, hitSteps=hit_steps, rows=rows, text=text)
 
 
 def set_value(total: dict, scale: dict) -> float:
@@ -279,8 +319,8 @@ def equipped_stats(char: dict, ratings: dict | None = None) -> tuple[dict, dict]
 
 
 def special_effects(tip: list[str]) -> list[str]:
-    """Tooltip effects the scale cannot rate. "Trefferchance:" procs need melee hits and are left out."""
-    return [t for t in tip if t.startswith("Benutzen:") or (t.startswith("Anlegen:") and not STAT_LINE.match(t))]
+    """Tooltip effects the scale cannot rate. "Chance on hit:" procs need melee hits and are left out."""
+    return [t for t in tip if t.startswith(USE_PREFIX) or (t.startswith(EQUIP_PREFIX) and not STAT_LINE.match(t))]
 
 
 def pareto(states: list[tuple]) -> list[tuple]:
@@ -308,19 +348,20 @@ def best_package(groups: list[list[tuple]], budget: int) -> tuple:
     return frontier[-1]
 
 
+SHORT_NAME = {"spell_power": mark("SP"), "spell_damage_done": mark("SD"), "shadow_damage_done": mark("Shadow"),
+              "stamina": mark("Sta"), "intellect": mark("Int"), "spirit": mark("Spi"), "hit_rating": mark("Hit rating"),
+              "crit_rating": mark("Crit rating"), "mana_regeneration": mark("Mana/5s"), "damage_per_second": mark("DPS")}
+
+
 def short(stats: dict | None) -> str:
-    names = {"spell_power": "ZM", "spell_damage_done": "ZS", "shadow_damage_done": "Schatten", "stamina": "Ausd",
-             "intellect": "Int", "spirit": "Wil", "hit_rating": "Trefferwertung", "crit_rating": "Kritwertung",
-             "mana_regeneration": "Mana/5s", "damage_per_second": "DPS"}
     raw = {stat_key(k): val for k, val in (stats or {}).items()}  # Lua hands the keys over in random order
-    return ", ".join(f"{n} {raw[k]:g}" if isinstance(raw[k], (int, float)) else n for k, n in names.items() if k in raw)
-
-
-SKILL_REQ = re.compile(r"^Benötigt (.+?) \((\d+)\)$")
+    return ", ".join(f"{tr(n)} {raw[k]:g}" if isinstance(raw[k], (int, float)) else tr(n)
+                     for k, n in SHORT_NAME.items() if k in raw)
 
 
 def meets_skill_requirements(tooltip: list[str], skills: dict[str, int]) -> bool:
-    """False for tooltip lines like "Benötigt Ingenieurskunst (215)" the character does not meet."""
+    """False for tooltip lines like "Requires Engineering (215)" the character does not meet. The skill names
+    in the tooltip and in the character's skill list are both in the client's language."""
     for t in tooltip:
         m = SKILL_REQ.match(t)
         if m and skills.get(m.group(1), 0) < int(m.group(2)):
@@ -328,17 +369,17 @@ def meets_skill_requirements(tooltip: list[str], skills: dict[str, int]) -> bool
     return True
 
 
-STAT_LABEL = {"stamina": "Ausdauer", "intellect": "Intelligenz", "spirit": "Willenskraft", "strength": "Stärke",
-              "agility": "Beweglichkeit"}
+STAT_LABEL = {"stamina": mark("Stamina"), "intellect": mark("Intellect"), "spirit": mark("Spirit"),
+              "strength": mark("Strength"), "agility": mark("Agility")}
 SPELL_LABEL = {
-    "spell_power": "Anlegen: Erhöht durch magische Zauber und Effekte verursachten Schaden und Heilung um bis zu {}.",
-    "spell_damage_done": "Anlegen: Erhöht den von magischen Zaubern und Effekten verursachten Schaden um bis zu {}.",
-    "shadow_damage_done": "Anlegen: Erhöht den von Schattenzaubern und -effekten verursachten Schaden um bis zu {}.",
-    "spell_healing_done": "Anlegen: Erhöht durch Zauber und Effekte verursachte Heilung um bis zu {}.",
+    "spell_power": mark("Equip: Increases damage and healing done by magical spells and effects by up to {n}."),
+    "spell_damage_done": mark("Equip: Increases damage done by magical spells and effects by up to {n}."),
+    "shadow_damage_done": mark("Equip: Increases damage done by Shadow spells and effects by up to {n}."),
+    "spell_healing_done": mark("Equip: Increases healing done by spells and effects by up to {n}."),
 }
 
 
-def tooltip(rec: dict, slot_name: str | None = None) -> dict:
+def tooltip(rec: dict, slot_label: str | None = None) -> dict:
     """Tooltip for the app: the game's own lines when the addon exported them (1.2+: with colours), otherwise
     rebuilt from the stats so older snapshots still show something useful."""
     out = {"name": rec.get("name"), "quality": rec.get("quality"), "ilvl": rec.get("ilvl")}
@@ -347,30 +388,30 @@ def tooltip(rec: dict, slot_name: str | None = None) -> dict:
         out["colors"] = rec.get("tipColors")
         return out
     lines, colors, equip = [], [], []
-    if slot_name or rec.get("subType"):
-        lines.append(f"{slot_name or ''} | {rec.get('subType') or ''}".strip(" |"))
+    if slot_label or rec.get("subType"):
+        lines.append(f"{slot_label or ''} | {rec.get('subType') or ''}".strip(" |"))
         colors.append("ffffff")
     stats = {stat_key(k): val for k, val in (rec.get("stats") or {}).items()}
     if stats.get("armor"):
-        lines.append(f"{stats['armor']:g} Rüstung")
+        lines.append(tr("{n:g} Armor", n=stats["armor"]))
         colors.append("ffffff")
     if stats.get("damage_per_second"):
-        lines.append(f"({stats['damage_per_second']:.1f} Schaden pro Sekunde)")
+        lines.append(tr("({n:.1f} damage per second)", n=stats["damage_per_second"]))
         colors.append("ffffff")
     for k, label in STAT_LABEL.items():
         if stats.get(k):
-            lines.append(f"+{stats[k]:g} {label}")
+            lines.append(f"+{stats[k]:g} {tr(label)}")
             colors.append("ffffff")
     dur = rec.get("durability")
     if isinstance(dur, list) and len(dur) == 2:
-        lines.append(f"Haltbarkeit {dur[0]} / {dur[1]}")
+        lines.append(tr("Durability {now} / {max}", now=dur[0], max=dur[1]))
         colors.append("ffffff")
     if rec.get("reqLevel"):
-        lines.append(f"Benötigt Stufe {rec['reqLevel']}")
+        lines.append(tr("Requires Level {n}", n=rec["reqLevel"]))
         colors.append("ffffff")
     for k, text in SPELL_LABEL.items():
         if stats.get(k):
-            equip.append(text.format(f"{stats[k]:g}"))
+            equip.append(tr(text, n=f"{stats[k]:g}"))
     lines += equip
     colors += ["1eff00"] * len(equip)
     out.update(lines=lines, colors=colors, rebuilt=True)
@@ -393,31 +434,34 @@ def load_item_export(wow: str, char: dict) -> dict:
     return best
 
 
-def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: int = 4, max_preis: float = 0,
-            top: int = 3, prices: dict | None = None, profil: str = "", sort: str = "gewinn") -> dict:
+def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, preview: int = 4, max_price: float = 0,
+            top: int = 3, prices: dict | None = None, profile: str = "", sort: str = "gain") -> dict:
     """Upgrade candidates per slot and the best purchase for the budget, as plain data (copper prices)."""
-    prices = prices if prices is not None else v.load_prices(v.find_auctionator(wow))
+    prices = prices if prices is not None else writs.load_prices(writs.find_auctionator(wow))
     last = max(int(k) for e in prices.values() if isinstance(e, dict) for k in (e.get("a") or {}))
-    files = v.find_chars(wow, char)
+    files = writs.find_chars(wow, char)
     if not files:
-        raise FileNotFoundError("Keine WoWMCP.lua für diesen Charakter gefunden.")
+        raise FileNotFoundError(tr("No WoWMCP.lua found for this character."))
     c = load_char(files[0])
     info = load_item_export(wow, c)
     items = {int(k): x for k, x in (info.get("items") or {}).items()}
     if not items:
-        raise LookupError("Kein Item-Export gefunden: im Spiel /wowmcp items, auf die Meldung warten, dann /reload.")
+        raise LookupError(tr("No item export found: type /wowmcp items in the game, wait for the message, then /reload."))
     level = level or (c.get("character") or {}).get("level") or 60
     gold = (c.get("character") or {}).get("money") or 0
-    budget = int(max_preis * 10000) if max_preis else gold
+    budget = int(max_price * 10000) if max_price else gold
 
     equipped = {e["slot"]: e for e in (c.get("equipment") or [])}
     skills = {s["name"]: s.get("rank") or 0 for s in ((c.get("skills") or {}).get("skills") or [])
               if isinstance(s, dict) and s.get("name")}
     ratings = learn_ratings(items)
     eq, totals = equipped_stats(c, ratings)
-    scale = build_scale(c, profil, totals.get("hit", 0), totals.get("crit", 0))
+    scale = build_scale(c, profile, totals.get("hit", 0), totals.get("crit", 0))
     base = set_value(totals, scale)
     two_handed = (equipped.get(16) or {}).get("equipLoc") == "INVTYPE_2HWEAPON"
+    # The class line of a tooltip names the classes in the client's language, like the character's class.
+    own_class = (c.get("character") or {}).get("class")
+    class_names = (own_class,) if own_class else WARLOCK_NAMES
 
     def swap(remove: list[int], adds: list[dict]) -> float:
         """Change of the set's value when the items in the `remove` slots make room for `adds`."""
@@ -441,14 +485,14 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: 
     for iid, it in items.items():
         slots = SLOT_OF.get(it.get("equipLoc") or "")
         req = it.get("reqLevel") or 0
-        if not slots or req > level + vorschau or (it.get("quality") or 0) < 2:
+        if not slots or req > level + preview or (it.get("quality") or 0) < 2:
             continue
         if it.get("classID") == 2 and it.get("subclassID") not in USABLE_WEAPONS:
             continue
         if it.get("classID") == 4 and it.get("subclassID") not in (0, 1):
             continue
         tip = it.get("tooltip") or []
-        if any(t.startswith("Klassen:") and "Hexenmeister" not in t for t in tip):
+        if any(t.startswith(CLASSES_PREFIX) and not any(n in t for n in class_names) for t in tip):
             continue
         if not meets_skill_requirements(tip, skills):
             continue
@@ -474,18 +518,18 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: 
                  points=swap([], [n]), extra=special_effects(tip), soon=req > level)
         pool.append(x)
         if x["extra"] and x["gain"] < 5 and req >= level - 15:
-            review.append(dict(slot=SLOT_NAME[slot], **item_out(x)))
+            review.append(dict(slot=slot_name(slot), **item_out(x)))
 
     rows = [x for x in pool if x["gain"] > 0.5 and not (x["extra"] and x["gain"] < 5)]
-    order = (lambda x: (-x["gain"] / x["price"], -x["gain"])) if sort == "preis" else (lambda x: (-x["gain"], x["price"]))
+    order = (lambda x: (-x["gain"] / x["price"], -x["gain"])) if sort == "price" else (lambda x: (-x["gain"], x["price"]))
     slots_out = []
     for slot in sorted({x["slot"] for x in rows}):
         cur = equipped.get(slot)
         best = sorted((x for x in rows if x["slot"] == slot), key=order)[:top]
         slots_out.append(dict(
-            slot=slot, slotName=SLOT_NAME[slot],
+            slot=slot, slotName=slot_name(slot),
             current=dict(name=cur.get("name"), id=cur.get("id"), quality=cur.get("quality"),
-                         stats=short(cur.get("stats")), tip=tooltip(cur, SLOT_NAME[slot])) if cur else None,
+                         stats=short(cur.get("stats")), tip=tooltip(cur, slot_name(slot))) if cur else None,
             candidates=[item_out(x) for x in best]))
 
     # Best purchase for the budget: one option per slot group, pairs for rings/trinkets and main hand + off hand.
@@ -517,8 +561,8 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: 
         new_value = set_value(running, scale)
         replaced = [equipped[s].get("name") for s in remove if s in equipped]
         old = next((equipped[s] for s in remove if s in equipped), None)
-        package_items.append(dict(slot=x["slot"], slotName=SLOT_NAME[x["slot"]], replaces=replaced,
-                                  compareTip=tooltip(old, SLOT_NAME[old["slot"]]) if old else None,
+        package_items.append(dict(slot=x["slot"], slotName=slot_name(x["slot"]), replaces=replaced,
+                                  compareTip=tooltip(old, slot_name(old["slot"])) if old else None,
                                   **item_out(dict(x, remove=remove), new_value - value)))
         value = new_value
     package_items.sort(key=lambda p: -p["perGold"])  # best value first: stop anywhere down the list
@@ -539,61 +583,69 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", level: int = 0, vorschau: 
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--wow", default=v.DEFAULT_WOW)
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
-    ap.add_argument("--level", type=int, default=0, help="Stufe überschreiben (Standard: aus dem Export)")
-    ap.add_argument("--vorschau", type=int, default=4, help="auch Items bis Stufe + N zeigen")
-    ap.add_argument("--max-preis", type=float, default=0,
-                    help="Budget in Gold, pro Item und für das Paket (Standard: eigenes Gold)")
-    ap.add_argument("--top", type=int, default=3, help="Vorschläge pro Platz")
-    ap.add_argument("--profil", choices=sorted(PROFILES), default="", help="Standard: leveln unter Stufe 60")
-    ap.add_argument("--sort", choices=["gewinn", "preis"], default="gewinn", help="preis = Punkte pro Gold")
-    ap.add_argument("--json", action="store_true", help="Ergebnis als JSON ausgeben (für die App)")
+    ap.add_argument("--level", type=int, default=0, help="override the level (default: from the export)")
+    ap.add_argument("--preview", type=int, default=4, help="also show items up to level + N")
+    ap.add_argument("--max-price", type=float, default=0,
+                    help="budget in gold, per item and for the package (default: your own gold)")
+    ap.add_argument("--top", type=int, default=3, help="suggestions per slot")
+    ap.add_argument("--profile", choices=sorted(PROFILES), default="", help="default: leveling below level 60")
+    ap.add_argument("--sort", choices=["gain", "price"], default="gain", help="price = points per gold")
+    ap.add_argument("--json", action="store_true", help="print the result as JSON (for the app)")
+    i18n.add_argument(ap)
     a = ap.parse_args()
+    i18n.set_language(a.lang, a.wow)
 
     try:
-        r = compute(a.wow, a.char, a.level, a.vorschau, a.max_preis, a.top, profil=a.profil, sort=a.sort)
+        r = compute(a.wow, a.char, a.level, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort)
     except (FileNotFoundError, LookupError) as e:
         sys.exit(str(e))
+    sys.stdout.reconfigure(encoding="utf-8")
     if a.json:
         import json
         print(json.dumps(r, ensure_ascii=False))
         return
 
     def line(c: dict) -> str:
-        pct = f"{c['gainPct']:+4d} %" if c["gainPct"] is not None else "   neu"
-        flag = " [NEU in Forever]" if c["isNew"] else ""
-        soon = f" (ab Stufe {c['reqLevel']})" if c["soon"] else ""
-        both = " [Zweihand]" if c["twoHand"] else ""
+        pct = f"{c['gainPct']:+4d}%" if c["gainPct"] is not None else f"{tr('new'):>5}"
+        flag = " " + tr("[NEW in Forever]") if c["isNew"] else ""
+        soon = " " + tr("(from level {level})", level=c["reqLevel"]) if c["soon"] else ""
+        both = " " + tr("[two-handed]") if c["twoHand"] else ""
         return (f"{c['gain']:+6.1f} {pct}  {money(c['price']):>9}  {c['perGold']:6.1f}/g  {c['name']}{flag}{soon}{both}"
                 f"  [{c['stats']}]  id {c['id']}")
 
     when = datetime.datetime.fromtimestamp(r["exportUpdated"] or 0)
-    print(f"AH-Scan: {r['scanDate']} | Item-Export: {when:%Y-%m-%d %H:%M} | Stufe {r['level']} | "
-          f"Budget {money(r['budget'])} | {r['exportCount']} Items, {r['exportMissing']} nicht geladen")
-    print(f"Skala „{r['profileLabel']}“ (1 Punkt = 1 Schatten-Zaubermacht), Wert der Ausrüstung jetzt: {r['setValue']}")
+    print(tr("AH scan: {date} | item export: {when} | level {level} | budget {budget} | {count} items, "
+             "{missing} not loaded", date=r["scanDate"], when=f"{when:%Y-%m-%d %H:%M}", level=r["level"],
+             budget=money(r["budget"]), count=r["exportCount"], missing=r["exportMissing"]))
+    print(tr("Scale \"{label}\" (1 point = 1 shadow spell power), value of your gear now: {value}",
+             label=r["profileLabel"], value=r["setValue"]))
     for row in r["scale"]:
         print(f"   {row['label']:24} {row['weight']:5.2f}  {row['note']}")
-    print("Preise = Mindest-Sofortkauf beim Scan.\n")
+    print(tr("Prices are the lowest buyout at the scan.") + "\n")
     p = r["package"]
     if p["items"]:
-        pct = f" ({p['gainPct']:+d} %)" if p["gainPct"] is not None else ""
-        print(f"== Bestes Paket für {money(r['budget'])}: {p['gain']:+.1f} Punkte{pct} für {money(p['cost'])}")
+        pct = f" ({p['gainPct']:+d}%)" if p["gainPct"] is not None else ""
+        print("== " + tr("Best package for {budget}: {gain} points{pct} for {cost}", budget=money(r["budget"]),
+                         gain=f"{p['gain']:+.1f}", pct=pct, cost=money(p["cost"])))
         for c in p["items"]:
             print(f"   {c['slotName']:10} {line(c)}")
-            print(f"   {'':10} bis hier {money(c['cumCost'])} für {c['cumGain']:+.1f} Punkte"
-                  + (f", ersetzt {' + '.join(c['replaces'])}" if c["replaces"] else ""))
+            print(f"   {'':10} " + tr("up to here {cost} for {gain} points", cost=money(c["cumCost"]),
+                                      gain=f"{c['cumGain']:+.1f}")
+                  + (tr(", replaces {items}", items=" + ".join(c["replaces"])) if c["replaces"] else ""))
         print()
     for s in r["slots"]:
         cur = s["current"]
-        print(f"== {s['slotName']}: jetzt {cur['name'] if cur else '-'} ({cur['stats'] if cur else ''})")
+        print("== " + tr("{slot}: now {name} ({stats})", slot=s["slotName"], name=cur["name"] if cur else "-",
+                         stats=cur["stats"] if cur else ""))
         for c in s["candidates"]:
             print(f"   {line(c)}")
             for t in c["effects"]:
                 print(f"            {t}")
     if r["review"]:
-        print("\n== Mit Spezialeffekt, bitte selbst ansehen")
+        print("\n== " + tr("With a special effect, please look for yourself"))
         for x in r["review"]:
             print(f"   {x['slot']:10} {money(x['price']):>9}  {x['name']}: {' / '.join(x['effects'])[:160]}")
 

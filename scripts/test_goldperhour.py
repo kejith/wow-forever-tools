@@ -2,11 +2,11 @@
 # requires-python = ">=3.11"
 # dependencies = ["lupa>=2.0"]
 # ///
-"""Tests für die GoldPerHour-Auswertung ohne Spiel. uv run scripts/test_goldperhour.py
+"""Tests of the GoldPerHour evaluation without the game: uv run scripts/test_goldperhour.py
 
-Das Addon selbst wird in seinem eigenen Repository getestet (github.com/kejith/GoldPerHour,
-tests/test_addon.py: Lua-Simulation mit nachgebauter WoW-API). Die Testdaten hier sind der Stand, den
-das Addon am Ende dieser Simulation speichert. Neu erzeugen nach einer Änderung am Datenformat:
+The addon itself is tested in its own repository (github.com/kejith/GoldPerHour, tests/test_addon.py: a Lua
+simulation with a mocked WoW API). The fixture here is the state the addon saves at the end of that
+simulation. Write it again after a change to the data format:
 
     cd ../GoldPerHour
     uv run tests/test_addon.py --dump ../wow/scripts/fixtures/goldperhour/WTF/Account/TEST/SavedVariables/GoldPerHour.lua
@@ -19,9 +19,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import goldperhour as g  # noqa: E402
 
-# A WoW folder with nothing but the SavedVariables file of GoldPerHour 0.3.
+# A WoW folder with nothing but the SavedVariables file of GoldPerHour 0.3.x.
 FIXTURE = os.path.join(HERE, "fixtures", "goldperhour")
-LINK = "|cffffffff|Hitem:2447::::::::20:::::|h[Friedensblume]|h|r"
+LINK = "|cffffffff|Hitem:2447::::::::20:::::|h[Peacebloom]|h|r"
 
 
 def test_saved_by_addon():
@@ -29,7 +29,7 @@ def test_saved_by_addon():
     # request that changes the settings and resets (the session goes to the history), then 2 herbs at
     # vendor price in a new session that is running at the last save.
     out = g.compute(FIXTURE)
-    assert out["found"] and not out["legacy"] and out["version"] == "0.3.0"
+    assert out["found"] and not out["legacy"] and out["version"] == "0.3.1"
     assert out["file"].endswith("GoldPerHour.lua") and out["updated"]
     assert out["settings"] == {"scale": 2, "tooltipItems": 3, "priceSource": "vendor", "resumeAfterReload": True,
                                "autoStart": True, "shown": False, "herbSpells": [1234]}, out["settings"]
@@ -37,9 +37,9 @@ def test_saved_by_addon():
     assert out["current"]["total"] == 20 and out["current"]["runningAtSave"] is True
     assert out["current"]["perHour"] is None  # under a minute of session time
     h = out["history"][0]
-    assert h["total"] == 3500 and h["perHour"] == 3500 / 500 * 3600 and h["zones"] == [{"zone": "Brachland", "value": 3500}]
-    assert h["categories"]["loot"]["itemCount"] == 3 and h["chars"] == ["Malgruk"]
-    assert h["categories"]["loot"]["items"] == [{"id": 2447, "name": "Friedensblume", "quality": 1, "count": 3, "value": 3000}]
+    assert h["total"] == 3500 and h["perHour"] == 3500 / 500 * 3600 and h["zones"] == [{"zone": "The Barrens", "value": 3500}]
+    assert h["categories"]["loot"]["itemCount"] == 3 and h["chars"] == ["Tester"]
+    assert h["categories"]["loot"]["items"] == [{"id": 2447, "name": "Peacebloom", "quality": 1, "count": 3, "value": 3000}]
     assert [s["t"] for s in h["samples"]] == [0, 400, 500] and h["samples"][1]["loot"] == 3500
     assert out["summary"]["sessions"] == 1 and out["summary"]["best"] == h["started"]
     print("ok test_saved_by_addon")
@@ -52,7 +52,7 @@ def test_old_savedvariables():
     out = g.from_db(old)
     assert out["legacy"] and out["history"] == [] and out["settings"]["shown"] and out["settings"]["scale"] == 1
     item = out["current"]["categories"]["loot"]["items"][0]
-    assert item["name"] == "Friedensblume" and item["quality"] == 1 and out["current"]["perHour"] == 18000
+    assert item["name"] == "Peacebloom" and item["quality"] == 1 and out["current"]["perHour"] == 18000
     assert g.compute(os.path.join(HERE, "does-not-exist"))["found"] is False
     print("ok test_old_savedvariables")
 

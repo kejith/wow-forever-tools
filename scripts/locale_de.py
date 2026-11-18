@@ -1,0 +1,200 @@
+"""German texts of the scripts. The key is the English source text (see i18n.py); placeholders must match.
+
+test_i18n.py checks that every text handed to tr() or mark() has an entry here and that no entry is unused.
+"""
+
+TEXT = {
+    # ---- app_bridge.py, shared ----
+    'No WoWMCP export found for "{char}".': "Kein WoWMCP-Export für „{char}“ gefunden.",
+
+    # ---- writs.py ----
+    "estimate from conquestcapped.com (Nov 2026): Journeyman 22–45 s, Expert 50–90 s, Artisan about 75 s":
+        "Schätzung laut conquestcapped.com (Nov 2026): Geselle 22–45 s, Experte 50–90 s, Fachmann etwa 75 s",
+    "Journeyman (75 reputation)": "Geselle (75 Ruf)",
+    "Expert (125 reputation)": "Experte (125 Ruf)",
+    "Artisan (200 reputation)": "Fachmann (200 Ruf)",
+    "Alchemy": "Alchimie",
+    "Blacksmithing": "Schmiedekunst",
+    "Engineering": "Ingenieurskunst",
+    "Leatherworking": "Lederverarbeitung",
+    "Tailoring": "Schneiderei",
+    "Apprentice": "Lehrling",
+    "Journeyman": "Geselle",
+    "Expert": "Experte",
+    "Artisan": "Fachmann",
+    "Herbs": "Kräuter",
+    "Ore": "Erz",
+    "Textiles": "Textilien",
+    "Curiosities": "Kuriositäten",
+    "Fabrics": "Stoffe",
+    "Ingots": "Barren",
+    "Parts": "Bauteile",
+    "Earthly herbs": "Weltliche Kräuter",
+    "Flowering herbs": "Blühende Kräuter",
+    "No price data found in Auctionator.lua.": "Keine Preisdaten in Auctionator.lua gefunden.",
+    "Auctionator.lua not found under {wow}": "Auctionator.lua nicht gefunden unter {wow}",
+    "measured: coin pouch opened {n}x, {low} to {high}": "gemessen: {n}x Münzbeutel geöffnet, {low} bis {high}",
+    "measured: handed in {n}x": "gemessen: {n}x abgegeben",
+    "you own the writ": "Verfügung im Besitz",
+    "you own the item ({n}x)": "Item im Besitz ({n}x)",
+    "only {n} items in the AH": "nur {n} Items im AH",
+    "estimated, extrapolated from Apprentice 5, Journeyman 10, Expert 15":
+        "geschätzt, fortgeschrieben aus Lehrling 5, Geselle 10, Experte 15",
+    "from urgametips.com and wow.gg (Nov 2026)": "laut urgametips.com und wow.gg (Nov 2026)",
+    "you own the crate ({n}x)": "Kiste im Besitz ({n}x)",
+    "empty crate not in the AH (drops from enemies)": "leere Kiste nicht im AH (Drop von Gegnern)",
+    "no bundle with an AH price": "kein Bündel mit AH-Preis",
+    "you own the bundle ({n}x {name})": "Bündel im Besitz ({n}x {name})",
+    "only {n}x {name} in the AH": "nur {n}x {name} im AH",
+    "AH data: last scan day {date}  |  character: {char}": "AH-Daten: letzter Scan-Tag {date}  |  Charakter: {char}",
+    "Reputation {name}: {standing} {value}/{max} ({left} to the next standing)":
+        "Ruf {name}: {standing} {value}/{max} (noch {left} bis zur nächsten Stufe)",
+    "Note: prices are the lowest buyout at the last scan, not live auctions.":
+        "Hinweis: Preise sind der Mindest-Sofortkauf beim letzten Scan, keine Live-Angebote.",
+    "writ {writ} + item {item} - pouch {pouch} = net {net}  {per} s/rep  [{listed} writs in the AH]":
+        "Verfügung {writ} + Item {item} - Beutel {pouch} = netto {net}  {per} s/Ruf  [{listed} Verfügungen im AH]",
+    "Tip: you have {n}x sealed writ of this tier. Open it first, it may be cheaper.":
+        "Tipp: Du hast {n}x versiegelte Verfügung dieser Stufe. Erst öffnen, vielleicht ist sie günstiger.",
+    "Per day (the best of each tier): {total}, net after coin pouches {net} for {rep} reputation":
+        "Pro Tag (jeweils die beste): {total}, netto nach Münzbeuteln {net} für {rep} Ruf",
+    "Coin pouches: {sources}": "Münzbeutel: {sources}",
+    ", you have {n}": ", du hast {n}",
+    "Trade crates (Merchant's Favor{have})": "Handelskisten (Händlergunst{have})",
+    "(from level {level})": "(ab Stufe {level})",
+    "{tier}: {favor} favor, green {green} ({source})": "{tier}: {favor} Gunst, grün {green} ({source})",
+    "{per} s/favor": "{per} s/Gunst",
+    "incomplete": "unvollständig",
+    "crate {crate} + {bundle} = {total}  {per}": "Kiste {crate} + {bundle} = {total}  {per}",
+
+    # ---- upgrades.py ----
+    "Leveling": "Leveln",
+    "Dungeon/raid": "Dungeon/Raid",
+    "Head": "Kopf",
+    "Neck": "Hals",
+    "Shoulder": "Schulter",
+    "Chest": "Brust",
+    "Waist": "Taille",
+    "Legs": "Beine",
+    "Feet": "Füße",
+    "Wrist": "Handgelenk",
+    "Hands": "Hände",
+    "Finger": "Finger",
+    "Trinket": "Schmuck",
+    "Back": "Rücken",
+    "Main Hand": "Waffenhand",
+    "Off Hand": "Schildhand",
+    "Wand": "Zauberstab",
+    "from the game": "laut Spiel",
+    "estimated: spell crit − {base:g}%": "geschätzt: Zauberkrit − {base:g} %",
+    "from the spell text": "laut Zaubertext",
+    "Life Tap not known": "Aderlass nicht bekannt",
+    "Life Tap only from level 6": "Aderlass erst ab Stufe 6",
+    "assumed 1:1": "Annahme 1:1",
+    ", Improved Life Tap {rank}/2": ", Verbesserter Aderlass {rank}/2",
+    "{base:g}% without gear, the cap against +{target} levels is {cap:g}%: already reached":
+        "{base:g} % ohne Ausrüstung vorhanden, Cap gegen +{target} Stufen ist {cap:g} %: schon erreicht",
+    "cap against +{target} levels {cap:g}%, you have {base:g}%, {need:g}% missing":
+        "Cap gegen +{target} Stufen {cap:g} %, {base:g} % vorhanden, es fehlen {need:g} %",
+    " (Affliction spells only {need:g}% thanks to Suppression)":
+        " (Gebrechen-Zauber durch Unterdrückung nur {need:g} %)",
+    ", gear gives {gear:g}%": ", Ausrüstung bringt {gear:g} %",
+    "1% damage = {points:.1f} spell power, {share:.0%} of the damage can crit":
+        "1 % Schaden = {points:.1f} Zaubermacht, {share:.0%} des Schadens kann kritisch treffen",
+    " (assumption: Pandemic lets DoTs crit)": " (Annahme: Pandemie lässt DoTs kritisch treffen)",
+    "health, and mana through Life Tap (fixed value)": "Leben, über Aderlass auch Mana (fester Wert)",
+    "15 mana and some crit (fixed value)": "15 Mana und etwas Krit (fester Wert)",
+    "{mana:g} mana = {manaValue:.2f}, {crit:.4f}% crit ({source}) = {critValue:.2f}. "
+    "1 mana = {perMana:.3f}: pool {pool:.0f} (mana + health through Life Tap), "
+    "1% more pool counts like {share:g}% damage":
+        "{mana:g} Mana = {manaValue:.2f}, {crit:.4f} % Krit ({source}) = {critValue:.2f}. "
+        "1 Mana = {perMana:.3f}: Vorrat {pool:.0f} (Mana + Leben über Aderlass), "
+        "1 % mehr Vorrat zählt wie {share:g} % Schaden",
+    "{health:g} health: {tapMana:.1f} mana through Life Tap ({source}) = {tapValue:.2f}, "
+    "survival = {liveValue:.2f} (1% more health counts like {share:g}% damage)":
+        "{health:g} Leben: über Aderlass {tapMana:.1f} Mana ({source}) = {tapValue:.2f}, "
+        "Überleben = {liveValue:.2f} (1 % mehr Leben zählt wie {share:g} % Schaden)",
+    "Shadow / spell power": "Schatten-/Zaubermacht",
+    "reference": "Bezugsgröße",
+    "Stamina": "Ausdauer",
+    "Intellect": "Intelligenz",
+    "Spirit": "Willenskraft",
+    "Strength": "Stärke",
+    "Agility": "Beweglichkeit",
+    "regeneration out of combat": "Regeneration außerhalb des Kampfes",
+    "Mana per 5 sec.": "Mana pro 5 Sek.",
+    "Hit, next 1%": "Treffer, nächstes 1 %",
+    "Crit, per 1%": "Krit, je 1 %",
+    "Wand DPS": "Zauberstab-DPS",
+    "wand slot only": "nur im Zauberstab-Platz",
+    "Shadow/spell power 1, Stamina {stamina:.2f}, Int {intellect:.2f}, Spirit {spirit:g}, Mana/5s {mp5:g}, "
+    "Hit 1% = {hit:.1f}, Crit 1% = {crit:.1f}, Wand DPS {wand:g}":
+        "Schatten/Zaubermacht 1, Ausdauer {stamina:.2f}, Int {intellect:.2f}, Willenskraft {spirit:g}, "
+        "Mana/5s {mp5:g}, Treffer 1 % = {hit:.1f}, Krit 1 % = {crit:.1f}, Zauberstab-DPS {wand:g}",
+    "SP": "ZM",
+    "SD": "ZS",
+    "Shadow": "Schatten",
+    "Sta": "Ausd",
+    "Int": "Int",
+    "Spi": "Wil",
+    "Hit rating": "Trefferwertung",
+    "Crit rating": "Kritwertung",
+    "Mana/5s": "Mana/5s",
+    "DPS": "DPS",
+    "{n:g} Armor": "{n:g} Rüstung",
+    "({n:.1f} damage per second)": "({n:.1f} Schaden pro Sekunde)",
+    "Durability {now} / {max}": "Haltbarkeit {now} / {max}",
+    "Requires Level {n}": "Benötigt Stufe {n}",
+    "Equip: Increases damage and healing done by magical spells and effects by up to {n}.":
+        "Anlegen: Erhöht durch magische Zauber und Effekte verursachten Schaden und Heilung um bis zu {n}.",
+    "Equip: Increases damage done by magical spells and effects by up to {n}.":
+        "Anlegen: Erhöht den von magischen Zaubern und Effekten verursachten Schaden um bis zu {n}.",
+    "Equip: Increases damage done by Shadow spells and effects by up to {n}.":
+        "Anlegen: Erhöht den von Schattenzaubern und -effekten verursachten Schaden um bis zu {n}.",
+    "Equip: Increases healing done by spells and effects by up to {n}.":
+        "Anlegen: Erhöht durch Zauber und Effekte verursachte Heilung um bis zu {n}.",
+    "No WoWMCP.lua found for this character.": "Keine WoWMCP.lua für diesen Charakter gefunden.",
+    "No item export found: type /wowmcp items in the game, wait for the message, then /reload.":
+        "Kein Item-Export gefunden: im Spiel /wowmcp items, auf die Meldung warten, dann /reload.",
+    "new": "neu",
+    "[NEW in Forever]": "[NEU in Forever]",
+    "[two-handed]": "[Zweihand]",
+    "AH scan: {date} | item export: {when} | level {level} | budget {budget} | {count} items, {missing} not loaded":
+        "AH-Scan: {date} | Item-Export: {when} | Stufe {level} | Budget {budget} | {count} Items, "
+        "{missing} nicht geladen",
+    'Scale "{label}" (1 point = 1 shadow spell power), value of your gear now: {value}':
+        "Skala „{label}“ (1 Punkt = 1 Schatten-Zaubermacht), Wert der Ausrüstung jetzt: {value}",
+    "Prices are the lowest buyout at the scan.": "Preise = Mindest-Sofortkauf beim Scan.",
+    "Best package for {budget}: {gain} points{pct} for {cost}":
+        "Bestes Paket für {budget}: {gain} Punkte{pct} für {cost}",
+    "up to here {cost} for {gain} points": "bis hier {cost} für {gain} Punkte",
+    ", replaces {items}": ", ersetzt {items}",
+    "{slot}: now {name} ({stats})": "{slot}: jetzt {name} ({stats})",
+    "With a special effect, please look for yourself": "Mit Spezialeffekt, bitte selbst ansehen",
+
+    # ---- recipes.py ----
+    "binds when picked up, cannot be sold": "beim Aufheben gebunden, nicht verkäuflich",
+    "price is 1 day old": "Preis 1 Tag alt",
+    "price is {days} days old": "Preis {days} Tage alt",
+    "profit is falling (on {date} still {gold}g)": "Gewinn fällt (am {date} noch {gold}g)",
+    "cheap right now (7-day average {gold}g)": "gerade billig (Ø 7 Tage {gold}g)",
+    "no price for {items}": "kein Preis für {items}",
+    "Recipe {id}": "Rezept {id}",
+    "Recipe: {name}": "Rezept: {name}",
+    "Trainer": "Lehrer",
+    "{char}  |  AH scan {date}  |  build {build}  |  vendor prices {vendors}":
+        "{char}  |  AH-Scan {date}  |  Build {build}  |  Händlerpreise {vendors}",
+    "AH": "AH",
+    "vendor": "Händler",
+    "recipe item": "Rezept-Item",
+    "trainer": "Lehrer",
+    "yes": "ja",
+    "no": "nein",
+    "profession window read {when}": "Berufsfenster gelesen {when}",
+    "learned recipes unknown (open the profession window)": "gelernte Rezepte unbekannt (Berufsfenster öffnen)",
+    "Learned:": "Gelernt:",
+    "Not learned yet:": "Noch nicht gelernt:",
+    "All recipes:": "Alle Rezepte:",
+    "profit {profit}  cost {cost}  AH {listed}x": "Gewinn {profit}  Kosten {cost}  AH {listed}x",
+    "profit {profit}  learnable {learnable} from {skill} {source}":
+        "Gewinn {profit}  lernbar {learnable} ab {skill} {source}",
+}

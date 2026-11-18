@@ -4,7 +4,7 @@
 # ///
 """GoldPerHour sessions for the desktop app: reads GoldPerHourDB from the account SavedVariables.
 
-    uv run scripts/goldperhour.py [--wow <pfad>]
+    uv run scripts/goldperhour.py [--wow <path>]
 
 The addon (github.com/kejith/GoldPerHour, from 0.3) keeps the running session in GoldPerHourDB.gold/coin/items/elapsed,
 its metadata (start, zones, characters, gold curve) in .session and finished sessions in .history. WoW
@@ -21,7 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import upgrades  # noqa: E402  (load_sv)
-import verfuegungen as v  # noqa: E402  (DEFAULT_WOW)
+import writs  # noqa: E402  (DEFAULT_WOW)
 
 CATEGORIES = ("herb", "loot")
 # Same defaults as DEFAULTS in GoldPerHour.lua.
@@ -133,7 +133,7 @@ def from_db(db: dict) -> dict:
     }
 
 
-def compute(wow: str = v.DEFAULT_WOW) -> dict:
+def compute(wow: str = writs.DEFAULT_WOW) -> dict:
     path = find_file(wow)
     if not path:
         return {"found": False, "settings": settings_of({}), "herbGathering": HERB_GATHERING}
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     import argparse
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--wow", default=os.environ.get("WOW_FOREVER_DIR") or v.DEFAULT_WOW)
+    ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     a = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(compute(a.wow), ensure_ascii=False, indent=2))

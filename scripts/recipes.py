@@ -2,29 +2,29 @@
 # requires-python = ">=3.11"
 # dependencies = ["lupa>=2.0"]
 # ///
-"""Berufsrezepte: Was bringt jedes gelernte Rezept gerade im AH, und welche Rezepte lohnen sich noch mehr?
+"""Profession recipes: what does every learned recipe earn in the auction house right now, and which recipes
+would earn more?
 
-    uv run scripts/recipes.py --char Malgruk [--beruf Alchimie] [--top 15] [--json]
+    uv run scripts/recipes.py --char Malgruk [--profession Alchemy] [--top 15] [--json] [--lang en|de]
 
-Quellen:
-- Rezeptkatalog aus Forevers DB2-Tabellen (wago.tools, Produkt wowf): SkillLineAbility (Rezepte pro Beruf,
-  Farbgrenzen), SpellReagents, SpellEffect (hergestelltes Item, Menge, Lern-Effekt der Rezept-Items),
-  ItemEffect + ItemXItemEffect (welches Item welches Rezept lehrt), ItemSparse (Namen, Händlerpreise,
-  benötigter Skill, Bindung), SpellCooldowns (Transmutationen). Wird pro Build als JSON zwischengespeichert.
-- Gelernte Rezepte aus dem Addon (ab 1.4): WoWMCP_Char.recipes, gelesen beim Öffnen des Berufsfensters.
-  Ohne diesen Export ist „gelernt“ unbekannt.
-- Preise aus Auctionator (Mindest-Sofortkauf beim letzten Scan), Händlerpreise aus WoWMCP_Account.vendor
-  (beim Händlerbesuch gelesen) oder aus ItemSparse für Reagenzien, die jeder Handwerkshändler führt.
+Sources:
+- Recipe catalog from Forever's DB2 tables (wago.tools, product wowf): SkillLineAbility (recipes per
+  profession, colour thresholds), SpellReagents, SpellEffect (crafted item, amount, the learn effect of recipe
+  items), ItemEffect + ItemXItemEffect (which item teaches which recipe), ItemSparse (names, vendor prices,
+  required skill, binding), SpellCooldowns (transmutes). Cached as JSON per build and client locale.
+- Learned recipes from the addon (1.4+): WoWMCP_Char.recipes, read when the profession window opens.
+  Without that export "learned" is unknown.
+- Prices from Auctionator (lowest buyout at the last scan), vendor prices from WoWMCP_Account.vendor
+  (read when you visit a vendor) or from ItemSparse for reagents every trade vendor sells.
 
-Gewinn pro Herstellung = AH-Preis × Menge × (1 − 5 % AH-Gebühr) − Reagenzien. Reagenzien zum günstigeren
-Preis aus AH und Händler; eigene Reagenzien zählen zum Marktpreis (das, was du beim Verkauf bekämst).
+Profit per craft = AH price x amount x (1 - 5% AH cut) - reagents. Reagents at the cheaper price of AH and
+vendor; your own reagents count at the market price (what you would get for selling them).
 """
 
 from __future__ import annotations
 
 import argparse
 import collections
-import csv
 import datetime
 import glob
 import json
@@ -34,27 +34,29 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import icons  # noqa: E402  (DB2-Download und Build)
-import upgrades  # noqa: E402  (SavedVariables lesen)
-import verfuegungen as v  # noqa: E402  (Auctionator)
+import i18n  # noqa: E402
+import icons  # noqa: E402  (DB2 download and build)
+import upgrades  # noqa: E402  (reads SavedVariables)
+import writs  # noqa: E402  (Auctionator)
+from i18n import tr  # noqa: E402
 
 AH_CUT = 0.05
 CATALOG_VERSION = 2
-HISTORY_DAYS = 8  # so viele volle Scan-Tage zeigt der Gewinnverlauf
-FULL_SCAN_SHARE = 0.3  # ein Tag zählt als voller Scan, wenn er so viel vom größten Scan-Tag enthält
-GATHERING = {182, 186, 393, 356}  # Kräuterkunde, Bergbau, Kürschnerei, Angeln: keine Herstellung
+HISTORY_DAYS = 8  # the profit history shows this many full scan days
+FULL_SCAN_SHARE = 0.3  # a day counts as a full scan when it holds this share of the biggest scan day
+GATHERING = {182, 186, 393, 356}  # Herbalism, Mining, Skinning, Fishing: nothing to craft
 NEW_ID = 200000
 
-# Reagenzien, die jeder Handwerks- oder Gemischtwarenhändler führt. Preis = ItemSparse.BuyPrice / VendorStackCount,
-# bis das Addon beim Händlerbesuch den echten Preis liest.
+# Reagents every trade or general goods vendor sells. Price = ItemSparse.BuyPrice / VendorStackCount, until
+# the addon reads the real price at a vendor.
 VENDOR_ITEMS = {
-    3371, 3372, 8925, 18256,  # Phiolen
-    2678, 2692, 3713, 159, 1179, 2596, 4289, 8150,  # Kochen: Gewürze, Wasser, Milch, Bier, Salz
-    2320, 2321, 4291, 8343, 14341,  # Fäden
-    2324, 2604, 6260, 4340, 4341, 4342, 2325, 10290,  # Bleiche und Farbstoffe
-    3857, 2880, 3466, 18567,  # Kohle, Fluxus
-    6217, 4470, 4399, 4400, 10647, 10648,  # Kupferrute, Holz, Kanister, Gelatine, Pergament
-    6530,  # Nachtkriecher
+    3371, 3372, 8925, 18256,  # vials
+    2678, 2692, 3713, 159, 1179, 2596, 4289, 8150,  # cooking: spices, water, milk, beer, salt
+    2320, 2321, 4291, 8343, 14341,  # threads
+    2324, 2604, 6260, 4340, 4341, 4342, 2325, 10290,  # bleach and dyes
+    3857, 2880, 3466, 18567,  # coal, flux
+    6217, 4470, 4399, 4400, 10647, 10648,  # copper rod, wood, kegs, gelatin, parchment
+    6530,  # nightcrawlers
 }
 
 
@@ -65,11 +67,11 @@ def _int(x) -> int:
         return 0
 
 
-# ---------- Katalog ----------
+# ---------- catalog ----------
 
-def build_catalog(build: str | None) -> dict:
-    """{skillLine: {spellId: recipe}} plus Item-Infos, aus den DB2-Tabellen."""
-    t = lambda name: icons.table(name, build)  # noqa: E731
+def build_catalog(build: str | None, locale: str | None = None) -> dict:
+    """{skillLine: {spellId: recipe}} plus item info, from the DB2 tables. Names are in `locale`."""
+    t = lambda name: icons.table(name, build, locale)  # noqa: E731
     abilities = [r for r in t("SkillLineAbility") if _int(r["SkillLine"]) and _int(r["Spell"])]
     spells = {_int(r["Spell"]) for r in abilities}
     names = {_int(r["ID"]): r["Name_lang"] for r in t("SpellName") if _int(r["ID"]) in spells}
@@ -84,13 +86,13 @@ def build_catalog(build: str | None) -> dict:
         sid, effect = _int(r["SpellID"]), _int(r["Effect"])
         if effect == 24 and sid in spells and _int(r["EffectItemType"]):  # CREATE_ITEM
             creates[sid] = [_int(r["EffectItemType"]), max(1, _int(r.get("EffectBasePointsF")))]
-        elif effect == 36 and _int(r["EffectTriggerSpell"]) in spells:  # LEARN_SPELL (Rezept-Item)
+        elif effect == 36 and _int(r["EffectTriggerSpell"]) in spells:  # LEARN_SPELL (recipe item)
             teaches[sid] = _int(r["EffectTriggerSpell"])
     effect_spell = {_int(r["ID"]): _int(r["SpellID"]) for r in t("ItemEffect")}
     recipe_items: dict[int, list[int]] = {}
     for r in t("ItemXItemEffect"):
         sp = effect_spell.get(_int(r["ItemEffectID"]))
-        # Rezept-Items lehren über einen Lern-Effekt oder tragen (wie in Classic) den Rezept-Zauber direkt.
+        # Recipe items teach through a learn effect or carry the recipe spell itself (as in Classic).
         target = teaches.get(sp) or (sp if sp in spells else None)
         if target:
             recipe_items.setdefault(target, []).append(_int(r["ItemID"]))
@@ -125,22 +127,26 @@ def build_catalog(build: str | None) -> dict:
                                "buy": _int(r["BuyPrice"]), "buyStack": max(1, _int(r["VendorStackCount"])),
                                "sell": _int(r["SellPrice"]), "bind": _int(r["Bonding"]),
                                "reqSkill": _int(r["RequiredSkillRank"]), "reqSkillLine": _int(r["RequiredSkill"])}
-    return {"version": CATALOG_VERSION, "build": build, "lines": lines, "items": items}
+    return {"version": CATALOG_VERSION, "build": build, "locale": locale, "lines": lines, "items": items}
 
 
-def load_catalog(build: str | None) -> dict:
-    path = os.path.join(icons.CACHE, f"recipes-{build}.json") if build else None
+def load_catalog(build: str | None, locale: str | None = None) -> dict:
+    """Catalog for a build in the client's locale, from the cache or built from the DB2 tables. Without a
+    build the newest cached catalog is used (the same locale first)."""
+    locale = locale or i18n.DEFAULT_LOCALE
+    path = os.path.join(icons.CACHE, f"recipes-{build}-{locale}.json") if build else None
     if path and os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
         if data.get("version") == CATALOG_VERSION:
             return data
     if not build:
-        cached = sorted(glob.glob(os.path.join(icons.CACHE, "recipes-*.json")), key=os.path.getmtime)
-        if cached:
-            with open(cached[-1], encoding="utf-8") as f:
-                return json.load(f)
-    data = build_catalog(build)
+        for pattern in (f"recipes-*-{locale}.json", "recipes-*.json"):
+            cached = sorted(glob.glob(os.path.join(icons.CACHE, pattern)), key=os.path.getmtime)
+            if cached:
+                with open(cached[-1], encoding="utf-8") as f:
+                    return json.load(f)
+    data = build_catalog(build, locale)
     if path and data["lines"]:
         os.makedirs(icons.CACHE, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -148,19 +154,19 @@ def load_catalog(build: str | None) -> dict:
     return data
 
 
-# ---------- Preise ----------
+# ---------- prices ----------
 
 class Market:
     def __init__(self, prices: dict, vendor: dict, items: dict):
         self.prices, self.vendor, self.items = prices, vendor, items
         days = collections.Counter(int(k) for e in prices.values() if isinstance(e, dict) for k in (e.get("a") or {}))
         self.last_day = max(days) if days else 0
-        # Auctionator schreibt auch bei einer einzelnen Suche Tagespreise. Für den Verlauf zählen nur volle Scans.
+        # Auctionator also writes day prices for a single search. Only full scans count for the history.
         biggest = max(days.values(), default=0)
         self.scan_days = sorted(d for d, n in days.items() if n >= FULL_SCAN_SHARE * biggest)[-HISTORY_DAYS:]
 
     def ah(self, iid: int) -> dict | None:
-        """Mindestpreis beim letzten Scan, Anzahl im AH, Median der Tagespreise der letzten 7 Scan-Tage."""
+        """Lowest price at the last scan, amount listed, median of the day prices of the last 7 scan days."""
         e = self.prices.get(str(iid))
         if not isinstance(e, dict) or not e.get("m"):
             return None
@@ -171,8 +177,8 @@ class Market:
                 "median": int(statistics.median(recent)) if recent else e["m"]}
 
     def day_price(self, iid: int, day: int) -> float | None:
-        """AH-Preis an einem Scan-Tag: Mitte aus höchstem und niedrigstem Mindestpreis des Tages (Auctionator
-        speichert nur diese beiden), am letzten Scan-Tag der aktuelle Mindestpreis wie in ah()."""
+        """AH price on a scan day: the middle of the day's highest and lowest minimum price (Auctionator
+        stores only these two), on the last scan day the current minimum price as in ah()."""
         e = self.prices.get(str(iid))
         if not isinstance(e, dict):
             return None
@@ -189,30 +195,31 @@ class Market:
         return ((e.get("a") or {}).get(str(day)) or 0) if isinstance(e, dict) else 0
 
     def vendor_price(self, iid: int) -> tuple[float | None, str | None]:
+        """(price per piece, vendor NPC or None) when a vendor sells the item without a stock limit."""
         seen = self.vendor.get(iid) or self.vendor.get(str(iid))
         if isinstance(seen, dict) and seen.get("price") and not seen.get("limited"):
-            return seen["price"], seen.get("npc") or "Händler"
+            return seen["price"], seen.get("npc")
         it = self.items.get(str(iid)) or {}
         if iid in VENDOR_ITEMS and it.get("buy"):
-            return it["buy"] / it.get("buyStack", 1), "Händler"
+            return it["buy"] / it.get("buyStack", 1), None
         return None, None
 
     def reagent(self, iid: int) -> dict:
-        """Günstigster Einkauf: AH oder Händler."""
+        """Cheapest way to buy: "ah" or "vendor" (with the vendor's name when the addon saw one)."""
         ah = self.ah(iid)
         vp, npc = self.vendor_price(iid)
         options = []
         if ah:
-            options.append((ah["price"], "AH"))
+            options.append((ah["price"], "ah", None))
         if vp:
-            options.append((vp, npc))
+            options.append((vp, "vendor", npc))
         if not options:
-            return {"unit": None, "source": None, "listed": 0}
-        unit, source = min(options)
-        return {"unit": unit, "source": source, "listed": ah["listed"] if ah else 0}
+            return {"unit": None, "source": None, "vendor": None, "listed": 0}
+        unit, source, npc = min(options, key=lambda o: o[0])
+        return {"unit": unit, "source": source, "vendor": npc, "listed": ah["listed"] if ah else 0}
 
 
-# ---------- Charakter ----------
+# ---------- character ----------
 
 def owned_counts(c: dict) -> dict[int, int]:
     out: dict[int, int] = {}
@@ -225,7 +232,7 @@ def owned_counts(c: dict) -> dict[int, int]:
 
 
 def color_of(rank: int, yellow: int, grey: int) -> int | None:
-    """0 orange, 1 gelb, 2 grün, 3 grau, wie TradeskillRelativeDifficulty im Spiel."""
+    """0 orange, 1 yellow, 2 green, 3 grey, like TradeskillRelativeDifficulty in the game."""
     if not grey:
         return None
     if rank >= grey:
@@ -244,11 +251,11 @@ def fmt_cd(seconds: int | None) -> str | None:
     return f"{hours:.0f} h" if hours >= 1 else f"{seconds // 60} min"
 
 
-# ---------- Rechnung ----------
+# ---------- calculation ----------
 
 def profit_history(market: Market, output: int, qty: float, reagents: list[tuple[int, int]]) -> list[dict]:
-    """Gewinn pro Herstellung an jedem vollen Scan-Tag, gerechnet wie der aktuelle Gewinn. Tage, an denen das
-    Ergebnis oder ein Reagenz keinen Preis hat, fehlen."""
+    """Profit per craft on every full scan day, calculated like the current profit. Days on which the
+    result or a reagent has no price are left out."""
     out = []
     for day in market.scan_days:
         price = market.day_price(output, day)
@@ -268,17 +275,17 @@ def profit_history(market: Market, output: int, qty: float, reagents: list[tuple
 
 
 def trend_of(history: list[dict], cost: float = 0) -> str | None:
-    """„fallend“, „steigend“ oder „stabil“: Änderung des Gewinns über die letzten drei vollen Scan-Tage.
-    Unter 20 % des größten Betrags in diesem Fenster gilt als stabil (mindestens 5 % der Reagenzienkosten
-    oder 1 Silber, damit Kupferbeträge um null kein Trend sind). Ohne drei Scan-Tage gibt es keine Aussage."""
+    """"falling", "rising" or "stable": change of the profit over the last three full scan days. Less than
+    20% of the largest amount in that window counts as stable (at least 5% of the reagent cost or 1 silver,
+    so copper amounts around zero are no trend). Without three scan days there is no statement."""
     if len(history) < 3:
         return None
     window = [h["profit"] for h in history[-3:]]
     change = window[-1] - window[0]
     scale = max(*(abs(p) for p in window), 0.05 * cost, 100)
     if abs(change) < 0.2 * scale:
-        return "stabil"
-    return "fallend" if change < 0 else "steigend"
+        return "stable"
+    return "falling" if change < 0 else "rising"
 
 
 def evaluate(sid: int, rec: dict, scan: dict | None, rank: int, market: Market, owned: dict[int, int],
@@ -305,37 +312,38 @@ def evaluate(sid: int, rec: dict, scan: dict | None, rank: int, market: Market, 
         craftable = have // count if craftable is None else min(craftable, have // count)
         rows.append({"id": iid, "name": name_of(iid), "quality": item(iid).get("quality", 1), "count": count,
                      "unit": None if p["unit"] is None else round(p["unit"]), "cost": None if line is None else round(line),
-                     "source": p["source"], "owned": have})
+                     "source": p["source"], "vendor": p["vendor"], "owned": have})
 
     out_item = item(output)
     ah = market.ah(output) if output else None
     bound = out_item.get("bind") == 1
     sell, sell_source = None, None
     if ah and not bound:
-        sell, sell_source = ah["price"] * qty * (1 - AH_CUT), "AH"
+        sell, sell_source = ah["price"] * qty * (1 - AH_CUT), "ah"
     elif out_item.get("sell"):
-        sell, sell_source = out_item["sell"] * qty, "Händler"
+        sell, sell_source = out_item["sell"] * qty, "vendor"
     profit = None if sell is None or missing_price else sell - cost
-    history = profit_history(market, output, qty, reagents) if sell_source == "AH" else []
+    history = profit_history(market, output, qty, reagents) if sell_source == "ah" else []
     trend = trend_of(history, cost)
     difficulty = (scan or {}).get("difficulty")
     if difficulty is None:
         difficulty = color_of(rank, rec.get("yellow", 0), rec.get("grey", 0))
     notes = []
     if bound:
-        notes.append("beim Aufheben gebunden, nicht verkäuflich")
+        notes.append(tr("binds when picked up, cannot be sold"))
     if ah and ah["age"]:
-        notes.append(f"Preis {ah['age']} Tage alt")
-    if trend == "fallend":
-        # Ein Preis unter dem Wochenschnitt ist dann kein Ausrutscher, sondern das Ende eines Rückgangs.
+        notes.append(tr("price is 1 day old") if ah["age"] == 1 else tr("price is {days} days old", days=ah["age"]))
+    if trend == "falling":
+        # A price below the weekly average is then no outlier but the end of a decline.
         was = history[-3]
-        notes.append(f"Gewinn fällt (am {was['date'][8:]}.{was['date'][5:7]}. noch {was['profit'] / 10000:+.2f}g)")
+        notes.append(tr("profit is falling (on {date} still {gold}g)", date=i18n.short_date(was["date"]),
+                        gold=f"{was['profit'] / 10000:+.2f}"))
     elif ah and ah["price"] < 0.6 * ah["median"]:
-        notes.append(f"gerade billig (Ø 7 Tage {ah['median'] / 10000:.2f}g)")
+        notes.append(tr("cheap right now (7-day average {gold}g)", gold=f"{ah['median'] / 10000:.2f}"))
     if missing_price:
-        notes.append("kein Preis für " + ", ".join(missing_price))
+        notes.append(tr("no price for {items}", items=", ".join(missing_price)))
     return {
-        "id": sid, "name": (scan or {}).get("name") or rec.get("name") or f"Rezept {sid}",
+        "id": sid, "name": (scan or {}).get("name") or rec.get("name") or tr("Recipe {id}", id=sid),
         "output": output, "outputName": name_of(output) if output else None, "quality": out_item.get("quality", 1),
         "qty": qty, "reagents": rows, "cost": round(cost) if not missing_price else None,
         "sell": None if sell is None else round(sell), "sellSource": sell_source,
@@ -350,7 +358,7 @@ def evaluate(sid: int, rec: dict, scan: dict | None, rank: int, market: Market, 
 
 
 def acquisition(sid: int, rec: dict, scan: dict | None, rank: int, market: Market) -> dict:
-    """Woher ein noch nicht gelerntes Rezept kommt und was es kostet."""
+    """Where a recipe that is not learned yet comes from and what it costs."""
     options = []
     req = None
     for iid in rec.get("recipeItems") or []:
@@ -358,7 +366,7 @@ def acquisition(sid: int, rec: dict, scan: dict | None, rank: int, market: Marke
         req = it.get("reqSkill") or req
         ah = market.ah(iid)
         seen = market.vendor.get(iid) or market.vendor.get(str(iid))
-        name = it.get("name") or f"Rezept: {rec.get('name')}"
+        name = it.get("name") or tr("Recipe: {name}", name=rec.get("name"))
         if ah:
             options.append({"kind": "ah", "id": iid, "name": name, "price": ah["price"], "listed": ah["listed"],
                             "age": ah["age"], "quality": it.get("quality", 1)})
@@ -369,14 +377,14 @@ def acquisition(sid: int, rec: dict, scan: dict | None, rank: int, market: Marke
             options.append({"kind": "item", "id": iid, "name": name, "price": None, "quality": it.get("quality", 1)})
     trainer = not rec.get("recipeItems") and rec.get("acquire") != 3
     if trainer:
-        options.append({"kind": "trainer", "name": "Lehrer", "price": None})
+        options.append({"kind": "trainer", "name": tr("Trainer"), "price": None})
     source_text = (scan or {}).get("source")
     priced = [o for o in options if o.get("price")]
     best = min(priced, key=lambda o: o["price"]) if priced else None
     if req:
         learnable = rank >= req
     elif trainer and rec.get("yellow"):
-        learnable = True if rank >= rec["yellow"] else None  # Lernstufe liegt immer unter „gelb“
+        learnable = True if rank >= rec["yellow"] else None  # the skill to learn it is never above "yellow"
     else:
         learnable = None
     return {"options": options, "best": best, "reqSkill": req, "learnable": learnable, "sourceText": source_text,
@@ -404,7 +412,7 @@ def profession_rows(line: int, catalog: dict, scan: dict | None, rank: int, mark
             learned.append(row)
         else:
             if rec.get("acquire") == 3 and not rec.get("recipeItems") and not (s and s.get("source")):
-                continue  # nicht mehr erhältlich
+                continue  # no longer available
             row["acquire"] = acquisition(sid, rec, s, rank, market)
             missing.append(row)
     return learned, missing
@@ -414,13 +422,13 @@ def sort_key(row: dict) -> tuple:
     return (row["profit"] is None, -(row["profit"] or 0))
 
 
-def compute(wow: str = v.DEFAULT_WOW, char: str = "", beruf: str = "", top: int = 0,
+def compute(wow: str = writs.DEFAULT_WOW, char: str = "", profession: str = "", top: int = 0,
             prices: dict | None = None) -> dict:
-    files = v.find_chars(wow, char)
+    files = writs.find_chars(wow, char)
     if not files:
-        raise FileNotFoundError(f"Kein WoWMCP-Export für „{char}“ gefunden.")
+        raise FileNotFoundError(tr("No WoWMCP export found for \"{char}\".", char=char))
     c = upgrades.load_char(files[0])
-    prices = prices if prices is not None else v.load_prices(v.find_auctionator(wow))
+    prices = prices if prices is not None else writs.load_prices(writs.find_auctionator(wow))
     vendor: dict = {}
     for path in glob.glob(os.path.join(wow, "WTF", "Account", "*", "SavedVariables", "WoWMCP.lua")):
         vendor.update((upgrades.load_sv(path, "WoWMCP_Account") or {}).get("vendor") or {})
@@ -428,7 +436,9 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", beruf: str = "", top: int 
     cl = c.get("client") or {}
     if cl.get("version") and cl.get("build"):
         build = f"{cl['version']}.{int(cl['build'])}"
-    catalog = load_catalog(build or icons.client_build(wow))
+    # Names in the catalog are in the client's language, like everything else that comes from the game.
+    locale = cl.get("locale") or i18n.client_locale(wow) or i18n.DEFAULT_LOCALE
+    catalog = load_catalog(build or icons.client_build(wow), locale)
     market = Market(prices, vendor, catalog["items"])
     owned = owned_counts(c)
     scans = {int(k): s for k, s in (c.get("recipes") or {}).items()}
@@ -438,7 +448,7 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", beruf: str = "", top: int 
         line = p.get("skillLine")
         if not line or line in GATHERING or str(line) not in catalog["lines"]:
             continue
-        if beruf and beruf.lower() not in (p.get("name") or "").lower():
+        if profession and profession != str(line) and profession.lower() not in (p.get("name") or "").lower():
             continue
         scan = scans.get(line)
         rank = (scan or {}).get("rank") or p.get("rank") or 0
@@ -450,7 +460,7 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", beruf: str = "", top: int 
             r["better"] = bool(scan) and r["profit"] is not None and r["profit"] > best_learned
             cost = (r["acquire"]["best"] or {}).get("price")
             r["payback"] = (round(cost / r["profit"], 1) if cost and r["profit"] and r["profit"] > 0 else None)
-        # Erst, was du jetzt lernen kannst, dann nach Gewinn.
+        # First what you can learn now, then by profit.
         missing.sort(key=lambda r: (r["acquire"]["learnable"] is not True, *sort_key(r)))
         if top:
             learned_rows, missing_rows = learned[:top], missing[:top]
@@ -462,47 +472,60 @@ def compute(wow: str = v.DEFAULT_WOW, char: str = "", beruf: str = "", top: int 
             "bestLearned": best_learned, "learned": learned_rows, "missing": missing_rows,
             "profitableCount": sum(1 for r in learned if (r["profit"] or 0) > 0),
         })
-    sd = v.scan_date(prices)
+    sd = writs.scan_date(prices)
     return {"character": os.path.basename(os.path.dirname(os.path.dirname(files[0]))),
             "level": (c.get("character") or {}).get("level"), "scanDate": sd.isoformat() if sd else None,
-            "build": catalog.get("build"), "vendorPrices": len(vendor), "addonVersion": (c.get("addon") or {}).get("version"),
+            "build": catalog.get("build"), "locale": catalog.get("locale") or locale, "vendorPrices": len(vendor), "addonVersion": (c.get("addon") or {}).get("version"),
             "professions": out, "ahCut": AH_CUT}
 
 
 # ---------- CLI ----------
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--wow", default=os.environ.get("WOW_FOREVER_DIR") or v.DEFAULT_WOW)
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
-    ap.add_argument("--beruf", default="", help="Teil des Berufsnamens, z. B. Alchimie")
+    ap.add_argument("--profession", default="",
+                    help="part of the profession name as the client shows it (Alchemy, Alchimie) or its skill line ID")
     ap.add_argument("--top", type=int, default=15)
     ap.add_argument("--json", action="store_true")
+    i18n.add_argument(ap)
     a = ap.parse_args()
-    r = compute(a.wow, a.char, a.beruf, a.top)
+    i18n.set_language(a.lang, a.wow)
+    try:
+        r = compute(a.wow, a.char, a.profession, a.top)
+    except (FileNotFoundError, LookupError) as e:
+        sys.exit(str(e))
     sys.stdout.reconfigure(encoding="utf-8")
     if a.json:
         print(json.dumps(r, ensure_ascii=False))
         return
-    g = lambda c: "–" if c is None else v.fmt(int(c)) if c >= 0 else "-" + v.fmt(int(-c))  # noqa: E731
-    print(f"{r['character']}  |  AH-Scan {r['scanDate']}  |  Build {r['build']}  |  Händlerpreise {r['vendorPrices']}")
+    g = lambda c: "–" if c is None else writs.fmt(c)  # noqa: E731
+    print(tr("{char}  |  AH scan {date}  |  build {build}  |  vendor prices {vendors}", char=r["character"],
+             date=r["scanDate"], build=r["build"], vendors=r["vendorPrices"]))
+    kinds = {"ah": tr("AH"), "vendor": tr("vendor"), "item": tr("recipe item"), "trainer": tr("trainer")}
+    learnable = {True: tr("yes"), False: tr("no"), None: "?"}
     for p in r["professions"]:
-        state = f"Berufsfenster gelesen {p['scanned']}" if p["scanned"] else "gelernte Rezepte unbekannt (Berufsfenster öffnen)"
+        state = (tr("profession window read {when}", when=f"{datetime.datetime.fromtimestamp(p['scanned']):%Y-%m-%d %H:%M}")
+                 if p["scanned"] else tr("learned recipes unknown (open the profession window)"))
         print(f"\n== {p['name']} {p['rank']}/{p['max']} ({state}) ==")
         if p["scanned"]:
-            print("  Gelernt:")
+            print("  " + tr("Learned:"))
             for x in p["learned"]:
-                print(f"   {x['name'][:40]:<40} Gewinn {g(x['profit']):>10}  Kosten {g(x['cost']):>9}  AH {x['listed']:>5}x"
-                      f"  {'; '.join(x['notes'])}")
-        print("  Noch nicht gelernt:" if p["scanned"] else "  Alle Rezepte:")
+                print(f"   {x['name'][:40]:<40} "
+                      + tr("profit {profit}  cost {cost}  AH {listed}x", profit=f"{g(x['profit']):>10}",
+                           cost=f"{g(x['cost']):>9}", listed=f"{x['listed']:>5}")
+                      + f"  {'; '.join(x['notes'])}")
+        print("  " + (tr("Not learned yet:") if p["scanned"] else tr("All recipes:")))
         for x in p["missing"]:
             acq = x["acquire"]
             best = acq["best"]
-            src = (f"{best['kind']} {g(best['price'])}" if best else
-                   ", ".join(o["kind"] for o in acq["options"]) or "?")
-            mark = "*" if x.get("better") else " "
-            print(f"  {mark}{x['name'][:40]:<40} Gewinn {g(x['profit']):>10}  lernbar {acq['learnable']!s:<5}"
-                  f" ab {acq['reqSkill'] or '?':<4} {src}")
+            src = (f"{kinds[best['kind']]} {g(best['price'])}" if best else
+                   ", ".join(kinds[o["kind"]] for o in acq["options"]) or "?")
+            flag = "*" if x.get("better") else " "
+            print(f"  {flag}{x['name'][:40]:<40} "
+                  + tr("profit {profit}  learnable {learnable} from {skill} {source}", profit=f"{g(x['profit']):>10}",
+                       learnable=f"{learnable[acq['learnable']]:<5}", skill=f"{acq['reqSkill'] or '?':<4}", source=src))
 
 
 if __name__ == "__main__":
