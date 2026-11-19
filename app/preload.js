@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('wow', {
   gphRequest: (req) => ipcRenderer.invoke('gph:request', req),
   gphClearRequest: () => ipcRenderer.invoke('gph:clear'),
   createRequest: (action, opts) => ipcRenderer.invoke('request:create', action, opts),
+  // What the WoWMCP addon shows in the game: gameData() is the last sync (or waits for the running one),
+  // sendGameData() computes and writes now, onGameData(fn) hears every finished sync.
+  gameData: () => ipcRenderer.invoke('gamedata:get'),
+  sendGameData: () => ipcRenderer.invoke('gamedata:send'),
+  onGameData: (fn) => ipcRenderer.on('game-data', (_e, result) => fn(result)),
   icons: (itemIds) => ipcRenderer.invoke('icons', itemIds),
   wowRunning: () => ipcRenderer.invoke('wow:running'),
   openPath: (p) => ipcRenderer.invoke('open:path', p),

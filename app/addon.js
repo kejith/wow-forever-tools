@@ -7,6 +7,10 @@ const { t } = require('./i18n');
 const { latestRelease, tocVersion: versionOf, compareVersions } = require('./releases');
 
 const REQUEST_FILE = 'AppRequest.lua';
+// What the bridge writes for the addon to show in the game (scripts/ingame.py). Like a request, it belongs
+// to the app and not to the addon's release: an update keeps it and it never counts as a changed file.
+const DATA_FILE = 'AppData.lua';
+const APP_FILES = [REQUEST_FILE, DATA_FILE];
 
 // Every addon the app can install. Each one ships an AppRequest.lua stub that the app later overwrites with
 // a request; `global` is the variable the addon reads from it. `env` names a local checkout that takes the
@@ -75,7 +79,7 @@ function readRequest(wowDir, key = 'wowmcp') {
 
 function changedFiles(source, target, key) {
   const changed = [];
-  for (const f of [tocName(key), ...tocFiles(source, key)].filter((x) => x !== REQUEST_FILE)) {
+  for (const f of [tocName(key), ...tocFiles(source, key)].filter((x) => !APP_FILES.includes(x))) {
     let a = null;
     let b = null;
     try { a = fs.readFileSync(path.join(source, f)); } catch { /* missing in source */ }
@@ -122,8 +126,8 @@ async function installAddon(wowDir, key = 'wowmcp', opts = {}) {
   if (missing.length) throw new Error(t('The source lacks files listed in the .toc: {files}', { files: missing.join(', ') }));
   fs.mkdirSync(target, { recursive: true });
   for (const f of files) {
-    // Keep a request the app already wrote; only ship the empty stub on first install.
-    if (f === REQUEST_FILE && fs.existsSync(path.join(target, f))) continue;
+    // Keep a request and the lists the app already wrote; only ship the empty stubs where none exist.
+    if (APP_FILES.includes(f) && fs.existsSync(path.join(target, f))) continue;
     fs.mkdirSync(path.dirname(path.join(target, f)), { recursive: true });
     fs.copyFileSync(path.join(source.dir, f), path.join(target, f));
   }

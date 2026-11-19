@@ -9,7 +9,7 @@ The data comes out of the game through two addons, each in its own repository:
 
 | Addon | Repository | What it does |
 | --- | --- | --- |
-| WoWMCP | [kejith/WoWMCP](https://github.com/kejith/WoWMCP) | exports character, equipment, bags, bank, quests, reputation, professions, talents and auction house items into its SavedVariables |
+| WoWMCP | [kejith/WoWMCP](https://github.com/kejith/WoWMCP) | exports character, equipment, bags, bank, quests, reputation, professions, talents and auction house items into its SavedVariables; shows the app's lists in the game |
 | GoldPerHour | [kejith/GoldPerHour](https://github.com/kejith/GoldPerHour) | gold per hour, split into herbs and loot |
 
 The game writes SavedVariables to disk only on `/reload` or logout. The app, the scripts and the MCP server read them from there.
@@ -26,7 +26,7 @@ The app brings everything it needs. On the first start it downloads Python and t
 
 ### Pages
 
-- **Connection:** Is WoW Forever running? Are WoWMCP and GoldPerHour installed and current (install and update with one click)? How old are the auction house scan, the item export and the character snapshots? Requests to the addon: item export, read all items again, character snapshot.
+- **Connection:** Is WoW Forever running? Are WoWMCP and GoldPerHour installed and current (install and update with one click)? How old are the auction house scan, the item export and the character snapshots? Which lists did the app send into the game, and has the game loaded them? Requests to the addon: item export, read all items again, character snapshot.
 - **Character:** the character window as in the game: stats, equipment with points, professions, talents.
 - **Writs:** the cheapest crafting writ per tier, net of the coin pouch, and the trade crates by silver per Merchant's Favor (`scripts/writs.py`).
 - **AH upgrades:** upgrades per equipment slot with a budget, a preview of higher levels and a mark for items new in Forever (`scripts/upgrades.py`).
@@ -43,6 +43,17 @@ By hand: unpack the zip of the latest release ([WoWMCP](https://github.com/kejit
 
 How app and addon talk: addons cannot write files or use the network. The app puts a request into `Interface\AddOns\WoWMCP\AppRequest.lua` (or `…\GoldPerHour\AppRequest.lua`). The game loads the file on the next `/reload`, the addon runs the request once and reports the result through its SavedVariables. An addon update also needs only a `/reload`, even with new files or new SavedVariables.
 
+### Lists in the game
+
+What the pages find is also available in the game, through the WoWMCP addon (1.7 or newer):
+
+- **A window** (`/wowmcp show`, or it opens with the auction house) with one tab per list: AH upgrades, writs, trade crates, recipes, consumables. A click on a row searches the auction house for the item; a shift-click puts its link into the chat or the search box.
+- **Auctionator shopping lists** "WoWMCP: …", one per list, with the rows the app suggests buying.
+- **Tooltip lines** on the items of the lists, for example the gain of an upgrade or the profit of a recipe.
+- **A chat line at vendors** that sell a recipe worth buying.
+
+The app writes the lists for every character into `Interface\AddOns\WoWMCP\AppData.lua` whenever the game has saved (`scripts/ingame.py`); the game loads the file on the next `/reload`. After a new auction house scan that takes two: the first `/reload` saves the scan for the app, the second loads the new lists. The "Connection" page shows what was sent and whether the game has loaded it, and has "Send now" and the switch for sending automatically.
+
 ### Language
 
 The language follows the game client (`SET textLocale` in `WTF\Config.wtf`): German for a German client, English for every other one. If the game is not found, the language of Windows decides. The select box at the bottom left overrides it (Automatic, English, Deutsch).
@@ -56,6 +67,7 @@ The language follows the game client (`SET textLocale` in `WTF\Config.wtf`): Ger
 | `wowDir` | the `_forever_` folder, if the game is not in the default place. The environment variable `WOW_FOREVER_DIR` does the same. |
 | `language` | `auto` (default), `en` or `de` |
 | `uvPath` | another `uv` than the bundled one |
+| `sendToGame` | `false`: do not write the lists for the game by itself (the switch on the "Connection" page) |
 | `addonSources` | install an addon from a local checkout instead of the release: `{ "goldperhour": "<folder>", "wowmcp": "<folder>" }`. The environment variables `GOLDPERHOUR_ADDON_DIR` and `WOWMCP_ADDON_DIR` do the same. |
 
 ## Scripts
@@ -67,10 +79,12 @@ The scripts need [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`
 | `uv run scripts/writs.py --char <name>` | best writ per tier and the trade crates (`--top 3`, `--owned-at-ah-price`) |
 | `uv run scripts/upgrades.py --char <name>` | equipment upgrades from the auction house (`--max-price <gold>`, `--profile leveling\|dungeon`, `--sort gain\|price`, `--preview 4`, `--top 3`) |
 | `uv run scripts/recipes.py --char <name>` | profit per recipe (`--profession Alchemy`, `--top 15`) |
+| `uv run scripts/consumables.py --char <name>` | the strongest potions, food, bandages and buffs for the level (`--top 5`, `--all-buffs`) |
+| `uv run scripts/ingame.py` | what the WoWMCP addon shows in the game, per character; `--write` puts it into the addon folder |
 | `uv run scripts/goldperhour.py` | GoldPerHour sessions |
 | `uv run scripts/app_bridge.py status` | what the app sees, as JSON |
 
-Every script takes `--wow <folder>`. `writs.py`, `upgrades.py` and `recipes.py` print a table, or JSON with `--json`, and take `--lang auto|en|de` (default: the language of the game client; `WOW_TOOLS_LANG` sets it for all scripts). The other two always print JSON.
+Every script takes `--wow <folder>`. `writs.py`, `upgrades.py`, `recipes.py`, `consumables.py` and `ingame.py` print a table, or JSON with `--json`, and take `--lang auto|en|de` (default: the language of the game client; `WOW_TOOLS_LANG` sets it for all scripts; `ingame.py` always writes the client's language into the game). `goldperhour.py` and `app_bridge.py` always print JSON.
 
 Before running them: scan the auction house with Auctionator, open every profession window once, then `/reload`. Prices are the lowest buyout of the last scan, not live offers.
 
@@ -131,7 +145,7 @@ This needs Node.js 22 and uv. The app has no build step: plain JavaScript in `ap
 | Check | Command |
 | --- | --- |
 | App: addon install, release download, requests, translations | `cd app && npm test` |
-| Scripts | `uv run scripts/test_writs.py` (also `test_upgrades.py`, `test_recipes.py`, `test_goldperhour.py`, `test_i18n.py`) |
+| Scripts | `uv run scripts/test_writs.py` (also `test_upgrades.py`, `test_recipes.py`, `test_consumables.py`, `test_ingame.py`, `test_goldperhour.py`, `test_i18n.py`) |
 | MCP server | `uv run server/test_wow_mcp.py` |
 | Screenshots of every page | `cd app && npm run capture` (into `app/captures`; add `-- --lang=de` for German) |
 | The app as it will be installed, unpacked | `cd app && npm run pack` (into `app/dist`) |

@@ -13,6 +13,7 @@
     uv run scripts/app_bridge.py consumables --char Malgruk [--top 5]
     uv run scripts/app_bridge.py icons --ids 9492,287004
     uv run scripts/app_bridge.py goldperhour
+    uv run scripts/app_bridge.py ingame [--write]
 
 Every command takes --lang en|de for the texts the scripts produce (notes, labels, error messages); the
 default is the language of the game client. Prints exactly one JSON object on stdout; failures come back
@@ -32,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import consumables  # noqa: E402
 import goldperhour  # noqa: E402
 import i18n  # noqa: E402
+import ingame  # noqa: E402
 import recipes  # noqa: E402
 import upgrades  # noqa: E402
 import writs  # noqa: E402
@@ -121,7 +123,7 @@ def character(wow: str, name: str) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "consumables", "icons",
-                                           "goldperhour"])
+                                           "goldperhour", "ingame"])
     ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=3)
@@ -132,6 +134,7 @@ def main() -> None:
     ap.add_argument("--sort", choices=["gain", "price"], default="gain")
     ap.add_argument("--profession", default="", help="recipes: part of the profession name or its skill line ID")
     ap.add_argument("--ids", default="", help="icons: comma-separated item IDs")
+    ap.add_argument("--write", action="store_true", help="ingame: write the data file into the addon folder")
     i18n.add_argument(ap)
     a = ap.parse_args()
     language = i18n.set_language(a.lang, a.wow)
@@ -146,6 +149,9 @@ def main() -> None:
             r = icons.resolve(a.wow, [int(i) for i in a.ids.split(",") if i.strip().isdigit()])
         elif a.command == "goldperhour":
             r = goldperhour.compute(a.wow)
+        elif a.command == "ingame":
+            # What the addon shows in the game; the list titles are in the client's language.
+            r = ingame.sync(a.wow, a.char, a.write)
         elif a.command == "recipes":
             r = recipes.compute(a.wow, a.char, a.profession)
         elif a.command == "consumables":

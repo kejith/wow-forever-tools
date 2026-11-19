@@ -2,6 +2,7 @@
 // Talks to the game only through files: it reads the SavedVariables the WoWMCP and GoldPerHour addons and
 // Auctionator write on /reload or logout, and it writes AppRequest.lua into the installed addons, which the
 // client loads on the next /reload. All calculations run in the Python scripts via scripts/app_bridge.py.
+// The bridge also writes AppData.lua into the WoWMCP addon: the lists the addon shows in the game.
 // The addons themselves come from their GitHub releases (addon.js, releases.js), cached in the app's data
 // folder; settings.addonSources = { wowmcp: <folder>, goldperhour: <folder> } installs from a checkout instead.
 // Language: settings.language (auto, en, de); auto follows the game client (textLocale in WTF/Config.wtf) and,
@@ -119,6 +120,8 @@ async function runBridge(command, opts = {}) {
   if (['gain', 'price'].includes(opts.sort)) args.push('--sort', opts.sort);
   if (typeof opts.profession === 'string' && opts.profession) args.push('--profession', opts.profession);
   if (Array.isArray(opts.ids)) args.push('--ids', opts.ids.map(Number).filter((n) => n > 0).join(','));
+  // Screenshots only look: nothing is written into the game folder in capture mode.
+  if (command === 'ingame' && opts.write === true && !argValue('capture')) args.push('--write');
   const candidates = workingUv ? [workingUv] : uvCandidates();
   let lastErr;
   for (const uv of candidates) {
@@ -171,6 +174,28 @@ function serveIcons() {
   });
 }
 
+// ---------- Lists in the game ----------
+// The WoWMCP addon shows the app's results in the game: a window with the lists, Auctionator shopping lists,
+// tooltip lines and vendor hints (scripts/ingame.py). The bridge computes them for every character and writes
+// AppData.lua into the installed addon, which the client loads on the next /reload. That happens at the
+// start, whenever the game has saved (the watcher) and after an addon install, unless settings.sendToGame is
+// false; the file is only rewritten when its content changed. One run at a time.
+
+let gameDataQueue = Promise.resolve();
+let gameDataRun = null;
+const sendsToGame = () => settings.sendToGame !== false;
+
+function syncGameData(write = sendsToGame()) {
+  const run = async () => {
+    const result = { ...(await runBridge('ingame', { write })), automatic: sendsToGame() };
+    win?.webContents.send('game-data', result);
+    return result;
+  };
+  gameDataQueue = gameDataQueue.then(run, run);
+  gameDataRun = gameDataQueue;
+  return gameDataRun;
+}
+
 // ---------- Game process ----------
 
 function wowRunning() {
@@ -198,7 +223,10 @@ function startWatcher() {
       if (!file || !/(WoWMCP|Auctionator|GoldPerHour)\.lua$/i.test(file)) return;
       clearTimeout(debounce);
       // WoW writes several SavedVariables files in a row on /reload; wait until it is done.
-      debounce = setTimeout(() => win?.webContents.send('data-changed', { file }), 1500);
+      debounce = setTimeout(() => {
+        syncGameData(); // new scan or snapshot: new lists for the game
+        win?.webContents.send('data-changed', { file });
+      }, 1500);
     });
   } catch (err) {
     console.error('watch failed', err);
@@ -214,8 +242,17 @@ const addonOpts = (force) => ({
 });
 ipcMain.handle('addon:info', (_e, key, opts) => addon.addonInfo(settings.wowDir, addonKey(key), addonOpts(opts?.force)));
 ipcMain.handle('addon:install', async (_e, key) => {
-  try { return await addon.installAddon(settings.wowDir, addonKey(key), addonOpts()); } catch (err) { return { error: err.message }; }
+  try {
+    const result = await addon.installAddon(settings.wowDir, addonKey(key), addonOpts());
+    if (addonKey(key) === 'wowmcp') syncGameData(); // a new addon may be the first one that can show lists
+    return result;
+  } catch (err) {
+    return { error: err.message };
+  }
 });
+// The last sync, or the one that is running; the first call starts one.
+ipcMain.handle('gamedata:get', () => gameDataRun || syncGameData());
+ipcMain.handle('gamedata:send', () => syncGameData(true));
 ipcMain.handle('gph:request', (_e, req) => {
   try { return addon.writeGphRequest(settings.wowDir, req || {}); } catch (err) { return { error: err.message }; }
 });
@@ -231,10 +268,12 @@ ipcMain.handle('open:path', (_e, p) => shell.openPath(p));
 ipcMain.handle('settings:get', () => publicSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
   const { activeLanguage, clientLocale, version, capture, ...rest } = patch || {};
+  const before = `${settings.wowDir}|${sendsToGame()}`;
   Object.assign(settings, rest);
   saveSettings();
   applyLanguage();
   startWatcher();
+  if (before !== `${settings.wowDir}|${sendsToGame()}`) syncGameData();
   return publicSettings();
 });
 
@@ -275,6 +314,10 @@ async function capturePages(out, required) {
   const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'consumables', 'goldperhour'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const report = { language, version: app.getVersion(), packaged: app.isPackaged, uv: null, pages: {} };
+  // The Connection page shows the lists for the game. They arrive after the page; wait for them like for
+  // any other page's data (the window hears the finished sync through "game-data").
+  await (gameDataRun || syncGameData());
+  await wait(300);
   for (const page of pages) {
     await win.webContents.executeJavaScript(`window.__showPage(${JSON.stringify(page)})`);
     let idle = false;
@@ -292,6 +335,7 @@ async function capturePages(out, required) {
     report.pages[page] = { idle, error, notices: notices.filter((text) => text !== error) };
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
+    if (page === 'connection') await captureScrolled(out, wait, '#lists', 'connection-lists');
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
     if (page === 'recipes') await captureHelp(out, wait);
@@ -357,5 +401,6 @@ app.whenReady().then(() => {
   serveIcons();
   createWindow();
   startWatcher();
+  syncGameData();
 });
 app.on('window-all-closed', () => app.quit());

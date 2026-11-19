@@ -220,6 +220,7 @@ table.sticky > thead th {
 h2 .help, h3 .help { margin-left: 4px; }
 .controls label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
 .controls label.check { flex-direction: row; align-items: center; gap: 7px; font-size: 13px; color: var(--text); }
+.card label.check { display: flex; align-items: center; gap: 7px; font-size: 13px; }
 .controls input[type=number] { width: 110px; }
 .controls input.wide { width: 150px; }
 

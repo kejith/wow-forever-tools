@@ -90,12 +90,21 @@ api.onDataChanged(async () => {
   showPage(state.page);
 });
 
+// The main process computed the lists for the game again (at the start, after a /reload, after "Send now").
+api.onGameData((result) => {
+  state.ingame = result;
+  if (state.page === 'connection' && window.__idle) showPage('connection');
+});
+
 // ---------- Start ----------
 
 const settings = await api.getSettings();
 applyLanguage(settings);
 if (!settings.capture) restoreView(); // screenshots always show the pages as a new user sees them
 await loadStatus();
+// Screenshots wait for the lists; otherwise the card fills in when the sync is done.
+if (settings.capture) state.ingame = await api.gameData();
+else api.gameData().then((result) => { state.ingame ||= result; });
 showPage(pages[state.page] ? state.page : 'connection');
 // Game process and snapshot ages change without file writes; refresh the light status every 30 s.
 setInterval(async () => {

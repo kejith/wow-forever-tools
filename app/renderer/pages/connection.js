@@ -1,5 +1,5 @@
 // Page "Connection": is the game running, the two addons the app installs, the Auctionator scan, the item
-// export, the character snapshots and requests to the WoWMCP addon.
+// export, the lists the app sends into the game, the character snapshots and requests to the WoWMCP addon.
 import { ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, rerender, state, th, when } from '../core.js';
 import { t } from '../i18n.js';
 
@@ -121,6 +121,72 @@ function requestCard() {
     </div></div>`;
 }
 
+// ---------- Lists in the game ----------
+// state.ingame is the main process' last sync (scripts/ingame.py): what the lists hold per character, the
+// file in the addon folder and what the game has loaded of it.
+
+// Where the lists are: [badge class, badge text, hint (HTML)].
+function listsState(g) {
+  if (!g.addon?.installed) return ['bad', t('addon not installed'), esc(t('Install the WoWMCP addon above.'))];
+  if (!g.addon.ready) {
+    return ['warn', t('needs WoWMCP 1.7'), t('WoWMCP {version} cannot show lists. Update the addon above, then type <code>/reload</code> in the game.',
+      { version: esc(g.addon.version || '?') })];
+  }
+  if (!g.file) return ['', t('not sent yet'), ''];
+  if (g.file.hash !== g.hash) return ['warn', t('changed since sent'), esc(t('The game still gets the lists as of {time}.', { time: when(g.file.generated) }))];
+  // The game read the file if the addon says so, or if it saved (so it reloaded) after the file was written.
+  const loaded = g.loaded?.hash === g.file.hash || (g.saved || 0) > (g.file.modified || 0);
+  if (loaded) return ['ok', t('in the game'), t('<code>/wowmcp show</code> opens the window; it also opens with the auction house.')];
+  if (state.game?.running) return ['warn', t('waiting for /reload'), t('Type <code>/reload</code> in the game to load the lists.')];
+  return ['ok', t('ready for the next login'), ''];
+}
+
+function listsTable(g) {
+  const rows = (g.chars || []).map((c) => {
+    const lists = c.lists.map((l) => `${esc(l.title)} <span class="muted">${num(l.rows)}</span>`).join(' · ');
+    const errors = Object.entries(c.errors || {});
+    return `<tr>
+      <td style="white-space:nowrap"><b>${esc(c.name)}</b> <span class="muted">${esc(c.level ?? '')}</span></td>
+      <td>${lists || '<span class="muted">–</span>'}</td>
+      <td class="num">${num(c.lists.reduce((n, l) => n + l.shop, 0))}</td>
+      <td class="num">${num(c.tips)}</td>
+      <td class="num">${num(c.vendor)}</td>
+      <td>${errors.length ? errors.map(([k, v]) => `<span class="badge bad"${hintAttr(v)}>${esc(k)}</span>`).join(' ') : '<span class="muted">–</span>'}</td>
+    </tr>`;
+  }).join('');
+  if (!rows) return `<p class="muted small">${esc(t('No character exported yet.'))}</p>`;
+  const head = th([t('Character')],
+    [t('Lists'), '', esc(t('The tabs of the window in the game, each with its number of rows.'))],
+    [t('To buy'), 'num', esc(t('Rows the app suggests buying. They are also in the Auctionator shopping lists “WoWMCP: …”, one per list of the character that is logged in.'))],
+    [t('Tooltips'), 'num', esc(t('Items that get a line from the app in their tooltip in the game, for example the gain of an upgrade or the profit of a recipe.'))],
+    [t('Vendor hints'), 'num', esc(t('Recipes worth buying that a vendor sells. The addon names them in the chat when you open such a vendor.'))],
+    [t('Errors')]);
+  return `<table style="margin-top:10px"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function listsCard() {
+  const g = state.ingame;
+  const title = `<h2>${esc(t('Lists in the game'))} ${help(t('The WoWMCP addon shows what this app found in the game: a window with AH upgrades, writs, trade crates, recipes and consumables. A click on a row searches the auction house for the item, a shift-click puts its link into the chat or the search box. The app writes the lists into the addon folder and the game reads them on <code>/reload</code>. After a new AH scan that takes two: the first <code>/reload</code> saves the scan for the app, the second loads the new lists.'))}</h2>`;
+  const wide = 'class="card" id="lists" style="grid-column: 1 / -1"';
+  if (!g) return `<div ${wide}>${title}${loading(t('Computing the lists …'))}</div>`;
+  if (g.error) return `<div ${wide}>${title}${errorBox(g.error)}</div>`;
+  const [cls, label, hint] = listsState(g);
+  const failed = g.result && !g.result.written && !g.result.unchanged && g.addon?.ready ? errorBox(g.result.reason || '') : '';
+  const unsent = !g.file || g.file.hash !== g.hash;
+  return `<div ${wide}>${title}
+    <h3><span class="badge ${cls}">${esc(label)}</span>${hint ? ` <span class="small muted" style="font-weight:400">${hint}</span>` : ''}</h3>
+    ${failed}
+    <dl class="kv small">
+      <dt>${esc(t('Sent'))}</dt><dd>${g.file ? `${when(g.file.generated)} (${esc(ago(g.file.generated))})` : '–'}</dd>
+      <dt>${esc(t('AH scan'))}</dt><dd>${esc(g.scanDate || '–')}</dd>
+    </dl>
+    ${listsTable(g)}
+    <div class="row" style="margin-top:10px">
+      <button class="${unsent ? 'primary' : 'ghost'}" data-action="send-lists" ${g.addon?.ready ? '' : 'disabled'}${hintAttr(t('Computes the lists again and writes them into the addon folder.'))}>${esc(t('Send now'))}</button>
+      <label class="check"><input type="checkbox" id="g-auto" ${g.automatic ? 'checked' : ''}> ${esc(t('send automatically when the game has saved'))}</label>
+    </div></div>`;
+}
+
 function charactersTable() {
   const chars = state.status.characters || [];
   if (!chars.length) {
@@ -162,7 +228,7 @@ export async function renderConnection() {
       { names: esc(outdated.map((x) => x.name).join(', ')) })}</div>`;
   }
   content.innerHTML = `${hint}
-    <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${auctionatorCard()}${itemExportCard()}${requestCard()}</div>
+    <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${auctionatorCard()}${itemExportCard()}${listsCard()}${requestCard()}</div>
     <div class="section"><h2>${esc(t('Characters'))}</h2>${charactersTable()}</div>`;
 }
 
@@ -185,10 +251,19 @@ content.addEventListener('click', async (e) => {
   } else if (action === 'open-addon') {
     api.openPath(state[slot].installedDir);
     button.disabled = false;
+  } else if (action === 'send-lists') {
+    state.ingame = await api.sendGameData();
   } else if (action.startsWith('request-')) {
     const result = await api.createRequest(action === 'request-sync' ? 'sync' : 'items', { full: action === 'request-items-full' });
     if (result.error) { alert(result.error); button.disabled = false; return; }
     state.addon = await api.addonInfo('wowmcp');
   }
   if (state.page === 'connection' || state.page === 'goldperhour') rerender();
+});
+
+// The switch of the card "Lists in the game"; the main process syncs again and reports through onGameData.
+content.addEventListener('change', async (e) => {
+  if (e.target.id !== 'g-auto') return;
+  if (state.ingame) state.ingame.automatic = e.target.checked;
+  await api.setSettings({ sendToGame: e.target.checked });
 });

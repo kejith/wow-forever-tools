@@ -11,6 +11,7 @@ export const state = {
   addon: null,
   gphAddon: null,
   game: null,
+  ingame: null, // last sync of the lists the addon shows in the game (api.gameData())
   cache: new Map(),
   lastLoad: null,
   writs: { top: 3, ownedAtAhPrice: false },

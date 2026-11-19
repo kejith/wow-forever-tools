@@ -157,6 +157,29 @@ async function main() {
   assert.deepEqual([info.upToDate, info.ahead, info.changed], [false, false, ['WoWMCP.lua']]);
   await addon.installAddon(wow, 'wowmcp', local);
 
+  // Since 1.7 the addon has AppData.lua, the lists the app's bridge writes. An update ships the empty stub,
+  // later updates keep what the app wrote, and the file never counts as a difference to the source.
+  const withLists = (version) => ({
+    ...wowmcpFiles(version),
+    'WoWMCP.toc': `## Interface: 16001\n## Version: ${version}\n\nAppRequest.lua\nAppData.lua\nWoWMCP.lua\n`,
+    'AppData.lua': stub('WoWMCP_AppData'),
+  });
+  const lists = { sources: { wowmcp: writeTree(path.join(scratch, 'src', 'lists'), withLists('1.7.0')) } };
+  info = await addon.installAddon(wow, 'wowmcp', lists);
+  assert.deepEqual([info.installedVersion, info.upToDate], ['1.7.0', true]);
+  assert.match(fs.readFileSync(path.join(target, 'AppData.lua'), 'utf8'), /^WoWMCP_AppData = nil$/m);
+  const sent = 'WoWMCP_AppData = { version = 1, generated = 1, hash = "abc", chars = {} }\n';
+  fs.writeFileSync(path.join(target, 'AppData.lua'), sent);
+  info = await addon.addonInfo(wow, 'wowmcp', lists);
+  assert.deepEqual([info.upToDate, info.changed], [true, []]);
+  writeTree(lists.sources.wowmcp, withLists('1.7.1'));
+  info = await addon.installAddon(wow, 'wowmcp', lists);
+  assert.deepEqual([info.installedVersion, info.upToDate], ['1.7.1', true]);
+  assert.equal(fs.readFileSync(path.join(target, 'AppData.lua'), 'utf8'), sent);
+  assert.deepEqual(addon.readRequest(wow), { id: r2.id, action: 'sync' });
+  fs.rmSync(path.join(target, 'AppData.lua'));
+  await addon.installAddon(wow, 'wowmcp', local);
+
   // A .toc must not send the installer outside the addon folder.
   const evil = writeTree(path.join(scratch, 'src', 'evil'), { 'WoWMCP.toc': '## Version: 9\n\n..\\..\\evil.lua\n', 'evil.lua': 'x' });
   await assert.rejects(addon.installAddon(wow, 'wowmcp', { sources: { wowmcp: evil } }), /Path not allowed in WoWMCP\.toc/);
