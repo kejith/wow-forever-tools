@@ -59,6 +59,7 @@ function applyLanguage() {
 const publicSettings = () => ({
   ...settings, language: i18n.LANGUAGES.includes(settings.language) ? settings.language : 'auto',
   activeLanguage: language, clientLocale: i18n.clientLocale(settings.wowDir), version: app.getVersion(),
+  capture: !!argValue('capture'),
 });
 
 function saveSettings() {
@@ -229,7 +230,7 @@ ipcMain.handle('wow:running', () => wowRunning());
 ipcMain.handle('open:path', (_e, p) => shell.openPath(p));
 ipcMain.handle('settings:get', () => publicSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
-  const { activeLanguage, clientLocale, version, ...rest } = patch || {};
+  const { activeLanguage, clientLocale, version, capture, ...rest } = patch || {};
   Object.assign(settings, rest);
   saveSettings();
   applyLanguage();
@@ -293,6 +294,7 @@ async function capturePages(out, required) {
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
+    if (page === 'recipes') await captureHelp(out, wait);
     if (page === 'consumables') await captureScrolled(out, wait, '#c-buffs', 'consumables-buffs');
     if (page === 'goldperhour') {
       // Open the first finished session, then shoot settings and history.
@@ -322,6 +324,15 @@ async function captureScrolled(out, wait, selector, name) {
   const image = await win.webContents.capturePage();
   fs.writeFileSync(path.join(out, `${name}.png`), image.toPNG());
   await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0');
+}
+
+// One explanation behind a "?": the first one of a table header on the page.
+async function captureHelp(out, wait) {
+  if (!await win.webContents.executeJavaScript('window.__showHelp("#content th .help")')) return;
+  await wait(300);
+  const image = await win.webContents.capturePage();
+  fs.writeFileSync(path.join(out, 'help.png'), image.toPNG());
+  await win.webContents.executeJavaScript('document.body.click(); document.querySelector(".content").scrollTop = 0');
 }
 
 async function captureUpgradeDetails(out, wait) {

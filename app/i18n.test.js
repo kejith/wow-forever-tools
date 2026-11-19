@@ -8,7 +8,7 @@ const path = require('node:path');
 const i18n = require('./i18n');
 
 const CALL = /\b(?:t|mark)\(\s*(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)")/g;
-const ATTRIBUTE = /\bdata-i18n(?:-title)?="([^"]*)"/g;
+const ATTRIBUTE = /\bdata-i18n(?:-title|-help)?="([^"]*)"/g;
 
 // Texts of one file as Map text -> "file:line" of the first use.
 function textsIn(file, into) {

@@ -1,6 +1,6 @@
 // Page "Connection": is the game running, the two addons the app installs, the Auctionator scan, the item
 // export, the character snapshots and requests to the WoWMCP addon.
-import { ago, api, content, daysOld, errorBox, esc, loadStatus, loading, money, num, rerender, state, when } from '../core.js';
+import { ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, rerender, state, th, when } from '../core.js';
 import { t } from '../i18n.js';
 
 // Where an install takes its files from: the latest GitHub release, or a local checkout from the settings.
@@ -9,7 +9,7 @@ function addonSource(a) {
   if (!s) return `<span class="badge bad">${esc(t('not available'))}</span> ${esc(a.sourceError || '')}`;
   if (s.kind === 'local') return `${esc(s.version || '?')} <span class="badge">${esc(t('local folder'))}</span> <span class="muted">${esc(s.dir)}</span>`;
   const stale = s.offline
-    ? ` <span class="badge warn" title="${esc(s.error || '')}">${esc(t('not checked, as of {time}', { time: when(s.checkedAt / 1000) }))}</span>` : '';
+    ? ` <span class="badge warn"${hintAttr(s.error)}>${esc(t('not checked, as of {time}', { time: when(s.checkedAt / 1000) }))}</span>` : '';
   return `${esc(s.version || '?')} <span class="muted">${esc(t('Release {tag} from github.com/{repo}', { tag: s.tag, repo: s.repo }))}</span>${stale}`;
 }
 
@@ -68,7 +68,7 @@ function gameCard() {
 
 function auctionatorCard() {
   const au = state.status.auctionator;
-  const title = `<h2>${esc(t('Auction house scan'))}</h2>`;
+  const title = `<h2>${esc(t('Auction house scan'))} ${help(t('Prices are the lowest buyout at the last scan, not live offers. For fresh prices run a full Auctionator scan in the game, then type <code>/reload</code>.'))}</h2>`;
   if (!au || au.error) return `<div class="card">${title}${errorBox(au?.error || t('No Auctionator data'))}</div>`;
   const days = au.scanDate ? Math.round((Date.now() - new Date(au.scanDate)) / 86400000) : null;
   const badge = days === null ? '' : days <= 1 ? `<span class="badge ok">${esc(t('fresh'))}</span>` : `<span class="badge warn">${esc(daysOld(days))}</span>`;
@@ -77,8 +77,7 @@ function auctionatorCard() {
     <dl class="kv small">
       <dt>${esc(t('Items'))}</dt><dd>${num(au.items)}</dd>
       <dt>${esc(t('Saved'))}</dt><dd>${when(au.modified)}</dd>
-    </dl>
-    <p class="muted small">${esc(t('Prices are the lowest buyout at the last scan, not live offers.'))}</p></div>`;
+    </dl></div>`;
 }
 
 function itemExportCard() {
@@ -93,7 +92,7 @@ function itemExportCard() {
         <dt>${esc(t('Automatic'))}</dt><dd>${esc(auto)}</dd>
       </dl>`
     : `<div class="big muted">${esc(t('none yet'))}</div>`;
-  return `<div class="card"><h2>${esc(t('Item export'))}</h2>${body}</div>`;
+  return `<div class="card"><h2>${esc(t('Item export'))} ${help(esc(t('Stats and tooltips of the gear in the auction house, read by the WoWMCP addon in the game. The page “AH upgrades” compares these items with your gear.')))}</h2>${body}</div>`;
 }
 
 function requestCard() {
@@ -112,13 +111,13 @@ function requestCard() {
       ${done.new !== undefined ? ` · ${esc(t('{n} new items', { n: done.new }))}` : ''}</p>`;
   }
   const disabled = a.installed ? '' : 'disabled';
-  return `<div class="card" style="grid-column: 1 / -1"><h2>${esc(t('Requests to the addon'))}</h2>
-    <p class="small muted">${t('The app puts a request into the addon folder; the game reads it at the next <code>/reload</code>. Results come back through the SavedVariables.')}</p>
+  return `<div class="card" style="grid-column: 1 / -1"><h2>${esc(t('Requests to the addon'))}
+      ${help(t('The app puts a request into the addon folder; the game reads it at the next <code>/reload</code>. Results come back through the SavedVariables.'))}</h2>
     ${stateHtml}
     <div class="row">
-      <button class="primary" data-action="request-items" ${disabled}>${esc(t('Export new AH items'))}</button>
-      <button class="ghost" data-action="request-items-full" ${disabled}>${esc(t('Read all items again'))}</button>
-      <button class="ghost" data-action="request-sync" ${disabled}>${esc(t('Character snapshot'))}</button>
+      <button class="primary" data-action="request-items" ${disabled}${hintAttr(t('Reads the items of the last AH scans the export does not know yet.'))}>${esc(t('Export new AH items'))}</button>
+      <button class="ghost" data-action="request-items-full" ${disabled}${hintAttr(t('Reads every item again, for example after an addon update. Takes longer.'))}>${esc(t('Read all items again'))}</button>
+      <button class="ghost" data-action="request-sync" ${disabled}${hintAttr(t('Exports stats, gear, bags, quests and professions of the character that is logged in.'))}>${esc(t('Character snapshot'))}</button>
     </div></div>`;
 }
 
@@ -138,11 +137,11 @@ function charactersTable() {
       <td>${esc(c.zone || '')}</td>
       <td>${esc(ago(c.updated))}</td>
       <td>${c.addonVersion ? `<span class="badge ${old ? 'warn' : 'ok'}">${esc(c.addonVersion)}</span>` : '<span class="badge">1.0</span>'}</td>
-      <td>${errors.length ? errors.map(([k, v]) => `<span class="badge bad" title="${esc(v)}">${esc(k)}</span>`).join(' ') : '<span class="muted">–</span>'}</td>
+      <td>${errors.length ? errors.map(([k, v]) => `<span class="badge bad"${hintAttr(v)}>${esc(k)}</span>`).join(' ') : '<span class="muted">–</span>'}</td>
     </tr>`;
   }).join('');
-  const head = [t('Character'), t('Level/class'), `<th class="num">${esc(t('Gold'))}</th>`, t('Zone'), 'Snapshot', 'Addon', t('Errors')]
-    .map((h) => (h.startsWith('<th') ? h : `<th>${esc(h)}</th>`)).join('');
+  const head = th([t('Character')], [t('Level/class')], [t('Gold'), 'num'], [t('Zone')],
+    ['Snapshot', '', t('Age of the character data. WoW writes it only on <code>/reload</code> or logout.')], ['Addon'], [t('Errors')]);
   return `<div class="card"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 

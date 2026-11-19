@@ -1,6 +1,6 @@
 // WoW Forever Tools, the desktop app: the page. This file wires the pages to the navigation, the character
 // selection and the language; core.js holds what the pages share, pages/*.js one page each.
-import { $, api, content, errorBox, hydrateIcons, loadStatus, loading, pages, resetTips, state, updateLiveState } from './core.js';
+import { $, api, content, errorBox, esc, hydrateIcons, loadStatus, loading, pages, resetTips, restoreView, saveView, state, updateLiveState } from './core.js';
 import { mark, setLanguage, t } from './i18n.js';
 import { renderConnection } from './pages/connection.js';
 import { renderCharacter } from './pages/character.js';
@@ -28,6 +28,10 @@ function applyLanguage(settings) {
   document.documentElement.lang = setLanguage(settings.activeLanguage);
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
   for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll('[data-i18n-help]')) {
+    el.dataset.help = esc(t(el.dataset.i18nHelp));
+    el.setAttribute('aria-label', t('Explanation'));
+  }
   $('#lang-select').value = settings.language;
   $('#app-version').textContent = settings.version ? `v${settings.version}` : '';
 }
@@ -48,6 +52,7 @@ async function showPage(page) {
   resetTips();
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
   $('#page-title').textContent = t(pages[page].title);
+  saveView();
   try {
     await pages[page].render();
     await hydrateIcons();
@@ -66,6 +71,8 @@ $('#char-select').addEventListener('change', (e) => {
   state.char = e.target.value;
   showPage(state.page);
 });
+// The options of the pages change in their own handlers, which run before the event arrives here.
+document.addEventListener('change', saveView);
 $('#refresh').addEventListener('click', async () => {
   state.cache.clear();
   content.innerHTML = loading(t('Reloading data …'));
@@ -85,9 +92,11 @@ api.onDataChanged(async () => {
 
 // ---------- Start ----------
 
-applyLanguage(await api.getSettings());
+const settings = await api.getSettings();
+applyLanguage(settings);
+if (!settings.capture) restoreView(); // screenshots always show the pages as a new user sees them
 await loadStatus();
-showPage('connection');
+showPage(pages[state.page] ? state.page : 'connection');
 // Game process and snapshot ages change without file writes; refresh the light status every 30 s.
 setInterval(async () => {
   state.game = await api.wowRunning();

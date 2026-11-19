@@ -17,8 +17,35 @@ export const state = {
   upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain' },
   recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false },
   consumables: { top: 5, onlyAvailable: false, allBuffs: false },
-  gph: { open: null, notice: null },
+  gph: { open: null, notice: null, more: {} },
 };
+
+// What the user chose survives a restart: the open page, the character and the options of the pages.
+const VIEW_KEY = 'wow-forever-tools:view';
+const VIEW = ['writs', 'upgrades', 'recipes', 'consumables'];
+
+export function saveView() {
+  try {
+    const view = { page: state.page, char: state.char };
+    for (const key of VIEW) view[key] = state[key];
+    localStorage.setItem(VIEW_KEY, JSON.stringify(view));
+  } catch { /* no storage: the choices last until the app closes */ }
+}
+
+// Takes over only values of the type the option has, so an entry of an older version cannot break a page.
+export function restoreView() {
+  let view;
+  try { view = JSON.parse(localStorage.getItem(VIEW_KEY)); } catch { return; }
+  if (!view || typeof view !== 'object') return;
+  if (typeof view.page === 'string') state.page = view.page;
+  if (typeof view.char === 'string') state.char = view.char;
+  for (const key of VIEW) {
+    for (const [option, initial] of Object.entries(state[key])) {
+      const value = view[key]?.[option];
+      if (initial === null ? Number.isFinite(value) : typeof value === typeof initial) state[key][option] = value;
+    }
+  }
+}
 
 export const $ = (sel) => document.querySelector(sel);
 export const content = $('#content');
@@ -83,6 +110,83 @@ export const loading = (text) => `<div class="loading"><div class="spinner"></di
 export const errorBox = (msg) => `<div class="notice error">${esc(msg)}</div>`;
 export const selectOption = (value, label, current) => `<option value="${esc(value)}"${String(value) === String(current) ? ' selected' : ''}>${esc(label)}</option>`;
 
+// ---------- Explanations ----------
+// What a number means and how it is calculated sits behind a "?" instead of in paragraphs on the page:
+// help(html) renders the button, helpAttr(html) puts the same popover on any element (hintAttr for plain
+// text), where a native title would be slow and unstyled. Hover or keyboard focus shows it, a click on the
+// button pins it until the next click, Escape or scroll.
+
+export const helpAttr = (html) => (html ? ` data-help="${esc(html)}"` : '');
+export const hintAttr = (text) => (text ? helpAttr(esc(text).replace(/\n/g, '<br>')) : '');
+export const help = (html) => (html ? `<button type="button" class="help" aria-label="${esc(t('Explanation'))}"${helpAttr(html)}>?</button>` : '');
+
+// A list of terms with their meaning, for the "?" of a section whose tables share their columns.
+export const terms = (rows, foot = '') => `<dl class="terms">${rows.map(([term, text]) => `<dt>${esc(term)}</dt><dd>${esc(text)}</dd>`).join('')}</dl>`
+  + (foot ? `<p>${esc(foot)}</p>` : '');
+
+// Header cells from [label, class, explanation] triples; the explanation is the HTML behind a "?".
+export const th = (...cells) => cells.map(([label, cls, info]) => `<th${cls ? ` class="${cls}"` : ''}>${esc(label)}${info ? ` ${help(info)}` : ''}</th>`).join('');
+
+const popBox = $('#pop');
+let popAnchor = null;
+let popPinned = false;
+
+function showPop(el, pinned) {
+  popAnchor = el;
+  popPinned = pinned;
+  popBox.innerHTML = el.dataset.help;
+  popBox.classList.add('show');
+  const a = el.getBoundingClientRect();
+  const { width, height } = popBox.getBoundingClientRect();
+  const left = Math.min(Math.max(8, a.left + a.width / 2 - 28), window.innerWidth - width - 8);
+  const below = a.bottom + 8;
+  const top = below + height > window.innerHeight - 8 && a.top - height - 8 >= 8 ? a.top - height - 8 : below;
+  popBox.style.left = `${Math.round(left)}px`;
+  popBox.style.top = `${Math.round(top)}px`;
+}
+
+function hidePop() {
+  popAnchor = null;
+  popPinned = false;
+  popBox.classList.remove('show');
+}
+
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest?.('[data-help]');
+  if (el && el !== popAnchor) showPop(el, false);
+});
+document.addEventListener('mouseout', (e) => {
+  const el = e.target.closest?.('[data-help]');
+  if (el && el === popAnchor && !popPinned && !el.contains(e.relatedTarget)) hidePop();
+});
+document.addEventListener('focusin', (e) => {
+  if (e.target.matches?.('.help:focus-visible') && e.target !== popAnchor) showPop(e.target, false);
+});
+document.addEventListener('focusout', (e) => {
+  if (e.target === popAnchor) hidePop();
+});
+document.addEventListener('click', (e) => {
+  const button = e.target.closest?.('.help');
+  if (!button) { hidePop(); return; }
+  e.preventDefault();
+  if (button === popAnchor && popPinned) hidePop();
+  else showPop(button, true);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hidePop();
+});
+document.addEventListener('scroll', hidePop, true);
+window.addEventListener('resize', hidePop);
+window.__showHelp = async (selector) => {
+  // Used by "npm run capture" to screenshot an explanation.
+  const el = document.querySelector(selector);
+  if (!el) return false;
+  el.scrollIntoView({ block: 'center' });
+  await new Promise((resolve) => setTimeout(resolve, 150)); // the scroll event would close it again
+  showPop(el, true);
+  return true;
+};
+
 // ---------- Item tooltips ----------
 // Elements carry data-tip="<n>"; the tooltip data lives in a registry that is reset on every page render.
 
@@ -99,6 +203,7 @@ export function tipAttr(tip, compare) {
 export function resetTips() {
   tips = [];
   tipBox.classList.remove('show');
+  hidePop();
 }
 
 // Colours for exports from addon 1.1 (text only, in the client's language); 1.2 sends the game's own colour
@@ -199,6 +304,7 @@ export function hydrateIcons() {
 // Pages that re-render themselves (options on the writs and upgrades pages) get their icons the same way.
 let hydrateTimer;
 new MutationObserver(() => {
+  if (popAnchor && !popAnchor.isConnected) hidePop(); // the page was redrawn under the explanation
   clearTimeout(hydrateTimer);
   hydrateTimer = setTimeout(hydrateIcons, 30);
 }).observe(content, { childList: true, subtree: true });
@@ -247,5 +353,6 @@ export function updateLiveState() {
   $('#nav-dot').className = `dot ${connectionHealth()}`;
   const time = state.lastLoad ? new Date(state.lastLoad).toLocaleTimeString(locale(), { timeStyle: 'short' }) : '–';
   const game = state.game?.running ? t('WoW Forever is running') : t('WoW Forever is closed');
-  $('#live-state').innerHTML = `${esc(game)}<br>${esc(t('Live sync on · {time}', { time }))}`;
+  $('#live-state').innerHTML = `${esc(game)}<br>${esc(t('Live sync on · {time}', { time }))} ${help(
+    t('The app watches the SavedVariables of the game and reloads as soon as WoW writes them: on <code>/reload</code> or logout. The time is the last load.'))}`;
 }

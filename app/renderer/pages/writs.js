@@ -1,6 +1,6 @@
 // Page "Writs": the best craftsman's writ per tier by net silver per reputation, and the trade crates by
 // silver per Merchant's Favor. The numbers come from scripts/writs.py.
-import { $, DASH, api, cached, content, errorBox, esc, itemIcon, loadStatus, loading, money, num, state } from '../core.js';
+import { $, DASH, api, cached, content, errorBox, esc, help, helpAttr, hintAttr, itemIcon, loadStatus, loading, money, num, state, terms, th } from '../core.js';
 import { t } from '../i18n.js';
 
 // Net cost: negative means the coin pouch pays more than the writ and item cost.
@@ -16,14 +16,29 @@ function perUnit(copper) {
   return `${num(copper / 100, 2)} s`;
 }
 
-const th = (...cells) => cells.map(([label, cls]) => `<th${cls ? ` class="${cls}"` : ''}>${esc(label)}</th>`).join('');
+// What the columns of the tier tables mean; the tables repeat, so the explanation sits at the heading once.
+const writTerms = () => terms([
+  [t('Purchase'), t('The writ plus the item it asks for, at the lowest buyout of the last scan. What you own counts as 0. Hover the price for the two parts.')],
+  [t('Coin pouch'), t('The quest pays no gold itself, it gives a coin pouch. Values with ≈ are estimates; from addon 1.5 on the addon measures every pouch you open. Hover the value for its source.')],
+  [t('Net'), t('Purchase minus the content of the pouch. Green: the pouch pays more than you spend.')],
+  [t('per reputation'), t('Net in silver per point of reputation. Each tier is sorted by it, ★ is the cheapest.')],
+  [t('in the AH'), t('Offers of the writ at the last scan.')],
+], t('Writ list: wow.gg (Nov 2026).'));
+
+const crateTerms = () => terms([
+  [t('Total'), t('The empty crate from the AH (0 if you own one) plus the cheapest bundle the AH can supply in full (own items 0).')],
+  [t('per favor'), t('Total divided by the favor of the common (white) sealed crate. The green one gives twice as much; what the quality depends on is not known.')],
+  [t('Favor'), t('Per crate from urgametips.com/wow.gg (Nov 2026), Artisan estimated. From addon 1.5 on the addon measures every hand-in.')],
+], t("Crates pay no gold and no reputation, only Merchant's Favor. Elite crates are not included (content unknown)."));
 
 export async function renderWrits() {
   if (!state.status) await loadStatus();
   const o = state.writs;
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Suggestions per tier'))}<input type="number" id="w-top" min="1" max="10" value="${o.top}"></label>
-      <label class="check"><input type="checkbox" id="w-own" ${o.ownedAtAhPrice ? 'checked' : ''}> ${esc(t('count own items at the AH price'))}</label>
+      <label class="check"><input type="checkbox" id="w-own" ${o.ownedAtAhPrice ? 'checked' : ''}> ${esc(t('count own items at the AH price'))}
+        ${help(esc(t('Items you already own normally count as 0. Tick this to count them at the AH price: what you give up by not selling them.')))}</label>
+      <span class="spacer"></span><div class="page-meta" id="w-meta"></div>
     </div><div id="w-body">${loading(t('Calculating writs …'))}</div>`;
   $('#w-top').addEventListener('change', (e) => { o.top = Number(e.target.value) || 3; renderWrits(); });
   $('#w-own').addEventListener('change', (e) => { o.ownedAtAhPrice = e.target.checked; renderWrits(); });
@@ -32,40 +47,32 @@ export async function renderWrits() {
   const body = $('#w-body');
   if (!body) return;
   if (d.error) { body.innerHTML = errorBox(d.error); return; }
+  $('#w-meta').textContent = t('AH scan {date}', { date: d.scanDate });
   const rep = d.reputation;
-  const repHtml = rep ? `<div class="card" style="margin-bottom:16px"><div class="row">
-      <div><h3>${esc(rep.name)}</h3><div class="muted">${esc(t('{standing} · {value} / {max} · {left} to the next standing',
-        { standing: rep.standing, value: rep.value, max: rep.max, left: rep.max - rep.value }))}</div></div>
-      <span class="spacer"></span><div class="muted small">${esc(t('AH scan {date}', { date: d.scanDate }))}</div></div>
+  const repHtml = rep ? `<div><h3>${esc(rep.name)}</h3><div class="muted">${esc(t('{standing} · {value} / {max} · {left} to the next standing',
+        { standing: rep.standing, value: rep.value, max: rep.max, left: rep.max - rep.value }))}</div>
       <div class="bar" style="margin-top:10px"><span style="width:${Math.round((rep.value / rep.max) * 100)}%"></span></div></div>` : '';
   const tiers = d.tiers.map((tier) => {
     const rows = tier.best.map((b, i) => `<tr class="${i === 0 ? 'best' : ''}">
-        <td><span class="item">${itemIcon(b.writId, 1)}<span>${i === 0 ? '★ ' : ''}${esc(b.name)}${b.qty > 1 ? ` <span class="muted">(${b.qty}x)</span>` : ''}</span></span></td>
-        <td class="muted">${esc(b.prof)}</td>
-        <td class="num">${money(b.wcost)}</td><td class="num">${money(b.icost)}</td>
-        <td class="num">${money(b.cost)}</td>
-        <td class="num" title="${esc(b.payoutSource)}"><span class="good">−${b.payoutMeasured ? '' : '≈'}${money(b.payout)}</span></td>
+        <td><span class="item">${itemIcon(b.writId, 1)}<span>${i === 0 ? '★ ' : ''}${esc(b.name)}${b.qty > 1 ? ` <span class="muted">(${b.qty}x)</span>` : ''}
+          <div class="sub">${esc([b.prof, b.note].filter(Boolean).join(' · '))}</div></span></span></td>
+        <td class="num"><span${helpAttr(`${esc(t('Writ'))} ${money(b.wcost)} + ${esc(t('Item'))} ${money(b.icost)}`)}>${money(b.cost)}</span></td>
+        <td class="num"><span class="good"${hintAttr(b.payoutSource)}>−${b.payoutMeasured ? '' : '≈'}${money(b.payout)}</span></td>
         <td class="num"><b>${netMoney(b.net)}</b></td>
         <td class="num">${perUnit(b.per)}</td>
-        <td class="num muted">${b.writs}</td>
-        <td class="small">${esc(b.note)}</td></tr>`).join('');
+        <td class="num muted">${b.writs}</td></tr>`).join('');
     const sealed = tier.sealed ? `<p class="small notice">${esc(t('You have {n}x “Sealed Writ” of this tier. Open it first, it may be cheaper.', { n: tier.sealed }))}</p>` : '';
-    return `<div class="card section"><div class="row"><h3>${esc(tier.name)}</h3></div>
-      ${rows ? `<table><thead><tr>${th([t('Writ')], [t('Profession')], [t('Writ'), 'num'], [t('Item'), 'num'], [t('Total'), 'num'], [t('Coin pouch'), 'num'],
-        [t('Net'), 'num'], [t('per reputation'), 'num'], [t('in the AH'), 'num'], [t('Note')])}</tr></thead><tbody>${rows}</tbody></table>`
+    return `<div class="card section"><h3>${esc(tier.name)}</h3>
+      ${rows ? `<table><thead><tr>${th([t('Writ')], [t('Purchase'), 'num'], [t('Coin pouch'), 'num'],
+        [t('Net'), 'num'], [t('per reputation'), 'num'], [t('in the AH'), 'num'])}</tr></thead><tbody>${rows}</tbody></table>`
         : `<p class="muted">${esc(t('No writ with price data.'))}</p>`}${sealed}</div>`;
   }).join('');
-  const sources = [...new Set(d.tiers.flatMap((tier) => tier.best.map((b) => b.payoutSource)))];
-  const estimated = d.tiers.some((tier) => tier.best.some((b) => !b.payoutMeasured));
-  body.innerHTML = `${repHtml}
-    <div class="card"><div class="row"><div><h2>${esc(t('Per day'))}</h2><div class="big">${netMoney(d.dailyNet)}</div>
-        <div class="muted small">${t('net after coin pouches · {money} to buy', { money: money(d.dailyTotal) })}</div></div>
-      <span class="spacer"></span><div class="muted">${esc(t('for {rep} reputation (the best writ of each tier)', { rep: d.dailyRep }))}</div></div></div>
+  body.innerHTML = `<div class="card writ-summary">${repHtml}
+      <div><h2>${esc(t('Per day'))}</h2><div class="big">${netMoney(d.dailyNet)}</div>
+        <div class="muted small">${t('net after coin pouches · {money} to buy', { money: money(d.dailyTotal) })}</div>
+        <div class="muted small">${esc(t('for {rep} reputation (the best writ of each tier)', { rep: d.dailyRep }))}</div></div></div>
+    <h2 class="section heading">${esc(t('Best writs per tier'))} ${help(writTerms())}</h2>
     ${tiers}
-    <p class="small muted">${esc(t('Items you own count as 0. The quest itself pays no gold, it gives a coin pouch; net = purchase − content of the pouch, sorted by net per reputation. Coin pouch: {sources}.',
-      { sources: sources.join(' · ') }))}
-      ${estimated ? esc(t('Values with ≈ are estimates; from addon 1.5 on the addon measures the content of every pouch you open.')) : ''}
-      ${esc(t('Writ list: wow.gg (Nov 2026).'))}</p>
     ${cratesHtml(d)}`;
 }
 
@@ -81,30 +88,32 @@ function cratesHtml(d) {
       <td>${bundle(r.best)}</td><td class="num"><b>${money(Math.round(r.cost))}</b></td>
       <td class="num">${num(r.favor)}</td><td class="num">${perUnit(r.per)}</td></tr>`).join('');
   const tiers = c.tiers.map((tier) => {
-    const rows = tier.rows.map((r, i) => `<tr class="${i === 0 && r.complete ? 'best' : ''}">
-        <td><span class="item" title="${esc(r.name || '')}">${itemIcon(r.crateId, 1)}<span>${i === 0 && r.complete ? '★ ' : ''}${esc(r.kind)}</span></span></td>
+    const rows = tier.rows.map((r, i) => {
+      const green = r.perGreen === null || r.perGreen === undefined ? '' : hintAttr(t('with the green crate: {value} s', { value: num(r.perGreen / 100, 2) }));
+      return `<tr class="${i === 0 && r.complete ? 'best' : ''}">
+        <td><span class="item"${hintAttr(r.name)}>${itemIcon(r.crateId, 1)}<span>${i === 0 && r.complete ? '★ ' : ''}${esc(r.kind)}
+          ${r.note ? `<div class="sub">${esc(r.note)}</div>` : ''}</span></span></td>
         <td class="num">${r.crateCost === null ? `<span class="muted">${esc(t('not in the AH'))}</span>` : money(r.crateCost)}</td>
         <td>${bundle(r.best)}${alternatives(r) ? `<div class="small muted">${t('or {alternatives}', { alternatives: alternatives(r) })}</div>` : ''}</td>
         <td class="num">${r.best ? money(r.best.cost) : DASH}</td>
         <td class="num"><b>${r.complete ? money(Math.round(r.cost)) : DASH}</b></td>
-        <td class="num">${perUnit(r.per)}</td><td class="num muted">${perUnit(r.perGreen)}</td>
-        <td class="small">${esc(r.note)}</td></tr>`).join('');
+        <td class="num"><span${green}>${perUnit(r.per)}</span></td></tr>`;
+    }).join('');
     const favor = t('{favor} favor · green {green}', { favor: num(tier.favor), green: num(tier.favorGreen) }) + (tier.favorGuess ? ` (${t('estimated')})` : '');
     return `<div class="card section"><div class="row"><h3>${esc(tier.name)}</h3>
-        <span class="badge ${tier.favorGuess ? 'warn' : ''}" title="${esc(tier.favorSource)}">${esc(favor)}</span>
+        <span class="badge ${tier.favorGuess ? 'warn' : ''}"${hintAttr(tier.favorSource)}>${esc(favor)}</span>
         ${tier.tooLow ? `<span class="badge bad">${esc(t('from level {n} only', { n: tier.level }))}</span>` : `<span class="muted small">${esc(t('from level {n}', { n: tier.level }))}</span>`}</div>
       <table><thead><tr>${th([t('Crate')], [t('empty crate'), 'num'], [t('cheapest bundle')], [t('Bundle'), 'num'], [t('Total'), 'num'],
-        [t('per favor'), 'num'], [t('per favor (green)'), 'num'], [t('Note')])}</tr></thead>
+        [t('per favor'), 'num'])}</tr></thead>
         <tbody>${rows}</tbody></table></div>`;
   }).join('');
   const own = d.favor !== null && d.favor !== undefined
     ? `<div><div class="muted small">${esc(t("Your Merchant's Favor"))}</div><div class="big">${num(d.favor)}</div></div>` : '';
-  return `<h2 class="section" id="crates">${esc(t('Trade crates'))}</h2>
+  return `<h2 class="section heading" id="crates">${esc(t('Trade crates'))} ${help(crateTerms())}</h2>
     <div class="card"><div class="row"><div><h2>${esc(t("Cheapest Merchant's Favor"))}</h2>
         <div class="muted small">${esc(t('one empty crate + one bundle, handed in sealed at the trade representative'))}</div></div>
       <span class="spacer"></span>${own}</div>
       ${best ? `<table><thead><tr>${th([t('Crate')], [t('Bundle')], [t('Total'), 'num'], [t('Favor'), 'num'], [t('per favor'), 'num'])}</tr></thead><tbody>${best}</tbody></table>`
         : `<p class="muted">${esc(t('No crate with complete prices.'))}</p>`}</div>
-    ${tiers}
-    <p class="small muted">${esc(t("Crates pay no gold and no reputation, only Merchant's Favor. Total = empty crate (AH, 0 if you own it) + the cheapest bundle the AH can supply (own items 0). “Per favor” uses the common (white) sealed crate, the green one gives twice as much; what the quality depends on is not known. Favor per crate from urgametips.com/wow.gg (Nov 2026), Artisan estimated; from addon 1.5 on the addon measures every hand-in. Bundle amounts are checked against the game data. Elite crates are not included (content unknown)."))}</p>`;
+    ${tiers}`;
 }

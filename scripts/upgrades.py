@@ -355,7 +355,7 @@ SHORT_NAME = {"spell_power": mark("SP"), "spell_damage_done": mark("SD"), "shado
 
 def short(stats: dict | None) -> str:
     raw = {stat_key(k): val for k, val in (stats or {}).items()}  # Lua hands the keys over in random order
-    return ", ".join(f"{tr(n)} {raw[k]:g}" if isinstance(raw[k], (int, float)) else tr(n)
+    return ", ".join(f"{tr(n)} {round(raw[k], 1):g}" if isinstance(raw[k], (int, float)) else tr(n)
                      for k, n in SHORT_NAME.items() if k in raw)
 
 

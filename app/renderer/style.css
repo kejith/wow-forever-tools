@@ -86,6 +86,8 @@ button.primary:hover { filter: brightness(1.08); }
 button.ghost { background: var(--panel-2); }
 button.ghost:hover { border-color: var(--gold-dim); }
 button:disabled { opacity: .5; cursor: default; }
+button.link { background: none; border: 0; padding: 0; color: var(--gold); cursor: pointer; }
+button.link:hover { text-decoration: underline; }
 
 /* ---------- Building blocks ---------- */
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
@@ -122,11 +124,17 @@ button:disabled { opacity: .5; cursor: default; }
 .steps li { margin: 3px 0; }
 
 table { width: 100%; border-collapse: collapse; }
-th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 7px 8px; border-bottom: 1px solid #2a241f; vertical-align: top; }
 tr:last-child td { border-bottom: none; }
 td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 tr.best td { background: #2a2216; }
+/* Long tables keep their header in view; the line is a shadow because a collapsed border does not stick. */
+table.sticky > thead th {
+  position: sticky; top: -22px; z-index: 2; background: var(--panel);
+  border-bottom: none; box-shadow: inset 0 -1px 0 var(--line);
+}
+.sub { font-size: 12px; color: var(--muted); font-weight: 400; }
 
 .q0 { color: var(--q0); } .q1 { color: var(--q1); } .q2 { color: var(--q2); }
 .q3 { color: var(--q3); } .q4 { color: var(--q4); } .q5 { color: var(--q5); }
@@ -176,10 +184,44 @@ tr.best td { background: #2a2216; }
 .wtip-line { display: flex; justify-content: space-between; gap: 12px; }
 .wtip-foot { margin-top: 6px; font-size: 10.5px; color: #8a8a96; font-style: italic; }
 
+/* ---------- Explanations ("?" buttons and hover hints) ---------- */
+.help {
+  display: inline-grid; place-items: center; flex: none; width: 16px; height: 16px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+  font: 700 10.5px/1 "Segoe UI", system-ui, sans-serif; letter-spacing: 0; text-transform: none;
+  vertical-align: 1px; cursor: help;
+}
+.help:hover, .help:focus-visible { color: var(--gold); border-color: var(--gold-dim); outline: none; }
+[data-help]:not(.help):not(button) { cursor: help; }
+#pop {
+  position: fixed; z-index: 1001; pointer-events: none; display: none;
+  width: max-content; max-width: min(380px, calc(100vw - 16px)); padding: 10px 12px; border-radius: 8px;
+  background: #2b2520; border: 1px solid var(--gold-dim); box-shadow: 0 10px 28px rgba(0, 0, 0, .65);
+  font-size: 12.5px; line-height: 1.5; color: var(--text); overflow-wrap: anywhere;
+}
+#pop.show { display: block; }
+#pop p { margin: 8px 0 0; color: var(--muted); }
+#pop p:first-child { margin-top: 0; }
+#pop code { background: #00000055; padding: 1px 5px; border-radius: 4px; color: var(--gold); }
+#pop .terms { margin: 0; }
+#pop .terms dt { color: var(--gold); font-weight: 600; margin-top: 7px; }
+#pop .terms dt:first-child { margin-top: 0; }
+#pop .terms dd { margin: 0; }
+#pop table { width: auto; }
+#pop th, #pop td { padding: 2px 14px 2px 0; border: none; font-size: 12px; }
+#pop th:last-child, #pop td:last-child { padding-right: 0; }
+
 .controls { display: flex; gap: 18px; align-items: end; flex-wrap: wrap; margin-bottom: 18px; }
+.controls .label { display: flex; gap: 6px; align-items: center; }
+.page-meta { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; padding-bottom: 8px; }
+.heading { display: flex; gap: 8px; align-items: center; }
+.writ-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 40px; align-items: center; }
+@media (max-width: 1100px) { .writ-summary { grid-template-columns: 1fr; } }
+h2 .help, h3 .help { margin-left: 4px; }
 .controls label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
 .controls label.check { flex-direction: row; align-items: center; gap: 7px; font-size: 13px; color: var(--text); }
 .controls input[type=number] { width: 110px; }
+.controls input.wide { width: 150px; }
 
 /* ---------- Item icons ---------- */
 .icon {
@@ -265,6 +307,7 @@ tr.best td { background: #2a2216; }
 
 /* ---------- Recipes ---------- */
 .recipe { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-weight: 600; }
+.recipe-name { display: flex; align-items: center; gap: 7px; min-width: 0; } /* the dot stays in front of a name that wraps */
 .reagents { display: flex; flex-wrap: wrap; gap: 3px 12px; margin: 4px 0 0 21px; font-size: 12px; color: #cfc4b4; }
 .reagent { display: inline-flex; align-items: center; gap: 4px; }
 .icon.sm { width: 16px; height: 16px; border-radius: 2px; }
@@ -280,7 +323,7 @@ tr.best td { background: #2a2216; }
 .trend .zero { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
 .trend.down { color: var(--bad); } .trend.up { color: var(--good); }
 
-/* ---------- Gold pro Stunde ---------- */
+/* ---------- Gold per hour ---------- */
 input[type=text] {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; min-width: 200px;
 }
@@ -303,12 +346,17 @@ input[type=text] {
 .gph-detail { display: grid; gap: 16px; grid-template-columns: 1fr 1fr 1.3fr; padding: 6px 0; }
 table.compact td, table.compact th { padding: 4px 6px; }
 tr.clickable { cursor: pointer; }
+tr.clickable > td:first-child::before { content: "▸"; display: inline-block; width: 14px; color: var(--muted); }
+tr.clickable.open > td:first-child::before { content: "▾"; color: var(--gold); }
 tr.clickable:hover td, tr.clickable.open td { background: var(--panel-2); }
 tr.detail > td { background: #18140f; }
 .nowrap { white-space: nowrap; }
 
 /* Consumables */
-.cons-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); }
+.cons-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); align-items: start; }
 .cons-card h3 { color: var(--gold); }
 .cons-card table td { vertical-align: top; }
 .cons-next { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+
+.learn { margin-top: 4px; }
+td.where { min-width: 210px; }

@@ -1,6 +1,6 @@
 // Page "Character": the character window as in the game (gear left and right, weapons below, stats in the
 // middle), then professions and talents.
-import { DASH, ago, api, cached, content, errorBox, esc, itemIcon, loadStatus, loading, money, num, percent, quality, state, tipAttr } from '../core.js';
+import { DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, state, tipAttr } from '../core.js';
 import { mark, t } from '../i18n.js';
 
 // Slot IDs and order of the in-game character window (Classic layout).
@@ -53,10 +53,10 @@ export async function renderCharacter() {
   };
   const column = (slots, side) => slots.map((s) => slot(s, side)).join('');
 
-  const statBox = (title, rows) => `<div class="pd-stats"><h4>${esc(title)}</h4>
+  const statBox = (title, rows, info = '') => `<div class="pd-stats"><h4>${esc(title)} ${help(info)}</h4>
     ${rows.map(([k, v]) => `<div class="pd-stat"><span>${esc(k)}</span><b>${v}</b></div>`).join('')}</div>`;
   const res = st.resistances || {};
-  const resist = SCHOOLS.map(([k, label]) => `<span class="res res-${k}" title="${esc(t('{school} resistance', { school: t(label) }))}">`
+  const resist = SCHOOLS.map(([k, label]) => `<span class="res res-${k}"${hintAttr(t('{school} resistance', { school: t(label) }))}>`
     + `${value(res[k] ?? 0)}<small>${esc(t(label))}</small></span>`).join('');
   const durs = d.equipment.filter((e) => e.durability).map((e) => e.durability[0] / e.durability[1]);
   const ilvls = d.equipment.map((e) => e.ilvl).filter(Boolean);
@@ -72,7 +72,9 @@ export async function renderCharacter() {
           [t('Armor'), value(st.armor)], [t('Dodge'), pct(st.dodge)]])}
         ${statBox(t('Gear'), [[t('Gear value'), value(d.setValue, 1)], [t('Avg. iLvl'), ilvls.length ? value(ilvls.reduce((a, b) => a + b, 0) / ilvls.length, 1) : '–'],
           [t('Lowest durability'), lowest === null ? '–' : `<span class="${lowest < 0.3 ? 'dur-low' : ''}">${percent(Math.round(lowest * 100))}</span>`],
-          [t('Scale'), esc(d.profileLabel)]])}
+          [t('Scale'), esc(d.profileLabel)]],
+        esc(t('pts = points: what the gear would lack without the item, on the scale “{scale}” of the AH upgrades ({weights}). {total} in total.',
+          { scale: d.profileLabel, weights: d.weights, total: num(d.setValue) })))}
       </div></div>`;
 
   const profs = d.professions.map((p) => `<div style="margin-bottom:8px">
@@ -98,8 +100,6 @@ export async function renderCharacter() {
       <div class="pd-xp"><div class="bar"><span style="width:${xpPct}%"></span></div>
         <div class="pd-xp-text">${esc(xp)}</div></div>
     </div>
-    <p class="small muted">${esc(t('pts = points: what the gear would lack without the item, on the scale “{scale}” of the AH upgrades ({weights}). {total} in total. Hover an item for its tooltip.',
-      { scale: d.profileLabel, weights: d.weights, total: num(d.setValue) }))}</p>
     <div class="grid section"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
       <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>`;
 }

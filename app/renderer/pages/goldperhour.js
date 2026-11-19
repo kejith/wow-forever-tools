@@ -1,14 +1,12 @@
 // Page "Gold per hour": the sessions of the GoldPerHour addon. GoldPerHourDB is account-wide, so this page
 // ignores the character selection. WoW writes it on /reload or logout; the app changes the addon only
 // through AppRequest.lua (start/stop/reset and settings).
-import { $, DASH, ago, api, cached, content, errorBox, esc, itemIcon, loadStatus, loading, money, num, percent, quality, selectOption, state, upTo, when } from '../core.js';
+import { $, DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, selectOption, state, th, upTo, when } from '../core.js';
 import { mark, t } from '../i18n.js';
 import { addonCard, gphAbout } from './connection.js';
 
 const GPH_CATS = [['herb', mark('Herbs')], ['loot', mark('Loot')]];
 const ACTIONS = { start: mark('Start'), stop: mark('Stop'), reset: mark('Reset') };
-
-const th = (...cells) => cells.map(([label, cls]) => `<th${cls ? ` class="${cls}"` : ''}>${esc(label)}</th>`).join('');
 
 function duration(sec) {
   const s = Math.max(0, Math.round(sec || 0));
@@ -19,7 +17,7 @@ function duration(sec) {
 
 // Gold per hour rounded like the addon: copper is noise once gold is involved.
 function rate(copper) {
-  if (copper === null || copper === undefined) return `<span class="muted" title="${esc(t('Only from one minute of session time on'))}">–</span>`;
+  if (copper === null || copper === undefined) return `<span class="muted"${hintAttr(t('Only from one minute of session time on'))}>–</span>`;
   const c = Math.round(copper);
   return money(c >= 10000 ? c - (c % 100) : c);
 }
@@ -53,14 +51,21 @@ function gphChart(samples, { width = 640, height = 170, small = false } = {}) {
     <div class="legend small"><span class="key total"></span>${esc(t('Total'))} <span class="key herb"></span>${esc(t('Herbs'))} <span class="key loot"></span>${esc(t('Loot'))}</div>`;
 }
 
-function gphItemsTable(cat, label, limit = 0) {
-  const items = limit ? cat.items.slice(0, limit) : cat.items;
+// One category as a table. A long list shows only the first rows: with a key the rest opens on a click
+// (state.gph.more), without one the table just says how many are missing.
+function gphItemsTable(cat, label, limit = 0, key = '') {
+  const all = !!key && !!state.gph.more[key];
+  const items = limit && !all ? cat.items.slice(0, limit) : cat.items;
   if (!items.length && !cat.coin) return `<p class="muted small">${esc(t('{label}: nothing yet.', { label }))}</p>`;
   const share = (v) => (cat.gold ? percent(Math.round((v / cat.gold) * 100)) : '');
   const rows = items.map((e) => `<tr>
       <td><span class="item">${itemIcon(e.id, e.quality, 'sm')}<span class="${quality(e.quality)}">${esc(e.name)}</span></span></td>
       <td class="num">${num(e.count)}</td><td class="num">${money(e.value)}</td><td class="num muted">${share(e.value)}</td></tr>`).join('');
-  const more = cat.items.length > items.length ? `<tr><td colspan="4" class="muted small">${esc(t('+{n} more', { n: cat.items.length - items.length }))}</td></tr>` : '';
+  const rest = cat.items.slice(items.length);
+  const toggle = (text) => (key ? `<button type="button" class="link" data-gph-more="${key}">${esc(text)}</button>` : esc(text));
+  const more = rest.length ? `<tr><td class="muted small">${toggle(t('+{n} more', { n: rest.length }))}</td><td></td>
+      <td class="num muted">${money(rest.reduce((sum, e) => sum + e.value, 0))}</td><td class="num muted">${share(rest.reduce((sum, e) => sum + e.value, 0))}</td></tr>`
+    : all && limit && cat.items.length > limit ? `<tr><td colspan="4" class="small">${toggle(t('Show fewer'))}</td></tr>` : '';
   const coin = cat.coin ? `<tr><td class="muted">${esc(t('Coins'))}</td><td></td><td class="num">${money(cat.coin)}</td><td class="num muted">${share(cat.coin)}</td></tr>` : '';
   return `<table class="compact"><thead><tr>${th([label], [t('Count'), 'num'], [t('Value'), 'num'], [t('Share'), 'num'])}</tr></thead>
     <tbody>${rows}${more}${coin}</tbody></table>`;
@@ -76,7 +81,7 @@ function gphRequestState(d) {
       <div class="row" style="margin-top:8px"><button class="ghost" data-action="gph-clear">${esc(t('Withdraw request'))}</button></div></div>`;
   }
   if (done) {
-    const err = done.error ? ` <span class="badge bad" title="${esc(done.error)}">${esc(t('error'))}</span>` : '';
+    const err = done.error ? ` <span class="badge bad"${hintAttr(done.error)}>${esc(t('error'))}</span>` : '';
     return `<p class="small" style="margin:10px 0 0"><span class="badge ok">${esc(t('done'))}</span> ${esc(what(done))} ${when(done.done)}${err}</p>`;
   }
   return '';
@@ -95,12 +100,12 @@ function gphSettingsCard(d) {
     <div class="controls">
       <label>${esc(t('Window scale'))}<input type="number" id="gph-scale" min="0.5" max="2" step="0.05" value="${esc(s.scale)}"></label>
       <label>${esc(t('Items in the tooltip'))}<input type="number" id="gph-tooltip" min="1" max="30" value="${esc(s.tooltipItems)}"></label>
-      <label>${esc(t('Prices'))}<select id="gph-price">
+      <label><span class="label">${esc(t('Prices'))} ${help(esc(t('Applies to newly looted items; what was looted before keeps its value.')))}</span><select id="gph-price">
         ${selectOption('auctionator', t('Auctionator, otherwise vendor'), s.priceSource === 'vendor' ? 'vendor' : 'auctionator')}
         ${selectOption('vendor', t('vendor price only'), s.priceSource === 'vendor' ? 'vendor' : 'auctionator')}</select></label>
-      <label>${esc(t('More herb spells (IDs)'))}<input type="text" id="gph-herbs" value="${esc(s.herbSpells.join(', '))}" placeholder="${esc(t('e.g. 2368, 3570'))}"></label>
+      <label><span class="label">${esc(t('More herb spells (IDs)'))} ${help(esc(t('Herb Gathering ({id}) and spells with the same name always count as herbs. Add the spell IDs of other ways to gather here.', { id: d.herbGathering })))}</span>
+        <input type="text" id="gph-herbs" value="${esc(s.herbSpells.join(', '))}" placeholder="${esc(t('e.g. 2368, 3570'))}"></label>
     </div>
-    <p class="small muted">${esc(t('Herb Gathering ({id}) and spells with the same name always count. The price source applies to newly looted items; what was looted before keeps its value.', { id: d.herbGathering }))}</p>
     <div class="row"><button class="primary" data-action="gph-save" ${disabled}>${esc(t('Send to the addon'))}</button>
       ${d.legacy && d.found ? `<span class="small muted">${esc(t('Version 0.2 does not know these settings yet: update first.'))}</span>` : ''}</div></div>`;
 }
@@ -164,35 +169,35 @@ export async function renderGoldPerHour() {
   const zoneRows = c.zones.map((z) => `<tr><td>${esc(z.zone)}</td><td class="num">${money(z.value)}</td>
     <td class="num muted">${percent(c.total ? Math.round((z.value / c.total) * 100) : 0)}</td></tr>`).join('');
   content.innerHTML = `${top.join('')}
-    <p class="small muted" style="margin-top:0">${t('As of the last save {when} ({ago}). WoW writes the values only on <code>/reload</code> or logout; running sessions keep counting in the game.',
-      { when: when(saved), ago: esc(ago(saved)) })}</p>
+    <div class="page-meta">${esc(t('As of the last save {when} ({ago})', { when: when(saved), ago: ago(saved) }))}
+      ${help(t('WoW writes the values only on <code>/reload</code> or logout; a running session keeps counting in the game.'))}</div>
     <div class="grid">
       <div class="card"><h2>${esc(t('Current session'))}</h2><div class="big">${money(c.total)}</div>
         <h3 style="margin-top:4px">${rate(c.perHour)} <span class="muted small">${esc(t('per hour'))}</span></h3>
         <dl class="kv small"><dt>${esc(t('Duration'))}</dt><dd>${duration(c.elapsed)} ${runBadge}</dd>
           ${c.started ? `<dt>${esc(t('Started at'))}</dt><dd>${when(c.started)}</dd>` : ''}
-          ${c.chars.length ? `<dt>${esc(t('Character'))}</dt><dd>${esc(c.chars.join(', '))}</dd>` : ''}</dl></div>
-      ${GPH_CATS.map(catCard).join('')}
-      <div class="card"><h2>${esc(t('Controls'))}</h2>
-        <div class="row">
+          ${c.chars.length ? `<dt>${esc(t('Character'))}</dt><dd>${esc(c.chars.join(', '))}</dd>` : ''}</dl>
+        <div class="row" style="margin-top:12px">
           <button class="primary" data-action="gph-start" ${disabled}>${esc(t(ACTIONS.start))}</button>
           <button class="ghost" data-action="gph-stop" ${disabled}>${esc(t(ACTIONS.stop))}</button>
           <button class="ghost" data-action="gph-reset" ${disabled}>${esc(t(ACTIONS.reset))}</button>
+          ${help(t('Takes effect at the next <code>/reload</code>. In the game it is immediate: <code>/gph start</code>, <code>/gph stop</code>, the reset button in the window.'))}
         </div>
-        <p class="small muted" style="margin:8px 0 0">${t('Takes effect at the next <code>/reload</code>. In the game it is immediate: <code>/gph start</code>, <code>/gph stop</code>, the reset button in the window.')}</p>
         ${gphRequestState(d)}</div>
+      ${GPH_CATS.map(catCard).join('')}
     </div>
     <div class="section"><h2>${esc(t('Gold over the session'))}</h2><div class="card">${gphChart(c.samples)}</div></div>
     <div class="section gph-two">
-      <div class="card"><h2>${esc(t('Items of the session'))}</h2>${gphItemsTable(c.categories.herb, herbs)}<div style="height:12px"></div>${gphItemsTable(c.categories.loot, loot)}</div>
+      <div class="card"><h2>${esc(t('Items of the session'))}</h2>${gphItemsTable(c.categories.herb, herbs, 10, 'herb')}<div style="height:12px"></div>${gphItemsTable(c.categories.loot, loot, 10, 'loot')}</div>
       <div class="card"><h2>${esc(t('Zones'))}</h2>${c.zones.length ? `<table class="compact"><thead><tr>${th([t('Zone')], [t('Gold'), 'num'], [t('Share'), 'num'])}</tr></thead><tbody>
         ${zoneRows}</tbody></table>`
         : `<p class="muted small">${esc(d.legacy ? t('The addon records zones from version 0.3 on.') : t('Nothing looted yet.'))}</p>`}</div>
     </div>
     <div class="section">${gphSettingsCard(d)}</div>
     <div class="section"><h2>${esc(t('History'))}</h2>
-      ${sum.sessions ? `<p class="small muted" style="margin-top:0">${t('{n} sessions, {duration} and {money} in total, {rate} per hour on average. Click a row for items and the curve.',
-        { n: sum.sessions, duration: duration(sum.elapsed), money: money(sum.total), rate: rate(sum.perHour) })}</p>` : ''}
+      ${sum.sessions ? `<p class="small muted" style="margin-top:0">${t(sum.sessions === 1 ? mark('1 session, {duration} and {money} in total, {rate} per hour on average.')
+        : mark('{n} sessions, {duration} and {money} in total, {rate} per hour on average.'),
+      { n: sum.sessions, duration: duration(sum.elapsed), money: money(sum.total), rate: rate(sum.perHour) })}</p>` : ''}
       <div class="card">${gphHistoryTable(d)}</div></div>`;
 }
 
@@ -226,6 +231,8 @@ async function gphAction(action, button) {
 content.addEventListener('click', (e) => {
   const button = e.target.closest('button[data-action^="gph-"]');
   if (button) { gphAction(button.dataset.action, button); return; }
+  const more = e.target.closest('[data-gph-more]');
+  if (more) { state.gph.more[more.dataset.gphMore] = !state.gph.more[more.dataset.gphMore]; renderGoldPerHour(); return; }
   const row = e.target.closest('[data-gph-open]');
   if (!row) return;
   const id = Number(row.dataset.gphOpen);
