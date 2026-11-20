@@ -82,6 +82,22 @@ type Result struct {
 	MC      bool    `json:"mc,omitempty"`
 }
 
+// HealOption is one heal-rank candidate of the healer rotation: what one
+// cast gives, what it costs, and what the whole rotation sustains with it
+// under the mana budget (the number the rank choice uses).
+type HealOption struct {
+	SpellID       int     `json:"spellId"`
+	Name          string  `json:"name"`
+	Rank          int     `json:"rank"`
+	HealPerCast   float64 `json:"healPerCast"`
+	ManaPerCast   float64 `json:"manaPerCast"`
+	CastSec       float64 `json:"castSec"`
+	HealPerMana   float64 `json:"healPerMana"`
+	HPSThroughput float64 `json:"hpsThroughput"` // heal per cast / cast time, mana ignored
+	HPSSustained  float64 `json:"hpsSustained"`  // the rotation's HPS under the mana budget
+	Chosen        bool    `json:"chosen,omitempty"`
+}
+
 // Downrank says which spell rank the rotation should cast when a lower (or
 // cheaper) rank beats the biggest heal under the mana budget.
 type Downrank struct {
@@ -102,6 +118,7 @@ type Output struct {
 	Spec            string            `json:"spec,omitempty"`
 	SpellbookSource string            `json:"spellbookSource,omitempty"`
 	Downrank        *Downrank         `json:"downrank,omitempty"`
+	HealOptions     []HealOption      `json:"healOptions,omitempty"`
 	Results         map[string]Result `json:"results,omitempty"`
 	Error           string            `json:"error,omitempty"`
 }
@@ -242,22 +259,68 @@ func Run(in Input) Output {
 			}
 			all = append(all, scored{r, filler, m.HPS})
 		}
-		best, naive := 0, 0
+		best := 0
 		for i, s := range all {
 			if s.hps > all[best].hps {
 				best = i
 			}
-			if s.filler != nil && (all[naive].filler == nil ||
-				s.filler.Levels.Base > all[naive].filler.Levels.Base ||
-				(s.filler.Levels.Base == all[naive].filler.Levels.Base && s.filler.ID > all[naive].filler.ID)) {
-				naive = i
-			}
 		}
 		actions = all[best].actions
-		if b, n := all[best].filler, all[naive].filler; best != naive && b != nil && n != nil &&
-			b.ID != n.ID && all[naive].hps > 0 {
+		chosen := all[best].filler
+
+		// The visible list: every heal-rank candidate with what one cast
+		// gives, what it costs, and what the rotation sustains with it.
+		tgt := engine.NewTarget(in.Character.Level, in.Fight.TargetDelta)
+		for i, s := range all {
+			if s.filler == nil {
+				continue
+			}
+			sh := engine.Shape(s.filler, st, tgt)
+			o := HealOption{
+				SpellID: s.filler.ID, Name: s.filler.Name, Rank: cat.RankNumber(s.filler.ID),
+				HealPerCast: sh.SampleDirect(nil), ManaPerCast: sh.ManaCost, CastSec: sh.ExecuteSec,
+				HPSSustained: s.hps, Chosen: i == best,
+			}
+			if o.ManaPerCast > 0 {
+				o.HealPerMana = o.HealPerCast / o.ManaPerCast
+			}
+			if o.CastSec > 0 {
+				o.HPSThroughput = o.HealPerCast / o.CastSec
+			}
+			out.HealOptions = append(out.HealOptions, o)
+		}
+		sort.Slice(out.HealOptions, func(i, j int) bool {
+			return out.HealOptions[i].HPSSustained > out.HealOptions[j].HPSSustained
+		})
+
+		// The recommendation compares against what a player casts by
+		// default: first the next higher known rank of the SAME chain
+		// ("Heal rank 1 instead of rank 2"), else the biggest other heal.
+		naive := -1
+		if chosen != nil {
+			bestSame, bestOther := -1, -1
+			for i, s := range all {
+				if s.filler == nil || s.filler.ID == chosen.ID {
+					continue
+				}
+				if cat.BaseOf[s.filler.ID] == cat.BaseOf[chosen.ID] {
+					if bestSame < 0 || cat.RankNumber(s.filler.ID) > cat.RankNumber(all[bestSame].filler.ID) {
+						bestSame = i
+					}
+				} else if bestOther < 0 || s.filler.Levels.Base > all[bestOther].filler.Levels.Base {
+					bestOther = i
+				}
+			}
+			if bestSame >= 0 && cat.RankNumber(all[bestSame].filler.ID) > cat.RankNumber(chosen.ID) {
+				naive = bestSame
+			} else if bestOther >= 0 && all[bestOther].filler.Levels.Base > chosen.Levels.Base {
+				naive = bestOther
+			}
+		}
+		if naive >= 0 && all[naive].hps > 0 && all[best].hps > all[naive].hps {
+			n := all[naive].filler
 			out.Downrank = &Downrank{
-				SpellID: b.ID, Name: b.Name, Rank: cat.RankNumber(b.ID),
+				SpellID: chosen.ID, Name: chosen.Name, Rank: cat.RankNumber(chosen.ID),
 				InsteadID: n.ID, InsteadName: n.Name, InsteadRank: cat.RankNumber(n.ID),
 				GainPct: (all[best].hps - all[naive].hps) / all[naive].hps * 100,
 			}

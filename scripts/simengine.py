@@ -125,6 +125,7 @@ class Engine:
         self.version = ""
         self.spellbook_source = ""
         self.downrank: dict | None = None
+        self.heal_options: list = []
 
     def batch(self, evals: list[tuple[str, dict]]) -> dict[str, float]:
         """Evaluates deltas; returns the metric gain per key."""
@@ -147,6 +148,7 @@ class Engine:
         self.version = out.get("engine") or ""
         self.spellbook_source = out.get("spellbookSource") or ""
         self.downrank = out.get("downrank")
+        self.heal_options = out.get("healOptions") or []
         return {k: (v.get("gain") or 0.0) for k, v in (out.get("results") or {}).items()}
 
 

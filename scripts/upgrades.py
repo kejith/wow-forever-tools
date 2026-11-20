@@ -693,6 +693,10 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                 d, spell=spell, instead=instead,
                 text=tr("Downranking pays: heal with {spell} instead of {instead} ({pct:+.0f}% healing over the fight).",
                         spell=spell, instead=instead, pct=d.get("gainPct") or 0))
+        if eng.heal_options:
+            engine_out["healOptions"] = [
+                dict(o, spell=spell_label(o.get("spellId"), o.get("name"), o.get("rank")))
+                for o in eng.heal_options]
 
     review.sort(key=lambda r: r["price"])
     return dict(
@@ -760,6 +764,12 @@ def main() -> None:
         print(r["weights"])  # the combat model's summary; gains below are the metric change
         if (r["engine"].get("downrank") or {}).get("text"):
             print(r["engine"]["downrank"]["text"])
+        for o in r["engine"].get("healOptions") or []:
+            line = tr("{hps:6.1f} HPS in the fight · {hpm:.2f} healing per mana · {heal:.0f} healing for "
+                      "{mana:.0f} mana over {cast:.1f}s · {spell}", hps=o.get("hpsSustained") or 0,
+                      hpm=o.get("healPerMana") or 0, heal=o.get("healPerCast") or 0,
+                      mana=o.get("manaPerCast") or 0, cast=o.get("castSec") or 0, spell=o.get("spell"))
+            print(f"   {line}" + (" <==" if o.get("chosen") else ""))
     else:
         print(tr("Scale \"{label}\" (1 point = 1 shadow spell power), value of your gear now: {value}",
                  label=r["profileLabel"], value=r["setValue"]))

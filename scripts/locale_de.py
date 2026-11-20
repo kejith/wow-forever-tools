@@ -145,6 +145,8 @@ TEXT = {
     "Downranking pays: heal with {spell} instead of {instead} ({pct:+.0f}% healing over the fight).":
         "Downranking lohnt sich: Heile mit {spell} statt {instead} ({pct:+.0f} % Heilung über den Kampf).",
     "heal with {spell}": "heile mit {spell}",
+    "{hps:6.1f} HPS in the fight · {hpm:.2f} healing per mana · {heal:.0f} healing for {mana:.0f} mana over {cast:.1f}s · {spell}":
+        "{hps:6.1f} HPS im Kampf · {hpm:.2f} Heilung pro Mana · {heal:.0f} Heilung für {mana:.0f} Mana in {cast:.1f}s · {spell}",
     ", mana for {ttoom:.0f}s": ", Mana für {ttoom:.0f}s",
     ", spellbook assumed from level and talents": ", Zauberbuch aus Stufe und Talenten angenommen",
     "{share:.1f}% of the fight time": "{share:.1f} % der Kampfzeit",

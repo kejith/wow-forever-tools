@@ -117,6 +117,14 @@ export async function renderUpgrades() {
       ${d.review.map((r) => `<tr><td class="muted">${esc(r.slot)}</td><td class="num">${money(r.price)}</td>
         <td><span class="item">${itemIcon(r.id, r.quality)}<span class="${quality(r.quality)}"${tipAttr(r.tip)}>${esc(r.name)}</span></span> ${r.isNew ? `<span class="badge new">${esc(t('NEW'))}</span>` : ''}</td>
         <td class="small">${esc(r.effects.join(' / '))}</td></tr>`).join('')}</tbody></table></div></div>` : '';
+  const healRanks = eng?.healOptions?.length ? `<details class="scale"><summary>${esc(t('Heal ranks: what each rank sustains — the model heals with the top row'))}</summary>
+      <table><thead><tr>${th([t('Spell')],
+    [t('HPS in the fight'), 'num', esc(t('What the whole rotation sustains over the fight when this rank fills it — the number the rank choice uses. Mana, Renew and the fight length are all in here.'))],
+    [t('Healing/mana'), 'num', esc(t('Healing one point of mana buys. Downranking trades cast speed for this efficiency.'))],
+    [t('Healing/cast'), 'num'], [t('Mana'), 'num'], [t('Cast (s)'), 'num'])}</tr></thead><tbody>
+      ${eng.healOptions.map((o) => `<tr><td>${esc(o.spell)}${o.chosen ? ` <span class="badge new">${esc(t('the model heals with this'))}</span>` : ''}</td>
+        <td class="num"><b>${num(o.hpsSustained, 1)}</b></td><td class="num">${num(o.healPerMana, 2)}</td>
+        <td class="num">${num(o.healPerCast)}</td><td class="num">${num(o.manaPerCast)}</td><td class="num">${num(o.castSec, 1)}</td></tr>`).join('')}</tbody></table></details>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(t('Budget'))}</h2><div class="big">${money(d.budget)}</div></div>
       <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng
@@ -128,7 +136,7 @@ export async function renderUpgrades() {
       <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.')))}</h2>
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>
       <span class="spacer"></span></div>
-      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}</div>
+      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${healRanks}</div>
     ${packageHtml}
     ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
 }

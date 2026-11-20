@@ -108,11 +108,50 @@ func TestPriestDownrankRecommendation(t *testing.T) {
 	if d.SpellID != 2050 || d.Rank != 1 || d.Name != "Lesser Heal" {
 		t.Errorf("chosen = %+v", d)
 	}
-	if d.InsteadID != 2061 || d.InsteadName != "Flash Heal" {
+	// The comparison stays within the chain: the next higher known rank of
+	// the same heal (Heal, rank 3 of the Lesser Heal chain), not Flash Heal.
+	if d.InsteadID != 2054 || d.InsteadName != "Heal" || d.InsteadRank != 3 {
 		t.Errorf("instead = %+v", d)
 	}
 	if d.GainPct <= 0 {
 		t.Errorf("gain = %g", d.GainPct)
+	}
+}
+
+// Every heal-rank candidate lands in the visible list with its efficiency
+// numbers, sorted by what the rotation sustains; hand-checked: Lesser Heal
+// rank 1 gives 92.25 healing for 30 mana over 2.5 s.
+func TestHealOptions(t *testing.T) {
+	out := Run(priestInput())
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	if len(out.HealOptions) != 4 { // 2050, 2052, 2054 and 2061
+		t.Fatalf("options: %+v", out.HealOptions)
+	}
+	if !out.HealOptions[0].Chosen || out.HealOptions[0].SpellID != 2061 {
+		t.Errorf("first option should be the chosen Flash Heal: %+v", out.HealOptions[0])
+	}
+	for i := 1; i < len(out.HealOptions); i++ {
+		if out.HealOptions[i].HPSSustained > out.HealOptions[i-1].HPSSustained {
+			t.Error("options not sorted by sustained HPS")
+		}
+	}
+	var lh *HealOption
+	for i := range out.HealOptions {
+		if out.HealOptions[i].SpellID == 2050 {
+			lh = &out.HealOptions[i]
+		}
+	}
+	if lh == nil {
+		t.Fatal("Lesser Heal missing")
+	}
+	almost(t, "heal per cast", lh.HealPerCast, 92.25, 1e-9)
+	almost(t, "mana", lh.ManaPerCast, 30, 1e-9)
+	almost(t, "heal per mana", lh.HealPerMana, 92.25/30, 1e-9)
+	almost(t, "throughput", lh.HPSThroughput, 92.25/2.5, 1e-9)
+	if lh.Rank != 1 {
+		t.Errorf("rank = %d", lh.Rank)
 	}
 }
 

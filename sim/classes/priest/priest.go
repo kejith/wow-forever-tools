@@ -49,11 +49,18 @@ func Rotations(metric string, cat *catalog.Catalog, known map[int]bool, level in
 		return [][]engine.Action{actions}
 	}
 
-	// Healer: keep Renew up, fill with one single-target heal rank.
+	// Healer: keep Renew up, fill with one single-target heal rank. The
+	// chains can overlap (Lesser Heal supersedes into Heal), so every rank
+	// becomes one candidate at most.
 	renew := cat.BestRank(Renew, known, level)
 	var out [][]engine.Action
+	seen := map[int]bool{}
 	for _, base := range healChains {
 		for _, rank := range cat.KnownRanks(base, known, level) {
+			if seen[rank.ID] {
+				continue
+			}
+			seen[rank.ID] = true
 			var actions []engine.Action
 			if renew != nil {
 				actions = append(actions, engine.Action{Kind: "hot", Spell: renew})
