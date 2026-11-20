@@ -13,7 +13,8 @@ import "math"
 type Action struct {
 	// Kind "recover" is a second filler that returns health (Drain Life):
 	// the played fight casts it when the health is too low to convert. The
-	// closed form has one filler and ignores it.
+	// closed form gives it the share of the fight that pays most (see
+	// Evaluate).
 	Kind  string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana", "recover"
 	Spell *Spell
 	// CycleSec is the least time between two casts when something other
@@ -154,12 +155,19 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	var parts []part
 	used := 0.0
 	fillerIdx := -1
+	var standby *part // the "recover" spell
 	for _, a := range actions {
-		if a.Kind == "wand" || a.Kind == "mana" || a.Kind == "recover" || a.Spell == nil {
+		if a.Kind == "wand" || a.Kind == "mana" || a.Spell == nil {
 			continue
 		}
 		res := ResolveCastIn(a.Spell, st, tgt, ctx, nil)
 		p := part{act: a, res: res}
+		if a.Kind == "recover" {
+			if standby == nil && res.ExecuteSec > 0 {
+				standby = &p
+			}
+			continue
+		}
 		switch a.Kind {
 		case "dot", "hot", "cooldown":
 			p.cycle = res.DurationSec
@@ -310,6 +318,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	// Only when not even the maintenance is affordable does it shrink as well.
 	type plan struct {
 		share      float64 // the filler's real share of the fight
+		recover    float64 // the standby spell's share
 		maintScale float64
 		rate       float64 // conversions per second of the fight
 		gcd        float64
@@ -382,16 +391,58 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			chosen = without
 		}
 	}
+	wandDPS := WandDPS(st, tgt)
+	var sDPS, sMPS, sLeech float64 // the standby spell per unit of its share
+	if standby != nil {
+		sDPS = standby.res.Damage / standby.res.ExecuteSec
+		sMPS = standby.res.ManaCost / standby.res.ExecuteSec
+		sLeech = standby.res.Leech / standby.res.ExecuteSec
+	}
+	damage := func(p plan) float64 {
+		dps, _, _ := maintenance(p.share)
+		return dps*p.maintScale + p.share*fDPS + p.recover*sDPS + p.wand*wandDPS
+	}
+	// A standby spell that returns health (Drain Life) next to Life Tap: when
+	// the health limits the conversions, time on it buys more of them. What
+	// the maintenance leaves of the timeline is split between the filler, the
+	// standby spell, the conversions and the wand so that the damage is the
+	// highest the mana and the health allow. Everything is linear in the four
+	// shares, the filler's haste on the DoTs included.
+	if standby != nil && fillerIdx >= 0 && conv != nil && conv.health > 0 && conv.maxRate == 0 &&
+		!netHealth && rotMPS > budgetPS {
+		var hasteDPS, hasteLeech, baseLeech float64
+		for i, p := range parts {
+			if i != fillerIdx {
+				hasteDPS += p.dps * p.haste
+				hasteLeech += p.leech * p.haste
+				baseLeech += p.leech
+			}
+		}
+		healthPS := healthUseFraction*st.HealthMax/fight.Seconds + st.HP5/5
+		// Variables: filler share, standby share, conversions per second, wand share.
+		x, _, ok := maximize(
+			[]float64{fDPS + hasteDPS, sDPS, 0, wandDPS},
+			[][]float64{{1, 1, conv.gcd, 1, fillerShare}},
+			[][]float64{
+				{fMPS, sMPS, -conv.mana, 0, budgetPS - maintMPS},
+				{-(fLeech + hasteLeech), -sLeech, conv.health, 0, healthPS + baseLeech},
+			})
+		if ok {
+			with := plan{share: x[0], recover: x[1], rate: x[2], wand: x[3], maintScale: 1, gcd: conv.gcd}
+			if damage(with) > damage(chosen)*(1+1e-9) {
+				chosen = with
+			}
+		}
+	}
 	share, maintScale, wandFraction := chosen.share, chosen.maintScale, chosen.wand
 
-	wandDPS := WandDPS(st, tgt)
-	maintDPS, maintHPS, maintLeech := maintenance(share)
-	m.DPS = maintDPS*maintScale + share*fDPS + wandDPS*wandFraction
+	_, maintHPS, maintLeech := maintenance(share)
+	m.DPS = damage(chosen)
 	m.HPS = maintHPS*maintScale + share*fHPS
 	if conv != nil && netHealth {
 		m.HPS -= chosen.rate * conv.health
 	}
-	m.SelfHealPS = maintLeech*maintScale + share*fLeech
+	m.SelfHealPS = maintLeech*maintScale + share*fLeech + chosen.recover*sLeech
 
 	// Breakdown.
 	for i, p := range parts {
@@ -412,6 +463,16 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			row.Absorb = p.act.Spell.Absorb != nil && !p.act.Spell.IsHeal
 		}
 		m.Breakdown = append(m.Breakdown, row)
+	}
+	if chosen.recover > 0.0005 {
+		m.Breakdown = append(m.Breakdown, Row{
+			SpellID:  standby.act.Spell.ID,
+			Label:    standby.act.Spell.Name,
+			Kind:     "recover",
+			Value:    chosen.recover * sDPS,
+			SharePct: chosen.recover * 100,
+			Leech:    chosen.recover * sLeech,
+		})
 	}
 	if conv != nil {
 		rate := chosen.rate

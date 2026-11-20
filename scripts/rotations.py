@@ -72,6 +72,8 @@ RULES = {
     "mana": mark("when mana is missing and the health allows it"),
     "wand": mark("when the mana is gone (first after {time})"),
 }
+# Life Tap next to a spell that stands by to return health: no reason to wait for a full health bar.
+TAP_WITH_STANDBY = mark("as soon as the health allows it and the mana has room for it, and when the mana is gone")
 # A rotation without a filler spell: the wand takes its place.
 WAND_FILLS = mark("fills the rest of the time and costs no mana")
 SKIPPED = {
@@ -165,6 +167,7 @@ def situation_out(s: dict, label, unit: str) -> dict:
     steps = []
     raw_steps = s.get("steps") or []
     has_filler = any(st.get("kind") == "filler" for st in raw_steps)
+    has_standby = any(st.get("kind") == "recover" for st in raw_steps)
     for st in raw_steps:
         kind = st.get("kind")
         text = tr("Wand") if kind == "wand" else label(st.get("spellId"), st.get("name"), st.get("rank"))
@@ -174,6 +177,8 @@ def situation_out(s: dict, label, unit: str) -> dict:
             rule = heal_rule(st, raw_steps, demand)
         elif kind == "wand" and not has_filler:
             rule = tr(WAND_FILLS)
+        elif kind == "lifetap" and has_standby:
+            rule = tr(TAP_WITH_STANDBY)
         else:
             rule = tr(RULES[kind], time=clock(st.get("firstSec") or 0)) if kind in RULES else ""
         steps.append({"kind": kind, "spellId": st.get("spellId"), "label": text, "rule": rule,

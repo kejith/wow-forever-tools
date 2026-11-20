@@ -87,9 +87,91 @@ func TestPlayRecover(t *testing.T) {
 	if without.OOMSec == nil {
 		t.Error("the plain rotation should run out of mana")
 	}
-	// The closed form does not know the standby spell and skips it.
-	a, b := Evaluate(st, fight, plain, "dps").DPS, Evaluate(st, fight, standby, "dps").DPS
-	almost(t, "closed form", b, a, 1e-9)
+}
+
+// The closed form splits the time the DoTs leave between the filler, the
+// standby spell, Life Tap and the wand so that the damage is the highest
+// the mana and the health allow. The fixture of TestPlayRecover by hand:
+//
+//	Corruption  every 18 s + half a bolt of waiting (0.9167 * 1.5 s): 19.375 s,
+//	            7.742 % of the time, 228/19.375 = 11.768 dps, 2.581 mana/s
+//	time        f + r + 1.5 x = 0.92258             (bolt, Drain Life, taps per second)
+//	mana        46.667 f + 11 r - 120 x = 500/300 - 2.581
+//	health      100 x - 19 r = 0.4 * 500/300        (Drain Life returns its 19 dps)
+//
+// which gives r = 0.594999, f = 0.148007, x = 0.119716 and no wand:
+// 11.768 + 0.148007 * 46.55 + 0.594999 * 19 = 29.9625 dps. Without the
+// standby spell the health pays for 0.4 taps a minute, which is not even the
+// mana of Corruption: 15.5532 dps, most of it on the wand.
+func TestEvaluateStandby(t *testing.T) {
+	st := testState()
+	st.ManaMax = 500
+	st.HealthMax = 500
+	st.LifeTap = LifeTap{HealthPerCast: 100, ManaPerCast: 120}
+	st.Wand = Wand{DPS: 5, Skill: 100}
+	fight := Fight{Seconds: 300, TargetDelta: 2}
+	plain := []Action{{Kind: "dot", Spell: corruption()}, {Kind: "filler", Spell: bolt()}, {Kind: "wand"}}
+	standby := []Action{{Kind: "dot", Spell: corruption()}, {Kind: "filler", Spell: bolt()}, {Kind: "recover", Spell: drain()}, {Kind: "wand"}}
+	almost(t, "plain", Evaluate(st, fight, plain, "dps").DPS, 15.5532, 1e-9)
+	m := Evaluate(st, fight, standby, "dps")
+	almost(t, "with Drain Life standing by", m.DPS, 29.962457, 1e-6)
+	almost(t, "self healing", m.SelfHealPS, 0.594999*19, 1e-4)
+	shares := map[string]float64{}
+	for _, row := range m.Breakdown {
+		shares[row.Kind] = row.SharePct
+		if row.Kind == "recover" {
+			if row.SpellID != 689 {
+				t.Errorf("standby row: %+v", row)
+			}
+			almost(t, "Drain Life dps", row.Value, 0.594999*19, 1e-4)
+			almost(t, "Drain Life leech", row.Leech, 0.594999*19, 1e-4)
+		}
+		if row.Kind == "lifetap" {
+			almost(t, "taps per minute", row.PerMin, 0.119716*60, 1e-3)
+		}
+	}
+	almost(t, "bolt share", shares["filler"], 14.8007, 1e-3)
+	almost(t, "Drain Life share", shares["recover"], 59.4999, 1e-3)
+	if _, wand := shares["wand"]; wand {
+		t.Errorf("no time should be left for the wand: %+v", m.Breakdown)
+	}
+
+	// While the mana lasts the standby spell changes nothing: no row, the
+	// same number.
+	short := Fight{Seconds: 8, TargetDelta: 2}
+	a, b := Evaluate(st, short, plain, "dps"), Evaluate(st, short, standby, "dps")
+	almost(t, "short fight", b.DPS, a.DPS, 1e-12)
+	if len(b.Breakdown) != len(a.Breakdown) {
+		t.Errorf("breakdown: %+v", b.Breakdown)
+	}
+	// A healer's rotation has no health budget: the standby spell is skipped.
+	almost(t, "other metric", Evaluate(st, fight, standby, "hps").DPS, Evaluate(st, fight, plain, "hps").DPS, 1e-12)
+}
+
+// maximize finds the best corner: 3x + 2y under x + y <= 4 and x + 3y <= 6
+// is 12 at (4, 0); with x + y = 2 added it is 6 at (2, 0).
+func TestMaximize(t *testing.T) {
+	x, v, ok := maximize([]float64{3, 2}, nil, [][]float64{{1, 1, 4}, {1, 3, 6}})
+	if !ok {
+		t.Fatal("feasible")
+	}
+	almost(t, "value", v, 12, 1e-9)
+	almost(t, "x", x[0], 4, 1e-9)
+	almost(t, "y", x[1], 0, 1e-9)
+	x, v, ok = maximize([]float64{3, 2}, [][]float64{{1, 1, 2}}, [][]float64{{1, 1, 4}, {1, 3, 6}})
+	if !ok {
+		t.Fatal("feasible with the equality")
+	}
+	almost(t, "value", v, 6, 1e-9)
+	almost(t, "x", x[0], 2, 1e-9)
+	// 2y - x: the corner where both bounds meet, (3, 1), loses to (0, 2).
+	x, v, _ = maximize([]float64{-1, 2}, nil, [][]float64{{1, 1, 4}, {1, 3, 6}})
+	almost(t, "value", v, 4, 1e-9)
+	almost(t, "y", x[1], 2, 1e-9)
+	// Nothing fits x + y = 2 and x + y <= 1.
+	if _, _, ok := maximize([]float64{1, 1}, [][]float64{{1, 1, 2}}, [][]float64{{1, 1, 1}}); ok {
+		t.Error("infeasible")
+	}
 }
 
 // Every subset of the optional spells, one filler, Drain Life standing by

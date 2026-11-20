@@ -200,6 +200,7 @@ def test_damage_fights(tmp: str):
     assert rules["recover"] == ("when the health is too low to trade for mana and the mana is running out "
                                 "(first after 2:22 min)")
     assert rules["wand"] == "when the mana is gone (first after 54 s)"
+    assert rules["lifetap"] == "as soon as the health allows it and the mana has room for it, and when the mana is gone"
     assert boss["steps"][-1]["label"] == "Wand"
 
     # No filler: the wand is the choice, not the emergency.

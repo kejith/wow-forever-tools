@@ -78,7 +78,7 @@ func TestCoverage(t *testing.T) {
 	if cov.TalentValues != "tables" {
 		t.Errorf("talent values = %q", cov.TalentValues)
 	}
-	if cov.Candidates != 3 { // one rotation per filler
+	if cov.Candidates != 5 { // one rotation per filler, two of them also with Drain Life standing by
 		t.Errorf("candidates = %d", cov.Candidates)
 	}
 

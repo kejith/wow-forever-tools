@@ -159,7 +159,15 @@ func newPlayer(st *State, fight Fight, actions []Action, metric string) *player 
 	// Full means: the next cast would return more health than fits.
 	p.fullAt, p.refillPS = st.HealthMax, st.HP5/5
 	if p.conv != nil {
-		closed := Evaluate(st, fight, actions, metric)
+		// The closed form of the rotation without its standby spell: the
+		// player decides by the health when to cast that one.
+		var plain []Action
+		for _, a := range actions {
+			if a.Kind != "recover" {
+				plain = append(plain, a)
+			}
+		}
+		closed := Evaluate(st, fight, plain, metric)
 		p.drainPS = closed.ManaSpentPS - p.regenCast
 		next := p.conv.gcd
 		if p.filler != nil {
@@ -382,7 +390,12 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 		if acted {
 			continue
 		}
-		if canTap && (p.netHealth || health >= p.fullAt) && mana+conv.mana <= st.ManaMax && mana < p.drainPS*(fight.Seconds-t) {
+		// Ahead of need a damage dealer converts when the health bar is full,
+		// so that no leech is wasted on it. With a spell standing by that
+		// returns health there is nothing to wait for: the lower the health,
+		// the more of what that spell returns fits.
+		early := p.netHealth || health >= p.fullAt || (p.recover != nil && p.leecher == p.recover)
+		if canTap && early && mana+conv.mana <= st.ManaMax && mana < p.drainPS*(fight.Seconds-t) {
 			convert()
 			continue
 		}

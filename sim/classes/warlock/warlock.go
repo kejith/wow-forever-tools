@@ -37,7 +37,8 @@ const DefaultMetric = "dps"
 
 // Rotations builds the candidate priority lists from what the character
 // actually knows: the three DoTs always, Immolate and Death Coil each with
-// and without, and one of the fillers Wrack, Shadow Bolt or Drain Life.
+// and without, and one of the fillers Wrack, Shadow Bolt or Drain Life, the
+// first two also with Drain Life standing by.
 func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
 	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
 	var dots []engine.Action
@@ -69,14 +70,29 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 	if len(fillers) == 0 {
 		fillers = []*engine.Spell{nil}
 	}
+	// Drain Life can also stand by next to another filler, for the time the
+	// health is too low for Life Tap. Those candidates come last: where the
+	// standby spell adds nothing, the plain rotation stays the best.
+	standby := best(DrainLife)
 	var out [][]engine.Action
-	for _, filler := range fillers {
-		for _, opt := range options {
-			actions := append(append([]engine.Action(nil), dots...), opt...)
-			if filler != nil {
-				actions = append(actions, engine.Action{Kind: "filler", Spell: filler})
+	for _, recover := range []*engine.Spell{nil, standby} {
+		for _, filler := range fillers {
+			if recover != nil && (filler == nil || filler.ID == recover.ID) {
+				continue
 			}
-			out = append(out, append(actions, engine.Action{Kind: "wand"}))
+			for _, opt := range options {
+				actions := append(append([]engine.Action(nil), dots...), opt...)
+				if filler != nil {
+					actions = append(actions, engine.Action{Kind: "filler", Spell: filler})
+				}
+				if recover != nil {
+					actions = append(actions, engine.Action{Kind: "recover", Spell: recover})
+				}
+				out = append(out, append(actions, engine.Action{Kind: "wand"}))
+			}
+		}
+		if standby == nil {
+			break
 		}
 	}
 	return out

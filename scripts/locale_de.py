@@ -444,6 +444,8 @@ TEXT = {
         "wenn das Leben zu niedrig ist, um es gegen Mana zu tauschen, und das Mana ausgeht (zuerst nach {time})",
     "as soon as the health bar is full and the mana has room for it, and when the mana is gone":
         "sobald das Leben voll ist und das Mana Platz dafür hat, und wenn das Mana leer ist",
+    "as soon as the health allows it and the mana has room for it, and when the mana is gone":
+        "sobald das Leben es erlaubt und das Mana Platz dafür hat, und wenn das Mana leer ist",
     "when mana is missing and the health allows it": "wenn Mana fehlt und das Leben es erlaubt",
     "when the mana is gone (first after {time})": "wenn das Mana leer ist (zuerst nach {time})",
     "fills the rest of the time and costs no mana": "füllt die restliche Zeit und kostet kein Mana",
