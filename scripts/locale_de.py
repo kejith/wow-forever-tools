@@ -101,6 +101,19 @@ TEXT = {
     ", gear gives {gear:g}%": ", Ausrüstung bringt {gear:g} %",
     "1% damage = {points:.1f} spell power, {share:.0%} of the damage can crit":
         "1 % Schaden = {points:.1f} Zaubermacht, {share:.0%} des Schadens kann kritisch treffen",
+    "trades health for mana; the mana lasts without it in this fight":
+        "tauscht Leben gegen Mana; in diesem Kampf reicht das Mana auch ohne",
+    "trades health for mana; here the health would cost more than the mana brings":
+        "tauscht Leben gegen Mana; hier würde das Leben mehr kosten, als das Mana bringt",
+    "active after your killing blows: {value:.0f}% of the fight with the kills it assumes":
+        "aktiv nach deinen Todesstößen: {value:.0f}% des Kampfes bei den angenommenen Kills",
+    "needs your killing blows, and this fight assumes none":
+        "braucht deine Todesstöße, und dieser Kampf nimmt keine an",
+    "{mana:.1f} mana per second for {health:.1f} health per second":
+        "{mana:.1f} Mana pro Sekunde für {health:.1f} Leben pro Sekunde",
+    "(the health is taken off the healing)": "(das Leben ist von der Heilung abgezogen)",
+    "a shield: counted as if all of it absorbs damage":
+        "ein Schild: gezählt, als würde er vollständig Schaden absorbieren",
     " (with Pandemic your DoTs crit)": " (mit Pandemie treffen deine DoTs kritisch)",
     "health, and mana through Life Tap (fixed value)": "Leben, über Aderlass auch Mana (fester Wert)",
     "15 mana and some crit (fixed value)": "15 Mana und etwas Krit (fester Wert)",

@@ -43,6 +43,15 @@
       "source": "Talent text: mana regeneration after 'killing a non-trivial target afflicted by your Drain Soul'. The model fights one target that does not die."
     },
     {
+      "name": "Spirit Tap",
+      "spells": [15270],
+      "kind": "kill_proc",
+      "effect": 0,
+      "perRank": 20,
+      "unverified": true,
+      "source": "Talent text: 'Gives you a $h% chance to gain a 100% bonus to your Spirit after killing a non-trivial target or when an enemy afflicted by your Vampiric Embrace dies. For the duration, your Mana will regenerate at a 50% rate while casting' (chance 20/40/60/80/100; the buff 15271 lasts 15 sec). The model counts it for the kills per minute the fight assumes: one per fight for the damage rotation, none for a healer unless set. Assumed: only the priest's own killing blow counts (Classic rule), and the 50% add to Meditation."
+    },
+    {
       "name": "Power in Light",
       "spells": [1309969],
       "kind": "dot_stack",

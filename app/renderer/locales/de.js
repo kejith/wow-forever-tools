@@ -286,6 +286,9 @@ export default {
   'The combat model computes DPS over a fight of this length. A longer fight makes mana, regeneration and Life Tap matter more.': 'Das Kampfmodell rechnet die DPS über einen Kampf dieser Länge. Ein längerer Kampf macht Mana, Regeneration und Lebensentzug wichtiger.',
   'Enemy level': 'Gegnerstufe',
   'from the scale (+2/+3)': 'aus der Skala (+2/+3)',
+  'Kills per minute': 'Kills pro Minute',
+  'Your killing blows per minute, for talents that work after a kill (Spirit Tap). Automatic: one per fight for a damage rotation against normal enemies, none for a healer or against a boss.':
+    'Deine Todesstöße pro Minute, für Talente, die nach einem Kill wirken (Willensentzug). Automatisch: einer pro Kampf bei einer Schadensrotation gegen normale Gegner, keiner für einen Heiler oder gegen einen Boss.',
   'Metric': 'Messwert',
   'DPS (damage)': 'DPS (Schaden)',
   'HPS (healing)': 'HPS (Heilung)',

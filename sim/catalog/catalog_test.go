@@ -224,3 +224,40 @@ func TestLeechAndAuraIndex(t *testing.T) {
 		t.Error("Wrack needs its talent")
 	}
 }
+
+// What the priest's shield and mana spell need: the absorb amount, the mana
+// per tick, the undecoded health cost by effect index, and the duration of
+// spells outside the class's family (the Spirit Tap buff).
+func TestShieldAndManaSpell(t *testing.T) {
+	cat, err := Build("../testdata", "9.9.9.9", "xxXX", "PRIEST")
+	if err != nil {
+		t.Fatal(err)
+	}
+	shield := cat.Spells[17]
+	if shield == nil || shield.Absorb == nil || shield.Absorb.BP != 100 || shield.Absorb.Coeff != 0.1 {
+		t.Fatalf("Power Word: Shield = %+v", shield)
+	}
+	if shield.Direct != nil || shield.IsHeal || !shield.Heals() || shield.CooldownMs != 4000 {
+		t.Errorf("shield = %+v", shield)
+	}
+	sac := cat.Spells[1277324]
+	if sac == nil || sac.Energize == nil || sac.Energize.BP != 60 || sac.Energize.PeriodMs != 3000 || !sac.GivesMana {
+		t.Fatalf("Dark Sacrifice = %+v", sac)
+	}
+	if sac.DurationMs != 15000 || sac.CooldownMs != 600000 {
+		t.Errorf("Dark Sacrifice timing = %+v", sac)
+	}
+	if cost := cat.RawEffects[1277324][0]; cost == nil || cost.BP != 40 || cost.PeriodMs != 3000 {
+		t.Errorf("health cost = %+v", cost)
+	}
+	if cat.DurationMs[6788] != 15000 || cat.DurationMs[15271] != 15000 {
+		t.Errorf("durations: weakened soul %d, spirit tap %d", cat.DurationMs[6788], cat.DurationMs[15271])
+	}
+	if cat.Spells[15271] != nil {
+		t.Error("the Spirit Tap buff is outside the class's family")
+	}
+	trigger := cat.Auras[15270]
+	if len(trigger) != 1 || trigger[0].Aura != 42 || trigger[0].Trigger != 15271 {
+		t.Errorf("Spirit Tap auras = %+v", trigger)
+	}
+}

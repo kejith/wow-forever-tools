@@ -7,6 +7,8 @@
 // Camelot/PaperDollFrameStats.lua (via scripts/upgrades.py).
 package engine
 
+import "math"
+
 // School indexes the seven damage schools (mask bit = 1 << School).
 type School int
 
@@ -110,6 +112,37 @@ func (st *State) RegenPS() float64 {
 	return st.RegenBasePS + st.Spirit*st.RegenSpiritFactor
 }
 
+// Regen is the mana regeneration per second over a fight: while casting
+// (gear mp5 plus the share of the spirit regeneration the talents let
+// through) and while idle (outside the five-second rule). Buffs from kills
+// (Spirit Tap) count for the share of the fight they are up.
+func (st *State) Regen(fight Fight) (casting, idle float64) {
+	full := st.RegenPS()
+	share := math.Min(100, st.Mods.CastingRegenPct) / 100
+	casting, idle = full*share, full
+	for _, p := range st.Mods.KillProcs {
+		up := p.uptime(fight)
+		if up <= 0 {
+			continue
+		}
+		boosted := st.RegenBasePS + st.Spirit*(1+p.SpiritPct/100)*st.RegenSpiritFactor
+		boostedShare := math.Min(100, st.Mods.CastingRegenPct+p.CastingRegenPct) / 100
+		casting += up * (boosted*boostedShare - full*share)
+		idle += up * (boosted - full)
+	}
+	return st.MP5/5 + casting, st.MP5/5 + idle
+}
+
+// KillProcUptime is the share of the fight (0..1) the character's kill buff
+// is up; 0 without such a talent or without kills.
+func (st *State) KillProcUptime(fight Fight) float64 {
+	up := 0.0
+	for _, p := range st.Mods.KillProcs {
+		up = math.Max(up, p.uptime(fight))
+	}
+	return up
+}
+
 // Target is the enemy the rotation runs against.
 type Target struct {
 	LevelDelta int // levels above the character (0..3)
@@ -128,6 +161,10 @@ func NewTarget(charLevel, delta int) Target {
 type Fight struct {
 	Seconds     float64 `json:"seconds"`
 	TargetDelta int     `json:"targetDelta"`
+	// KillsPerMinute is how often the character lands a killing blow, which
+	// is what buffs like Spirit Tap need. Negative means automatic (run.go:
+	// one kill per fight for a damage dealer, none for a healer).
+	KillsPerMinute float64 `json:"killsPerMinute"`
 }
 
 // magicSchools are all schools that spell power and spell crit apply to.

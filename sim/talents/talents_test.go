@@ -220,7 +220,7 @@ func TestOverridesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	kinds := map[string]bool{"life_tap_pct": true, "dot_crit": true, "healing_pct": true, "school_damage_pct": true,
-		"wand_pct": true, "dot_stack": true, "channel_dot_haste": true, "generic": true, "ignore": true}
+		"wand_pct": true, "dot_stack": true, "channel_dot_haste": true, "kill_proc": true, "generic": true, "ignore": true}
 	for id, o := range over {
 		if o.Source == "" {
 			t.Errorf("%d (%s): no source", id, o.Name)
@@ -237,5 +237,46 @@ func TestOverridesFile(t *testing.T) {
 func TestBetter(t *testing.T) {
 	if !Better(StatusUsed, StatusSheet) || !Better(StatusIdle, StatusUnmodeled) || Better(StatusNone, StatusNone) {
 		t.Error("status order is wrong")
+	}
+}
+
+// Spirit Tap: the chance is the talent's value at the rank, the buff it
+// triggers says what it gives and for how long. An assumption (which kills
+// count), so flagged.
+func TestKillProc(t *testing.T) {
+	mods, infos := decodeFrom(t, "../testdata", "PRIEST", map[int]int{15270: 2})
+	if len(mods.KillProcs) != 1 {
+		t.Fatalf("kill procs = %+v", mods.KillProcs)
+	}
+	p := mods.KillProcs[0]
+	if p.ChancePct != 40 || p.DurationSec != 15 || p.SpiritPct != 100 || p.CastingRegenPct != 50 {
+		t.Errorf("spirit tap = %+v", p)
+	}
+	if mods.SpiritPct != 0 || mods.CastingRegenPct != 0 {
+		t.Errorf("the buff is not permanent: %+v", mods)
+	}
+	if info := infos[15270]; info.Status != StatusUsed || info.Reason != "kills" || !info.Unverified || !info.Exact {
+		t.Errorf("info = %+v", info)
+	}
+}
+
+// The shield's talents are plain spell modifiers: points of effect 0, the
+// cooldown and the cost, each on the shield's class mask.
+func TestShieldTalents(t *testing.T) {
+	mods, infos := decodeFrom(t, "../testdata", "PRIEST", map[int]int{14748: 2, 402000: 1})
+	want := map[engine.SpellModOp]float64{engine.OpPoints0: 20, engine.OpCooldown: -4000, engine.OpCost: -15}
+	if len(mods.SpellMods) != 3 {
+		t.Fatalf("mods = %+v", mods.SpellMods)
+	}
+	for _, m := range mods.SpellMods {
+		if v, ok := want[m.Op]; !ok || v != m.Value || m.Mask[0] != 1 {
+			t.Errorf("mod = %+v", m)
+		}
+		if m.Pct != (m.Op != engine.OpCooldown) {
+			t.Errorf("flat/percent wrong: %+v", m)
+		}
+	}
+	if len(infos[14748].Mods) != 1 || len(infos[402000].Mods) != 2 {
+		t.Errorf("infos = %+v", infos)
 	}
 }

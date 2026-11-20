@@ -444,6 +444,8 @@ COVERAGE_SPELL = {
     "heal": mark("heals, but the model does not cast it"),
     "absorb": mark("absorbs damage, which the model does not count yet"),
     "mana": mark("returns mana, which the model does not use yet"),
+    "notneeded": mark("trades health for mana; the mana lasts without it in this fight"),
+    "notworth": mark("trades health for mana; here the health would cost more than the mana brings"),
     "other": mark("does not change this number"),
 }
 COVERAGE_TALENT = {
@@ -460,6 +462,8 @@ COVERAGE_TALENT = {
     "othermetric": mark("does not change this number"),
     "utility": mark("range, threat or pushback: no influence on damage or healing"),
     "situational": mark("depends on the situation (a kill, a proc), not modeled"),
+    "kills": mark("active after your killing blows: {value:.0f}% of the fight with the kills it assumes"),
+    "nokills": mark("needs your killing blows, and this fight assumes none"),
     "unknown": mark("an effect the model does not know"),
 }
 COVERAGE_ASSUMED = mark("An assumption of the model that has not been measured in the game.")
@@ -499,7 +503,8 @@ def coverage_out(cov: dict, c: dict, unit: str, spell_label) -> dict | None:
 
 def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, preview: int = 4, max_price: float = 0,
             top: int = 3, prices: dict | None = None, profile: str = "", sort: str = "gain",
-            engine: str = "off", fight_seconds: float = 60.0, target_delta: int = -1, metric: str = "",
+            engine: str = "off", fight_seconds: float = 60.0, target_delta: int = -1,
+            kills_per_minute: float = -1, metric: str = "",
             method: str = "", iterations: int = 0) -> dict:
     """Upgrade candidates per slot and the best purchase for the budget, as plain data (copper prices).
 
@@ -545,8 +550,11 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             m = LIFE_TAP_TEXT.search((st.get("lifeTap") or {}).get("text") or "")
             if m and number(m.group(1)) > 0:
                 life_tap = {"healthPerCast": number(m.group(1)), "manaPerCast": number(m.group(2))}
+            # Kills per minute feed buffs from killing blows (Spirit Tap); negative = the engine decides
+            # (one per fight for a damage rotation against normal enemies, none for a healer or a boss).
             fight = {"seconds": fight_seconds,
-                     "targetDelta": target_delta if 0 <= target_delta <= 3 else PROFILES[scale["profile"]]["target"]}
+                     "targetDelta": target_delta if 0 <= target_delta <= 3 else PROFILES[scale["profile"]]["target"],
+                     "killsPerMinute": kills_per_minute if kills_per_minute >= 0 else -1}
             eng = simengine.start(c, totals.get("mp5", 0), totals.get("hp5", 0), fight, metric, life_tap,
                                   method=method, iterations=iterations)
         except LookupError:
@@ -662,10 +670,12 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
     # Best purchase for the budget: one option per slot group, pairs for rings/trinkets and main hand + off hand.
     usable = [x for x in pool if not x["soon"]]
     groups: dict = {}
+    def group_of(slot: int) -> tuple:
+        return PAIRS.get(slot, ("weapon",) if slot in (16, 17) else (slot,))
+
     for x in rows:
         if not x["soon"]:
-            key = PAIRS.get(x["slot"], ("weapon",) if x["slot"] in (16, 17) else (x["slot"],))
-            groups.setdefault(key, []).append((x["price"], x["gain"], ((x, x["remove"]),)))
+            groups.setdefault(group_of(x["slot"]), []).append((x["price"], x["gain"], ((x, x["remove"]),)))
     combos = []  # (group key, x, y, x's slots, y's slots), valued in one batch
     for a, b in set(PAIRS.values()):
         both = sorted((x for x in usable if x["slot"] in (a, b)), key=lambda x: -x["points"])[:12]
@@ -680,12 +690,26 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
     cost, _, picks = best_package(list(groups.values()), budget)
 
     # Gain per item in the order of the set (each prefix valued exactly), so the lines add up to the total.
-    prefix_adds, emptied, prefix_evals = [], [], []
-    for i, (x, remove) in enumerate(picks):
-        emptied += [s for s in remove if s in eq and s not in emptied]
-        prefix_adds.append(x["norm"])
-        prefix_evals.append((f"px:{i}", list(prefix_adds), list(emptied)))
-    pvals = value_batch(prefix_evals)
+    # The package is chosen from the gains of the single swaps, and gains do not simply add up (the hit cap,
+    # a mana budget that one item already fills): a purchase that adds nothing on top of the ones before it is
+    # dropped and the rest valued again. A pair (two rings, main hand + off hand) is one purchase here.
+    picks = list(picks)
+    for _ in range(4):
+        prefix_adds, emptied, prefix_evals = [], [], []
+        for i, (x, remove) in enumerate(picks):
+            emptied += [s for s in remove if s in eq and s not in emptied]
+            prefix_adds.append(x["norm"])
+            prefix_evals.append((f"px:{i}", list(prefix_adds), list(emptied)))
+        pvals = value_batch(prefix_evals)
+        unit_gain: dict = {}
+        for i, (x, _) in enumerate(picks):
+            key = group_of(x["slot"])
+            unit_gain[key] = unit_gain.get(key, 0.0) + pvals[f"px:{i}"] - (pvals[f"px:{i - 1}"] if i else 0.0)
+        keep = [pick for pick in picks if unit_gain[group_of(pick[0]["slot"])] > 0.005]
+        if len(keep) == len(picks):
+            break
+        picks = keep
+    cost = sum(x["price"] for x, _ in picks)
     package_items, value = [], 0.0
     for i, (x, remove) in enumerate(picks):
         step, value = pvals[f"px:{i}"] - value, pvals[f"px:{i}"]
@@ -720,15 +744,22 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         scale_rows = []
         for row in b.get("breakdown") or []:
             note = tr("{share:.1f}% of the fight time", share=row.get("sharePct") or 0)
-            if row.get("kind") == "lifetap":
+            if row.get("kind") in ("lifetap", "mana"):
                 note = tr("{n:.1f} casts per minute", n=row.get("perMin") or 0) + ", " + note
+                if row.get("manaGain"):
+                    note += ", " + tr("{mana:.1f} mana per second for {health:.1f} health per second",
+                                      mana=row["manaGain"], health=row.get("healthCost") or 0)
+                    if b.get("metric") != "dps":
+                        note += " " + tr("(the health is taken off the healing)")
             if row.get("leech"):
                 note += ", " + tr("returns {n:.1f} health per second", n=row["leech"])
+            if row.get("absorb"):
+                note += ", " + tr("a shield: counted as if all of it absorbs damage")
             label = spell_label(row.get("spellId"), row.get("label") or row.get("kind"), row.get("rank"))
             if row.get("kind") == "wand":
                 label = tr("Wand")
             scale_rows.append(dict(label=label, weight=round(row.get("value") or 0, 1), note=note))
-        fight = eng.bundle["fight"]
+        fight = eng.fight
         value, metric_name = b.get("value") or 0, b.get("metric")
         if metric_name == "hps":
             weights_text = tr("Combat model: {hps:.1f} HPS over a {seconds:g}s fight",
@@ -751,6 +782,9 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                           manaSpentPs=b.get("manaSpentPs"), manaBudgetPs=b.get("manaBudgetPs"),
                           fight=fight, metrics=simengine.METRICS.get(class_file) or ["dps"],
                           spec=simengine.spec_of(c), mc=b.get("mc"), selfHealPs=b.get("selfHealPs"),
+                          # a talent that needs killing blows: the window then offers "kills per minute"
+                          killBuff=any(e.get("reason") in ("kills", "nokills")
+                                       for e in (eng.coverage.get("talents") or [])),
                           coverage=coverage_out(eng.coverage, c,
                                                 {"dps": "DPS", "hps": "HPS"}.get(metric_name, "s"), spell_label))
         if eng.downrank:
@@ -793,6 +827,9 @@ def main() -> None:
     ap.add_argument("--fight-seconds", type=float, default=60, help="fight length for the combat model")
     ap.add_argument("--target-delta", type=int, default=-1, choices=[-1, 0, 1, 2, 3],
                     help="enemy levels above you for the combat model (default: from the profile)")
+    ap.add_argument("--kills-per-minute", type=float, default=-1,
+                    help="your killing blows per minute, for buffs like Spirit Tap (default: one per fight for a "
+                         "damage rotation against normal enemies, none for a healer or against a boss)")
     ap.add_argument("--metric", choices=["", "dps", "hps", "ttoom"], default="",
                     help="metric of the combat model (default: per class and spec)")
     ap.add_argument("--method", choices=["", "expectation", "montecarlo"], default="",
@@ -806,8 +843,8 @@ def main() -> None:
 
     try:
         r = compute(a.wow, a.char, a.level, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort,
-                    engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta, metric=a.metric,
-                    method=a.method, iterations=a.iterations)
+                    engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta,
+                    kills_per_minute=a.kills_per_minute, metric=a.metric, method=a.method, iterations=a.iterations)
     except (FileNotFoundError, LookupError) as e:
         sys.exit(str(e))
     sys.stdout.reconfigure(encoding="utf-8")
@@ -833,11 +870,11 @@ def main() -> None:
         if (r["engine"].get("downrank") or {}).get("text"):
             print(r["engine"]["downrank"]["text"])
         for o in r["engine"].get("healOptions") or []:
-            line = tr("{hps:6.1f} HPS in the fight · {hpm:.2f} healing per mana · {heal:.0f} healing for "
+            text = tr("{hps:6.1f} HPS in the fight · {hpm:.2f} healing per mana · {heal:.0f} healing for "
                       "{mana:.0f} mana over {cast:.1f}s · {spell}", hps=o.get("hpsSustained") or 0,
                       hpm=o.get("healPerMana") or 0, heal=o.get("healPerCast") or 0,
                       mana=o.get("manaPerCast") or 0, cast=o.get("castSec") or 0, spell=o.get("spell"))
-            print(f"   {line}" + (" <==" if o.get("chosen") else ""))
+            print(f"   {text}" + (" <==" if o.get("chosen") else ""))
     else:
         print(tr("Scale \"{label}\" (1 point = 1 shadow spell power), value of your gear now: {value}",
                  label=r["profileLabel"], value=r["setValue"]))

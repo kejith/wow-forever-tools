@@ -51,9 +51,17 @@ type Catalog struct {
 	// Auras holds the raw aura effects of every spell of the client, not only
 	// the class's: several talents (Meditation, Wand Specialization) are not
 	// in the class's spell family.
-	Auras  map[int][]Aura
-	BaseOf map[int]int   // spell id -> first rank of its chain
-	Chains map[int][]int // first rank -> every spell of the chain, lowest rank first
+	Auras map[int][]Aura
+	// RawEffects holds the aura effects of the class's spells the catalog
+	// does not decode into damage or healing, by spell and effect index
+	// (with base points, per-level scaling and period): a class module reads
+	// what only it understands, e.g. the health Dark Sacrifice costs.
+	RawEffects map[int]map[int]*engine.Effect
+	// DurationMs is the duration of every spell of the client, also the
+	// buffs outside the class's family that a talent triggers (Spirit Tap).
+	DurationMs map[int]int
+	BaseOf     map[int]int   // spell id -> first rank of its chain
+	Chains     map[int][]int // first rank -> every spell of the chain, lowest rank first
 	// TalentPoints are the exact values of a talent per rank from the trait
 	// tables: talent spell id -> effect index -> rank -> value. Forever has
 	// one spell per talent, whose SpellEffect row holds a single rank only.
@@ -223,6 +231,8 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		ClassID:      classID,
 		Spells:       map[int]*engine.Spell{},
 		Auras:        map[int][]Aura{},
+		RawEffects:   map[int]map[int]*engine.Effect{},
+		DurationMs:   map[int]int{},
 		TalentPoints: map[int]map[int]map[int]float64{},
 		BaseOf:       map[int]int{},
 		Chains:       map[int][]int{},
@@ -251,8 +261,14 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 	// Timing, school, cost and levels.
 	for i := 0; i < misc.Len(); i++ {
 		r := misc.Row(i)
+		if r.Int("DifficultyID") != 0 {
+			continue
+		}
+		if d := durBase[r.Int("DurationIndex")]; d > 0 {
+			cat.DurationMs[r.Int("SpellID")] = d
+		}
 		sp := cat.Spells[r.Int("SpellID")]
-		if sp == nil || r.Int("DifficultyID") != 0 {
+		if sp == nil {
 			continue
 		}
 		sp.CastMs = castBase[r.Int("CastingTimeIndex")]
@@ -343,11 +359,16 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 				sp.IsHeal = true
 			default:
 				if aura == auraSchoolAbsorb {
-					sp.Absorbs = true
+					sp.Absorb = eff
 				}
 				if aura == auraPeriodicEnergize {
 					sp.GivesMana = true
+					sp.Energize = eff
 				}
+				if cat.RawEffects[id] == nil {
+					cat.RawEffects[id] = map[int]*engine.Effect{}
+				}
+				cat.RawEffects[id][eff.Index] = eff
 				rawAura()
 			}
 		}

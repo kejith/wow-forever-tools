@@ -15,7 +15,7 @@ export const state = {
   cache: new Map(),
   lastLoad: null,
   writs: { top: 3, ownedAtAhPrice: false },
-  upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain', engine: 'auto', fight: 60, target: '', metric: '' },
+  upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain', engine: 'auto', fight: 60, target: '', metric: '', kills: '' },
   recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false },
   consumables: { top: 5, onlyAvailable: false, allBuffs: false },
   prices: { query: '', item: null, cls: -1, sort: 'name', recent: false },

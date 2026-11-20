@@ -121,6 +121,8 @@ async function runBridge(command, opts = {}) {
   if (['on', 'off'].includes(opts.engine)) args.push('--engine', opts.engine); // auto is the bridge's default
   if (Number(opts.fightSeconds) > 0) args.push('--fight-seconds', String(Number(opts.fightSeconds)));
   if ([0, 1, 2, 3].includes(opts.targetDelta)) args.push('--target-delta', String(opts.targetDelta));
+  // Without it the engine decides how many kills the fight has.
+  if (typeof opts.killsPerMinute === 'number' && opts.killsPerMinute >= 0) args.push('--kills-per-minute', String(opts.killsPerMinute));
   if (['dps', 'hps', 'ttoom'].includes(opts.metric)) args.push('--metric', opts.metric);
   if (opts.method === 'montecarlo') args.push('--method', 'montecarlo');
   if (typeof opts.profession === 'string' && opts.profession) args.push('--profession', opts.profession);

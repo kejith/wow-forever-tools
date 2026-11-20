@@ -16,15 +16,24 @@ type Spell struct {
 	DurationMs int
 	Channeled  bool
 	Passive    bool
-	Absorbs    bool // has a damage shield (Power Word: Shield); not modeled yet, the coverage report says so
-	GivesMana  bool // returns mana (energize effects); not modeled yet
+	GivesMana  bool // returns mana (energize effects)
 	Cost       Cost
 	Levels     Levels
 	ClassMask  [4]uint32
 	Direct     *Effect // direct damage (or direct heal for heal spells)
 	Periodic   *Effect // damage/heal over time, value per tick
 	IsHeal     bool
+	// Absorb is a damage shield (Power Word: Shield): the amount it absorbs.
+	// The healer metrics count it like healing; it never crits.
+	Absorb *Effect
+	// Energize is mana the spell returns to the caster per tick over its
+	// duration (Dark Sacrifice).
+	Energize *Effect
 }
+
+// Heals reports whether the spell counts for the healer metrics: a heal or
+// a damage shield.
+func (sp *Spell) Heals() bool { return sp.IsHeal || sp.Absorb != nil }
 
 // Cost is what one cast takes.
 type Cost struct {

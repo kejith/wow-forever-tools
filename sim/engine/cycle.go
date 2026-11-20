@@ -11,8 +11,76 @@ import "math"
 
 // Action is one entry of a spec's priority rotation.
 type Action struct {
-	Kind  string // "dot", "hot", "cooldown", "filler", "heal", "wand"
+	Kind  string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana"
 	Spell *Spell
+	// CycleSec is the least time between two casts when something other
+	// than the spell's own cooldown limits it: Weakened Soul after Power
+	// Word: Shield on the one target the model heals.
+	CycleSec float64
+	// Kind "mana" is a spell that trades health for mana (Dark Sacrifice),
+	// cast on demand like Life Tap: it returns Spell.Energize per tick over
+	// its duration plus ManaPerSpirit times the spirit, and costs HealthCost
+	// per tick.
+	HealthCost    *Effect
+	ManaPerSpirit float64
+}
+
+// converter is what turns health into mana when the rotation runs short:
+// the Warlock's Life Tap (numbers from the spell text in the snapshot) or a
+// "mana" action of the rotation.
+type converter struct {
+	kind     string  // row kind: "lifetap" or "mana"
+	spell    *Spell  // nil for Life Tap
+	mana     float64 // per cast
+	health   float64 // per cast
+	gcd      float64
+	duration float64 // seconds over which the mana arrives; 0 = at once
+	cooldown float64 // seconds; 0 = none
+	maxRate  float64 // casts per second the cooldown allows over the fight; 0 = no limit
+}
+
+func converterOf(st *State, fight Fight, actions []Action) *converter {
+	if mana := st.LifeTap.ManaPerCast * (1 + st.Mods.LifeTapPct/100); mana > 0 {
+		return &converter{kind: "lifetap", mana: mana, health: st.LifeTap.HealthPerCast, gcd: lifeTapGCDSec}
+	}
+	for _, a := range actions {
+		if a.Kind != "mana" || a.Spell == nil || a.Spell.Energize == nil {
+			continue
+		}
+		sp := a.Spell
+		ticks := 1.0
+		duration := float64(sp.DurationMs) / 1000
+		if sp.Energize.PeriodMs > 0 && sp.DurationMs > 0 {
+			ticks = float64(sp.DurationMs) / float64(sp.Energize.PeriodMs)
+		}
+		c := &converter{kind: "mana", spell: sp, gcd: lifeTapGCDSec, duration: duration, cooldown: CooldownSec(sp, st)}
+		if sp.GCDMs > 0 {
+			c.gcd = float64(sp.GCDMs) / 1000
+		}
+		c.mana = ticks*sp.Energize.avgBase(st.Level, sp.Levels) + a.ManaPerSpirit*st.Spirit
+		if a.HealthCost != nil {
+			c.health = ticks * a.HealthCost.avgBase(st.Level, sp.Levels)
+		}
+		if c.cooldown < duration {
+			c.cooldown = duration // it cannot overlap itself
+		}
+		if c.mana <= 0 || c.cooldown <= 0 {
+			continue
+		}
+		// Casts that pay out within the fight: the first right away, another
+		// one per cooldown; a fight shorter than the effect gets its share.
+		casts := fight.Seconds / c.cooldown
+		if duration > 0 {
+			if fight.Seconds < duration {
+				casts = fight.Seconds / duration
+			} else {
+				casts = 1 + math.Floor((fight.Seconds-duration)/c.cooldown)
+			}
+		}
+		c.maxRate = casts / fight.Seconds
+		return c
+	}
+	return nil
 }
 
 // Row is one line of the metric breakdown shown in the app.
@@ -25,6 +93,11 @@ type Row struct {
 	PerMin   float64 `json:"perMin,omitempty"` // casts per minute (regen rows)
 	Rank     int     `json:"rank,omitempty"`   // the spell's rank number (run.go fills it in)
 	Leech    float64 `json:"leech,omitempty"`  // health per second the spell returns to the caster
+	Absorb   bool    `json:"absorb,omitempty"` // the value is damage a shield absorbs
+	// Rows that trade health for mana (Life Tap, Dark Sacrifice), per second
+	// of the fight. A healer's health cost is taken off the healing.
+	ManaGain   float64 `json:"manaGain,omitempty"`
+	HealthCost float64 `json:"healthCost,omitempty"`
 }
 
 // Metrics is the result of one evaluation.
@@ -37,8 +110,11 @@ type Metrics struct {
 	ManaSpentPS  float64  `json:"manaSpentPs"`          // of the unconstrained rotation
 	ManaBudgetPS float64  `json:"manaBudgetPs"`         // pool over the fight + regeneration
 	SelfHealPS   float64  `json:"selfHealPs,omitempty"` // health per second from leech spells (feeds Life Tap)
-	Breakdown    []Row    `json:"breakdown"`
-	MC           *MCStats `json:"mc,omitempty"` // set when the Monte-Carlo runs played the rotation
+	// KillBuffPct is the share of the fight a buff from kills is up (Spirit
+	// Tap), by the kills the fight assumes.
+	KillBuffPct float64  `json:"killBuffPct,omitempty"`
+	Breakdown   []Row    `json:"breakdown"`
+	MC          *MCStats `json:"mc,omitempty"` // set when the Monte-Carlo runs played the rotation
 }
 
 // healthUseFraction is how much of the health pool the model lets Life Tap
@@ -63,6 +139,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	type part struct {
 		act   Action
 		res   CastResult
+		cycle float64 // seconds between two casts
 		share float64 // fraction of the timeline
 		dps   float64
 		hps   float64
@@ -75,31 +152,25 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	used := 0.0
 	fillerIdx := -1
 	for _, a := range actions {
-		if a.Kind == "wand" || a.Spell == nil {
+		if a.Kind == "wand" || a.Kind == "mana" || a.Spell == nil {
 			continue
 		}
 		res := ResolveCastIn(a.Spell, st, tgt, ctx, nil)
 		p := part{act: a, res: res}
 		switch a.Kind {
-		case "dot", "hot":
-			if res.DurationSec <= 0 {
+		case "dot", "hot", "cooldown":
+			p.cycle = res.DurationSec
+			if a.Kind == "cooldown" {
+				p.cycle = math.Max(res.CooldownSec, a.CycleSec)
+			}
+			if p.cycle <= 0 {
 				continue
 			}
-			p.share = res.ExecuteSec / res.DurationSec
-			p.dps = res.Damage / res.DurationSec
-			p.hps = res.Healing / res.DurationSec
-			p.mps = res.ManaCost / res.DurationSec
-			p.leech = res.Leech / res.DurationSec
-		case "cooldown":
-			cd := float64(a.Spell.CooldownMs) / 1000
-			if cd <= 0 {
-				continue
-			}
-			p.share = res.ExecuteSec / cd
-			p.dps = res.Damage / cd
-			p.hps = res.Healing / cd
-			p.mps = res.ManaCost / cd
-			p.leech = res.Leech / cd
+			p.share = res.ExecuteSec / p.cycle
+			p.dps = res.Damage / p.cycle
+			p.hps = res.Healing / p.cycle
+			p.mps = res.ManaCost / p.cycle
+			p.leech = res.Leech / p.cycle
 		case "filler", "heal":
 			if fillerIdx >= 0 {
 				continue // one filler is enough for the closed form
@@ -142,10 +213,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 				if i == fillerIdx {
 					continue
 				}
-				cycle := parts[i].res.DurationSec
-				if parts[i].act.Kind == "cooldown" {
-					cycle = float64(parts[i].act.Spell.CooldownMs) / 1000
-				}
+				cycle := parts[i].cycle
 				if cycle <= 0 {
 					continue
 				}
@@ -197,78 +265,129 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	rotMPS := maintMPS + fillerShare*fMPS
 
 	// Mana budget: the pool spread over the fight, gear mp5, and the share
-	// of spirit regeneration that continues while casting (Meditation).
-	// The model casts for the whole fight, so the rest of the spirit
-	// regeneration counts 0 under the five-second rule.
-	regenPS := st.MP5/5 + st.RegenPS()*st.Mods.CastingRegenPct/100
-	budgetPS := 0.0
-	if fight.Seconds > 0 {
-		budgetPS = st.ManaMax/fight.Seconds + regenPS
-	}
+	// of spirit regeneration that continues while casting (Meditation, and
+	// Spirit Tap for the share of the fight it is up). The model casts for
+	// the whole fight, so the rest of the spirit regeneration counts 0 under
+	// the five-second rule.
+	regenPS, _ := st.Regen(fight)
+	m.KillBuffPct = st.KillProcUptime(fight) * 100
+	budgetPS := st.ManaMax/fight.Seconds + regenPS
 	m.ManaSpentPS = rotMPS
 	m.ManaBudgetPS = budgetPS
 
-	// Time to OOM at the full rotation without conversions.
-	if rotMPS > regenPS && rotMPS > 0 {
-		t := st.ManaMax / (rotMPS - regenPS)
-		m.TTOOMSec = &t
+	conv := converterOf(st, fight, actions)
+	// A healer pays the health with healing (their own, or someone else's):
+	// it comes off the result. A damage dealer has a health budget instead.
+	netHealth := metric != "dps"
+
+	// Time to OOM at the full rotation. Life Tap does not count (it would
+	// never end); a conversion with a cooldown does: one cast right away and
+	// one more each time the cooldown ends before the mana does.
+	ttoomCasts := 0.0
+	if drain := rotMPS - regenPS; drain > 0 {
+		t := st.ManaMax / drain
+		sustained := false
+		if conv != nil && conv.cooldown > 0 {
+			if conv.mana/conv.cooldown >= drain {
+				sustained = true
+			}
+			for k := 1; !sustained && t > float64(k-1)*conv.cooldown; k++ {
+				t = (st.ManaMax + float64(k)*conv.mana) / drain
+				ttoomCasts = float64(k)
+			}
+		}
+		if !sustained {
+			m.TTOOMSec = &t
+		}
 	}
 
 	// How much of the cycle is affordable. The DoTs, HoTs and cooldowns keep
-	// their priority: Life Tap takes its time from the filler, and mana that
-	// is still missing is the filler's too. Only when not even the
-	// maintenance is affordable does it shrink as well.
-	share := fillerShare // the filler's real share of the fight
-	maintScale := 1.0
-	tapRate := 0.0 // Life Taps per second of the fight
-	wandFraction := 0.0
-	if deficit := rotMPS - budgetPS; deficit > 0 {
-		tapMana := st.LifeTap.ManaPerCast * (1 + st.Mods.LifeTapPct/100)
-		if tapMana > 0 {
-			// x taps per second replace x*gcd of filler time and must
+	// their priority: a conversion (Life Tap, Dark Sacrifice) takes its time
+	// from the filler, and mana that is still missing is the filler's too.
+	// Only when not even the maintenance is affordable does it shrink as well.
+	type plan struct {
+		share      float64 // the filler's real share of the fight
+		maintScale float64
+		rate       float64 // conversions per second of the fight
+		gcd        float64
+		wand       float64
+	}
+	solve := func(c *converter) plan {
+		p := plan{share: fillerShare, maintScale: 1}
+		deficit := rotMPS - budgetPS
+		if deficit <= 0 {
+			return p
+		}
+		gained := 0.0
+		if c != nil {
+			p.gcd = c.gcd
+			// x casts per second replace x*gcd of filler time and must
 			// cover what the remaining cycle lacks.
-			x := deficit / (tapMana + fMPS*lifeTapGCDSec)
-			// The health budget caps the taps: the share of the pool the
-			// model spends, hp5, and what the leech spells return. The
-			// leech depends on the filler's share, which depends on the
-			// taps, so the cap is found by iteration.
+			x := deficit / (c.mana + fMPS*c.gcd)
+			// The health budget caps them: the share of the pool the model
+			// spends, hp5, and what the leech spells return. The leech
+			// depends on the filler's share, which depends on the casts,
+			// so the cap is found by iteration.
 			healthPS := healthUseFraction*st.HealthMax/fight.Seconds + st.HP5/5
-			hpc := st.LifeTap.HealthPerCast
 			for iter := 0; iter < 50; iter++ {
-				if most := (1 - used) / lifeTapGCDSec; x > most {
+				if most := (1 - used) / c.gcd; x > most {
 					x = most
 				}
-				share = math.Max(0, fillerShare-x*lifeTapGCDSec)
+				if c.maxRate > 0 && x > c.maxRate {
+					x = c.maxRate
+				}
+				p.share = math.Max(0, fillerShare-x*c.gcd)
 				if fMPS > 0 {
-					if afford := (budgetPS + x*tapMana - maintMPS) / fMPS; afford < share {
-						share = math.Max(0, afford)
+					if afford := (budgetPS + x*c.mana - maintMPS) / fMPS; afford < p.share {
+						p.share = math.Max(0, afford)
 					}
 				}
-				if hpc <= 0 {
+				if c.health <= 0 || netHealth {
 					break
 				}
-				_, _, leech := maintenance(share)
-				most := (healthPS + leech + share*fLeech) / hpc
+				_, _, leech := maintenance(p.share)
+				most := (healthPS + leech + p.share*fLeech) / c.health
 				if x <= most+1e-12 {
 					break
 				}
 				x = most
 			}
-			tapRate = x
+			p.rate = x
+			gained = x * c.mana
 		} else if fMPS > 0 {
-			share = math.Min(fillerShare, math.Max(0, (budgetPS-maintMPS)/fMPS))
+			p.share = math.Min(fillerShare, math.Max(0, (budgetPS-maintMPS)/fMPS))
 		}
-		if have := budgetPS + tapRate*tapMana; maintMPS > have {
-			maintScale = math.Max(0, have/maintMPS)
-			share = 0
+		if have := budgetPS + gained; maintMPS > have {
+			p.maintScale = math.Max(0, have/maintMPS)
+			p.share = 0
 		}
-		wandFraction = math.Max(0, 1-used*maintScale-share-tapRate*lifeTapGCDSec)
+		p.wand = math.Max(0, 1-used*p.maintScale-p.share-p.rate*p.gcd)
+		return p
 	}
+	healing := func(p plan, c *converter) float64 {
+		_, hps, _ := maintenance(p.share)
+		hps = hps*p.maintScale + p.share*fHPS
+		if c != nil && netHealth {
+			hps -= p.rate * c.health
+		}
+		return hps
+	}
+	chosen := solve(conv)
+	if conv != nil && netHealth {
+		// A healer converts only if the mana heals more than the health costs.
+		if without := solve(nil); healing(without, nil) >= healing(chosen, conv) {
+			chosen = without
+		}
+	}
+	share, maintScale, wandFraction := chosen.share, chosen.maintScale, chosen.wand
 
 	wandDPS := WandDPS(st, tgt)
 	maintDPS, maintHPS, maintLeech := maintenance(share)
 	m.DPS = maintDPS*maintScale + share*fDPS + wandDPS*wandFraction
 	m.HPS = maintHPS*maintScale + share*fHPS
+	if conv != nil && netHealth {
+		m.HPS -= chosen.rate * conv.health
+	}
 	m.SelfHealPS = maintLeech*maintScale + share*fLeech
 
 	// Breakdown.
@@ -285,18 +404,31 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			row.Leech = p.leech * k
 		}
 		row.Value = dps
-		if p.act.Spell.IsHeal {
+		if p.act.Spell.Heals() {
 			row.Value = hps
+			row.Absorb = p.act.Spell.Absorb != nil && !p.act.Spell.IsHeal
 		}
 		m.Breakdown = append(m.Breakdown, row)
 	}
-	if tapRate > 0 {
-		m.Breakdown = append(m.Breakdown, Row{
-			Label:    "Life Tap",
-			Kind:     "lifetap",
-			SharePct: tapRate * lifeTapGCDSec * 100,
-			PerMin:   tapRate * 60,
-		})
+	if conv != nil {
+		rate := chosen.rate
+		if rate == 0 && metric == "ttoom" && m.TTOOMSec != nil && *m.TTOOMSec > 0 {
+			rate = ttoomCasts / *m.TTOOMSec // the casts that stretch the mana
+		}
+		if rate > 0 {
+			row := Row{
+				Label:      "Life Tap",
+				Kind:       conv.kind,
+				SharePct:   rate * conv.gcd * 100,
+				PerMin:     rate * 60,
+				ManaGain:   rate * conv.mana,
+				HealthCost: rate * conv.health,
+			}
+			if conv.spell != nil {
+				row.SpellID, row.Label = conv.spell.ID, conv.spell.Name
+			}
+			m.Breakdown = append(m.Breakdown, row)
+		}
 	}
 	if wandFraction > 0.0005 {
 		// The wand is damage: in a healing breakdown the row only says how

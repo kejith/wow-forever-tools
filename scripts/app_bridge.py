@@ -138,6 +138,8 @@ def main() -> None:
                     help="upgrades: combat engine (auto falls back to the weight scale)")
     ap.add_argument("--fight-seconds", type=float, default=60)
     ap.add_argument("--target-delta", type=int, default=-1)
+    ap.add_argument("--kills-per-minute", type=float, default=-1,
+                    help="upgrades: killing blows per minute for the combat model (default: automatic)")
     ap.add_argument("--metric", choices=["", "dps", "hps", "ttoom"], default="",
                     help="upgrades: metric of the combat model (default: per class and spec)")
     ap.add_argument("--method", choices=["", "expectation", "montecarlo"], default="")
@@ -175,7 +177,7 @@ def main() -> None:
         else:
             r = upgrades.compute(a.wow, a.char, 0, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort,
                                  engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta,
-                                 metric=a.metric, method=a.method, iterations=a.iterations)
+                                 kills_per_minute=a.kills_per_minute, metric=a.metric, method=a.method, iterations=a.iterations)
         r["generated"] = datetime.datetime.now().timestamp()
         r["language"] = language
     except (FileNotFoundError, LookupError, ValueError, RuntimeError) as e:

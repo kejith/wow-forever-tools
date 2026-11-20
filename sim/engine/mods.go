@@ -1,5 +1,7 @@
 package engine
 
+import "math"
+
 // SpellModOp is the client's SpellModOp for aura 107/108 talent modifiers.
 // The listed ones are those the engine applies (Understood); talents with
 // another op show up in the coverage report instead of being dropped
@@ -87,6 +89,34 @@ type ChannelHaste struct {
 	Affects map[int]bool // base ids of the DoTs
 }
 
+// KillProc is a buff the caster gains with a chance when they kill a target
+// (Spirit Tap): more spirit, and more of the mana regeneration continues
+// while casting. How often it is up depends on the kills the fight assumes
+// (Fight.KillsPerMinute).
+type KillProc struct {
+	ChancePct       float64
+	DurationSec     float64
+	SpiritPct       float64 // percent more spirit while it is up
+	CastingRegenPct float64 // percent of the regeneration that continues while casting, on top of the talents
+}
+
+// uptime is the share of the fight the buff is up: with n kills falling into
+// one buff duration, the chance that at least one of them triggered it.
+func (p KillProc) uptime(fight Fight) float64 {
+	n := p.DurationSec * fight.KillsPerMinute / 60
+	chance := p.ChancePct / 100
+	if n <= 0 || chance <= 0 {
+		return 0
+	}
+	if chance > 1 {
+		chance = 1
+	}
+	if n < 1 {
+		return chance * n
+	}
+	return 1 - math.Pow(1-chance, n)
+}
+
 // Mods are the talent effects that the character sheet does NOT already
 // include. Sheet-visible auras (flat stats, flat bonus damage, spell crit,
 // hit) must not land here, or they would count twice: the snapshot has them.
@@ -96,6 +126,7 @@ type Mods struct {
 	SpellMods       []SpellMod          // aura 107/108
 	DotStacks       []DotStack
 	ChannelHastes   []ChannelHaste
+	KillProcs       []KillProc
 	DotCritSchools  uint32  // school mask whose DoTs may crit (e.g. Pandemic)
 	LifeTapPct      float64 // Improved Life Tap: percent more mana per tap
 	HealingPct      float64 // percent more healing done

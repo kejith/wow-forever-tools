@@ -231,13 +231,16 @@ STUB_ENGINE = '''
 import json, sys
 data = json.load(sys.stdin)
 assert data["character"]["classFile"] == "WARLOCK" and data["build"] == "9.9.9.9" and data["cacheDir"]
-assert data["fight"] == {"seconds": 45.0, "targetDelta": 3}
+assert data["fight"] == {"seconds": 45.0, "targetDelta": 3, "killsPerMinute": -1}, "negative kills: automatic"
 assert data["character"]["spellbook"] == [172, 686], "the addon's spellbook export reaches the engine"
 assert data["character"]["stats"]["wand"]["dps"] == 20, "the equipped wand's damage per second reaches the engine"
 assert data["character"]["talents"] == {"18174": 5}
-res = {e["key"]: {"gain": 2.0 * e["delta"].get("sp", 0), "value": 100 + 2.0 * e["delta"].get("sp", 0),
-                 "gainPct": 0} for e in data["evaluations"]}
+import os
+cap = float(os.environ.get("STUB_SP_CAP") or 1e9)  # spell power above the cap adds nothing: gains stop adding up
+gain = lambda e: 2.0 * min(e["delta"].get("sp", 0), cap)
+res = {e["key"]: {"gain": gain(e), "value": 100 + gain(e), "gainPct": 0} for e in data["evaluations"]}
 json.dump({"engine": "stub", "spellbookSource": "assumed",
+           "fight": {"seconds": 45.0, "targetDelta": 3, "killsPerMinute": 0},
            "baseline": {"metric": "dps", "value": 100.0, "ttoomSeconds": 42.0,
                         "manaSpentPs": 5.0, "manaBudgetPs": 6.0, "selfHealPs": 4.5,
                         "breakdown": [{"label": "Shadow Bolt", "spellId": 686, "rank": 3, "value": 60.0,
@@ -245,19 +248,27 @@ json.dump({"engine": "stub", "spellbookSource": "assumed",
                                       {"label": "Drain Life", "spellId": 689, "rank": 2, "value": 9.0,
                                        "sharePct": 5.0, "kind": "dot", "leech": 4.5},
                                       {"label": "Life Tap", "spellId": 1454, "kind": "lifetap", "perMin": 3.0,
-                                       "sharePct": 5.0},
+                                       "sharePct": 5.0, "manaGain": 7.0, "healthCost": 6.0},
+                                      {"label": "Power Word: Shield", "spellId": 17, "kind": "cooldown",
+                                       "value": 8.0, "sharePct": 9.0, "absorb": True},
+                                      {"label": "Dark Sacrifice", "spellId": 1277324, "kind": "mana",
+                                       "perMin": 1.0, "sharePct": 2.5, "manaGain": 9.2, "healthCost": 7.25},
                                       {"label": "wand", "kind": "wand", "value": 1.0, "sharePct": 10.0}]},
            "coverage": {"talentValues": "tables", "candidates": 4,
                         "spells": [{"spellId": 5676, "name": "Searing Pain", "rank": 2, "status": "unmodeled",
                                     "reason": "damage"},
                                    {"spellId": 348, "name": "Immolate", "status": "idle", "reason": "weaker",
                                     "value": 97.5},
+                                   {"spellId": 1277324, "name": "Dark Sacrifice", "status": "idle",
+                                    "reason": "notneeded"},
                                    {"spellId": 686, "name": "Shadow Bolt", "rank": 3, "status": "used",
                                     "reason": "rotation"}],
                         "talents": [{"spellId": 427712, "name": "Pandemic", "rank": 3, "status": "used",
                                      "reason": "rule", "unverified": True, "note": "Classic value."},
                                     {"spellId": 18174, "name": "", "rank": 5, "status": "sheet",
                                      "reason": "sheet"},
+                                    {"spellId": 15270, "name": "Spirit Tap", "rank": 2, "status": "used",
+                                     "reason": "kills", "value": 10.0},
                                     {"spellId": 1, "name": "Mystery", "rank": 1, "status": "unmodeled",
                                      "reason": "brand new code"}]},
            "results": res}, sys.stdout)
@@ -279,8 +290,11 @@ def test_compute_with_engine(tmp: str):
     os.environ["SIMFOREVER_BIN"] = stub
     try:
         r = u.compute(tmp, "Tester", prices=prices, top=5, engine="on", fight_seconds=45, target_delta=3)
+        os.environ["STUB_SP_CAP"] = "10"
+        capped = u.compute(tmp, "Tester", prices=prices, top=5, engine="on", fight_seconds=45, target_delta=3)
     finally:
         icons.table = real_table
+        os.environ.pop("STUB_SP_CAP", None)
         os.environ.pop("SIMFOREVER_BIN", None)
         if real_env:
             os.environ["SIMFOREVER_BIN"] = real_env
@@ -289,25 +303,41 @@ def test_compute_with_engine(tmp: str):
     assert by_slot[16]["New Staff"]["gain"] == 20  # 2 x (40 - 30) spell power, from the stub
     assert by_slot[11]["Ring D"]["gain"] == 20  # still against the weaker ring (2 x (12 - 2))
     assert r["setValue"] == 100 and r["engine"]["metric"] == "dps" and r["engine"]["ttoomSeconds"] == 42
-    assert r["engine"]["spellbookSource"] == "assumed" and r["engine"]["fight"] == {"seconds": 45.0, "targetDelta": 3}
-    assert [row["label"] for row in r["scale"]] == ["Shadow Bolt (Rank 3)", "Drain Life (Rank 2)", "Life Tap", "Wand"]
+    # The fight as the engine evaluated it (automatic kills resolved), not as it was asked.
+    assert r["engine"]["spellbookSource"] == "assumed"
+    assert r["engine"]["fight"] == {"seconds": 45.0, "targetDelta": 3, "killsPerMinute": 0}
+    assert [row["label"] for row in r["scale"]] == ["Shadow Bolt (Rank 3)", "Drain Life (Rank 2)", "Life Tap",
+                                                    "Power Word: Shield", "Dark Sacrifice", "Wand"]
     assert "returns 4.5 health per second" in r["scale"][1]["note"] and r["engine"]["selfHealPs"] == 4.5
     assert "3.0 casts per minute" in r["scale"][2]["note"]
+    assert "7.0 mana per second for 6.0 health per second" in r["scale"][2]["note"]
+    assert "taken off the healing" not in r["scale"][2]["note"]  # a damage metric has a health budget instead
+    assert "a shield" in r["scale"][3]["note"] and "9.2 mana per second" in r["scale"][4]["note"]
+    assert r["engine"]["killBuff"] is True  # a talent that needs kills: the window offers the option
 
     # The coverage report: every spell and talent with what the model does with it, the used ones first.
     cov = r["engine"]["coverage"]
     assert cov["candidates"] == 4 and cov["exactTalents"] is True
     assert [(e["label"], e["status"]) for e in cov["spells"]] == [
-        ("Shadow Bolt (Rank 3)", "used"), ("Immolate", "idle"), ("Searing Pain (Rank 2)", "unmodeled")]
+        ("Shadow Bolt (Rank 3)", "used"), ("Immolate", "idle"), ("Dark Sacrifice", "idle"),
+        ("Searing Pain (Rank 2)", "unmodeled")]
+    assert cov["spells"][2]["text"] == "trades health for mana; the mana lasts without it in this fight"
     assert cov["spells"][0]["text"] == "cast in the rotation" and cov["spells"][0]["statusLabel"] == "used"
     assert cov["spells"][1]["text"] == "tried instead: 97.5 DPS, less than the rotation above"
     assert [(e["label"], e["status"]) for e in cov["talents"]] == [
-        ("Pandemic (3)", "used"), ("Suppression (5/5)", "sheet"), ("Mystery (1)", "unmodeled")]  # names: snapshot first
+        ("Pandemic (3)", "used"), ("Spirit Tap (2)", "used"), ("Suppression (5/5)", "sheet"),
+        ("Mystery (1)", "unmodeled")]  # names: snapshot first
     assert cov["talents"][0]["unverified"] and cov["talents"][0]["note"].endswith("measured in the game. Classic value.")
-    assert "unverified" not in cov["talents"][1] and cov["talents"][1]["statusLabel"] == "in your stats"
-    assert cov["talents"][2]["text"] == "an effect the model does not know"  # a reason code this version does not know
+    assert cov["talents"][1]["text"] == "active after your killing blows: 10% of the fight with the kills it assumes"
+    assert "unverified" not in cov["talents"][2] and cov["talents"][2]["statusLabel"] == "in your stats"
+    assert cov["talents"][3]["text"] == "an effect the model does not know"  # a reason code this version does not know
     assert r["package"]["gain"] == round(sum(p["gain"] for p in r["package"]["items"]), 1)
     assert r["package"]["gainPct"] == round(r["package"]["gain"] / 100 * 100)
+    # Gains that do not add up: once the first purchases reach the cap, the others add nothing on top and
+    # leave the package, and the cost is that of what stays.
+    full, less = r["package"], capped["package"]
+    assert less["gain"] == 20 and 0 < len(less["items"]) < len(full["items"]), (less["gain"], len(less["items"]))
+    assert less["cost"] == sum(p["price"] for p in less["items"]) < full["cost"]
 
     # Without the binary, "auto" falls back to the weight scale and "on" refuses.
     os.environ["SIMFOREVER_BIN"] = os.path.join(tmp, "missing")

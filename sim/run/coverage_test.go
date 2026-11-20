@@ -207,7 +207,7 @@ func TestCoveragePriest(t *testing.T) {
 func TestRelevant(t *testing.T) {
 	heal := &engine.Spell{IsHeal: true, Direct: &engine.Effect{}}
 	dmg := &engine.Spell{Direct: &engine.Effect{}}
-	shield := &engine.Spell{Absorbs: true}
+	shield := &engine.Spell{Absorb: &engine.Effect{BP: 44}}
 	mana := &engine.Spell{GivesMana: true}
 	buff := &engine.Spell{}
 	for _, c := range []struct {

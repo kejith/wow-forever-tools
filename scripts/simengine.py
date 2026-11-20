@@ -130,6 +130,7 @@ class Engine:
         self.downrank: dict | None = None
         self.heal_options: list = []
         self.coverage: dict = {}  # what the model did with every known spell and talent
+        self.fight: dict = dict(bundle.get("fight") or {})  # as evaluated: the engine resolves automatic values
 
     def batch(self, evals: list[tuple[str, dict]]) -> dict[str, float]:
         """Evaluates deltas; returns the metric gain per key."""
@@ -154,6 +155,7 @@ class Engine:
         self.downrank = out.get("downrank")
         self.heal_options = out.get("healOptions") or []
         self.coverage = out.get("coverage") or {}
+        self.fight = out.get("fight") or self.fight
         return {k: (v.get("gain") or 0.0) for k, v in (out.get("results") or {}).items()}
 
 
@@ -162,7 +164,9 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
     """Builds the bundle from a WoWMCP snapshot and returns a ready Engine.
 
     `life_tap` is {"healthPerCast", "manaPerCast"}, parsed from the spell text
-    by the caller (upgrades.py owns the tooltip languages)."""
+    by the caller (upgrades.py owns the tooltip languages). `fight` is
+    {"seconds", "targetDelta", "killsPerMinute"}; negative kills mean automatic
+    (the engine's answer has the fight as evaluated, Engine.fight)."""
     binary = binary or find_binary()
     if not binary:
         raise LookupError(tr("The combat engine (simforever) was not found."))

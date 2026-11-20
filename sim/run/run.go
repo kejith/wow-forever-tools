@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.3.0"
+const Version = "0.4.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -138,6 +138,7 @@ type Coverage struct {
 // code 0), the same convention as app_bridge.py.
 type Output struct {
 	Engine          string            `json:"engine"`
+	Fight           *engine.Fight     `json:"fight,omitempty"` // as evaluated: defaults and automatic values resolved
 	Baseline        *engine.Metrics   `json:"baseline,omitempty"`
 	Spec            string            `json:"spec,omitempty"`
 	SpellbookSource string            `json:"spellbookSource,omitempty"`
@@ -256,6 +257,21 @@ func Run(in Input) Output {
 	}
 	out.Spec = in.Character.SpecOverride
 
+	// The fight as evaluated. Automatic kills: a damage dealer against
+	// normal enemies lands one killing blow per fight, which is when buffs
+	// like Spirit Tap start; a boss fight has none, and a healer has none.
+	fight := in.Fight
+	if fight.Seconds <= 0 {
+		fight.Seconds = 60
+	}
+	if fight.KillsPerMinute < 0 {
+		fight.KillsPerMinute = 0
+		if metric == "dps" && fight.TargetDelta < 3 {
+			fight.KillsPerMinute = 60 / fight.Seconds
+		}
+	}
+	out.Fight = &fight
+
 	// Self buffs the model takes as active: the warlock's armor regenerates
 	// health in combat, which Life Tap can spend.
 	support := map[int]string{} // spell id -> coverage reason
@@ -287,18 +303,23 @@ func Run(in Input) Output {
 	type scored struct {
 		actions []engine.Action
 		filler  *engine.Spell
+		variant string // what the rotation casts besides the filler
 		score   float64
 	}
 	var all []scored
 	for _, r := range rots {
-		m := engine.Evaluate(st, in.Fight, r, scoreMetric)
+		m := engine.Evaluate(st, fight, r, scoreMetric)
 		var filler *engine.Spell
+		variant := ""
 		for _, a := range r {
-			if a.Kind == "heal" || a.Kind == "filler" {
+			switch {
+			case a.Kind == "heal" || a.Kind == "filler":
 				filler = a.Spell
+			case a.Spell != nil:
+				variant += fmt.Sprintf("%s%d,", a.Kind, a.Spell.ID)
 			}
 		}
-		all = append(all, scored{r, filler, m.Value})
+		all = append(all, scored{r, filler, variant, m.Value})
 	}
 	best := 0
 	for i, s := range all {
@@ -311,10 +332,13 @@ func Run(in Input) Output {
 		chosen := all[best].filler
 
 		// The visible list: every heal-rank candidate with what one cast
-		// gives, what it costs, and what the rotation sustains with it.
-		tgt := engine.NewTarget(in.Character.Level, in.Fight.TargetDelta)
+		// gives, what it costs, and what the rotation sustains with it. The
+		// ranks are compared within the best rotation's other spells (with
+		// or without Power Word: Shield).
+		same := all[best].variant
+		tgt := engine.NewTarget(in.Character.Level, fight.TargetDelta)
 		for i, s := range all {
-			if s.filler == nil {
+			if s.filler == nil || s.variant != same {
 				continue
 			}
 			sh := engine.Shape(s.filler, st, tgt)
@@ -342,7 +366,7 @@ func Run(in Input) Output {
 		if chosen != nil {
 			bestSame, bestOther := -1, -1
 			for i, s := range all {
-				if s.filler == nil || s.filler.ID == chosen.ID {
+				if s.filler == nil || s.filler.ID == chosen.ID || s.variant != same {
 					continue
 				}
 				if cat.BaseOf[s.filler.ID] == cat.BaseOf[chosen.ID] {
@@ -373,7 +397,7 @@ func Run(in Input) Output {
 	tried := map[int]float64{} // spell id -> the best score of a candidate that casts it
 	for _, s := range all {
 		for _, a := range s.actions {
-			if a.Spell == nil {
+			if a.Spell == nil || a.Kind == "mana" {
 				continue
 			}
 			if old, ok := tried[a.Spell.ID]; !ok || s.score > old {
@@ -381,10 +405,32 @@ func Run(in Input) Output {
 			}
 		}
 	}
-	out.Coverage = coverage(cat, known, in.Character.Level, metric, actions, tried, support, ranks, talentInfos)
+
+	baseline := engine.Evaluate(st, fight, actions, metric)
+	// A spell that trades health for mana (Dark Sacrifice) is cast on demand:
+	// used when the baseline needed it, else idle with the reason.
+	unused := map[int]string{} // spell id -> why the rotation does not cast it
+	for _, a := range actions {
+		if a.Kind != "mana" || a.Spell == nil {
+			continue
+		}
+		cast := false
+		for _, row := range baseline.Breakdown {
+			cast = cast || (row.Kind == "mana" && row.SpellID == a.Spell.ID)
+		}
+		switch {
+		case cast:
+			support[a.Spell.ID] = "regen"
+		case baseline.ManaSpentPS <= baseline.ManaBudgetPS:
+			unused[a.Spell.ID] = "notneeded"
+		default:
+			unused[a.Spell.ID] = "notworth"
+		}
+	}
+	out.Coverage = coverage(cat, known, in.Character.Level, metric, actions, tried, support, unused, ranks, talentInfos,
+		baseline.KillBuffPct)
 	out.Coverage.Candidates = len(all)
 
-	baseline := engine.Evaluate(st, in.Fight, actions, metric)
 	for i := range baseline.Breakdown { // rank numbers for the labels ("Heal (Rank 2)")
 		row := &baseline.Breakdown[i]
 		if row.Kind == "lifetap" { // the spell's own name and rank where the book has it
@@ -402,7 +448,7 @@ func Run(in Input) Output {
 
 	out.Results = make(map[string]Result, len(in.Evaluations))
 	for _, ev := range in.Evaluations {
-		m := engine.Evaluate(st.ApplyDelta(ev.Delta), in.Fight, actions, metric)
+		m := engine.Evaluate(st.ApplyDelta(ev.Delta), fight, actions, metric)
 		r := Result{Value: m.Value, Gain: m.Value - baseline.Value}
 		if baseline.Value != 0 {
 			r.GainPct = r.Gain / baseline.Value * 100
@@ -419,7 +465,7 @@ func Run(in Input) Output {
 		if seed == 0 {
 			seed = 1
 		}
-		mc := engine.RunMC(st, in.Fight, actions, metric, in.Iterations, seed)
+		mc := engine.RunMC(st, fight, actions, metric, in.Iterations, seed)
 		baseline.MC = &mc
 		baseline.Value = mc.Mean
 		top := in.MCTop
@@ -443,7 +489,7 @@ func Run(in Input) Output {
 		}
 		for i := 0; i < len(keys) && i < top; i++ {
 			key := keys[i]
-			m := engine.RunMC(st.ApplyDelta(deltas[key]), in.Fight, actions, metric, in.Iterations, seed)
+			m := engine.RunMC(st.ApplyDelta(deltas[key]), fight, actions, metric, in.Iterations, seed)
 			r := Result{Value: m.Mean, Gain: m.Mean - mc.Mean, MC: true}
 			if mc.Mean != 0 {
 				r.GainPct = r.Gain / mc.Mean * 100
@@ -498,7 +544,7 @@ func relevant(sp *engine.Spell, metric string) (bool, string) {
 		return metric != "dps", "heal"
 	case sp.Direct != nil || sp.Periodic != nil:
 		return metric == "dps", "damage"
-	case sp.Absorbs:
+	case sp.Absorb != nil:
 		return metric != "dps", "absorb"
 	case sp.GivesMana:
 		return true, "mana"
@@ -510,7 +556,8 @@ func relevant(sp *engine.Spell, metric string) (bool, string) {
 // talent: cast in the chosen rotation, tried in a weaker candidate, not
 // modeled, or without influence on the metric.
 func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string, actions []engine.Action,
-	tried map[int]float64, support map[int]string, ranks map[int]int, infos []talents.Info) *Coverage {
+	tried map[int]float64, support, unused map[int]string, ranks map[int]int, infos []talents.Info,
+	killBuffPct float64) *Coverage {
 	cov := &Coverage{TalentValues: "basepoints"}
 	if cat.HasTraits {
 		cov.TalentValues = "tables"
@@ -518,13 +565,13 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 	inRotation := map[int]bool{}
 	var rotation []*engine.Spell
 	for _, a := range actions {
-		if a.Spell != nil {
+		if a.Spell != nil && a.Kind != "mana" { // a "mana" spell is cast on demand: support or unused
 			inRotation[a.Spell.ID] = true
 			rotation = append(rotation, a.Spell)
 		}
 	}
 	castable := func(sp *engine.Spell) bool {
-		return sp != nil && !sp.Passive && (sp.Direct != nil || sp.Periodic != nil)
+		return sp != nil && !sp.Passive && (sp.Direct != nil || sp.Periodic != nil || sp.Absorb != nil)
 	}
 
 	// Spells, one entry per chain: the rank the rotation casts, else the
@@ -554,6 +601,13 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 				e, found = entry(sp, talents.StatusUsed, "rotation"), true
 			} else if reason, ok := support[sp.ID]; ok && !found {
 				e, found = entry(sp, talents.StatusUsed, reason), true
+			}
+		}
+		if !found { // modeled, and the rotation did not need it
+			for _, sp := range knownRanks {
+				if reason, ok := unused[sp.ID]; ok {
+					e, found = entry(sp, talents.StatusIdle, reason), true
+				}
 			}
 		}
 		if !found { // tried in a candidate that lost
@@ -635,6 +689,11 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 		}
 		if e.Reason == "wand" && metric != "dps" {
 			e.Status, e.Reason = talents.StatusNone, "othermetric"
+		}
+		if e.Reason == "kills" { // a buff from kills counts for the kills the fight assumes
+			if e.Value = killBuffPct; killBuffPct <= 0 {
+				e.Status, e.Reason = talents.StatusNone, "nokills"
+			}
 		}
 		if e.Status != talents.StatusUsed && e.Status != talents.StatusIdle {
 			e.Unverified = false // an assumption only matters where it is applied

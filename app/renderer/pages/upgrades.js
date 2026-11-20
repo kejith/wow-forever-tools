@@ -20,7 +20,8 @@ export async function renderUpgrades() {
       <label><span class="label">${esc(t('Fight length (s)'))} ${help(esc(t('The combat model computes DPS over a fight of this length. A longer fight makes mana, regeneration and Life Tap matter more.')))}</span>
         <input type="number" id="u-fight" min="10" max="600" step="10" value="${o.fight}"></label>
       <label>${esc(t('Enemy level'))}<select id="u-target">${selectOption('', t('from the scale (+2/+3)'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
-      <label id="u-metric" style="display:none"></label>`;
+      <label id="u-metric" style="display:none"></label>
+      <label id="u-kills" style="display:none"></label>`;
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Budget (gold)'))}<input type="number" id="u-max" class="wide" min="0" step="0.5" value="${esc(o.maxPrice)}" placeholder="${esc(t('your own gold'))}"></label>
       <label><span class="label">${esc(t('Rating'))} ${help(esc(t('The combat model simulates your rotation over the fight; when it cannot run, the weight scale answers instead. Monte-Carlo plays the rotation with real rolls: slower, adds the spread and replays the biggest gains. The weight scale rates stats with fixed weights.')))}</span>
@@ -40,12 +41,13 @@ export async function renderUpgrades() {
   bind('#u-sort', 'sort', (v) => v);
   bind('#u-pre', 'preview', (v) => Number(v) || 0);
   bind('#u-top', 'top', (v) => Number(v) || 3);
-  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}`;
+  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}:${o.kills}`;
   const d = await cached(key, () => api.bridge('upgrades', {
     char: state.char, maxPrice: o.maxPrice ? Number(o.maxPrice) : 0, preview: o.preview, top: o.top,
     profile: o.profile, sort: o.sort, engine: o.engine === 'mc' ? 'auto' : o.engine,
     method: o.engine === 'mc' ? 'montecarlo' : '', fightSeconds: Number(o.fight) || 60,
     targetDelta: o.target === '' ? -1 : Number(o.target), metric: o.metric,
+    killsPerMinute: o.kills === '' ? -1 : Number(o.kills),
   }));
   const body = $('#u-body');
   if (!body) return;
@@ -64,6 +66,16 @@ export async function renderUpgrades() {
       slot.innerHTML = `${esc(t('Metric'))}<select id="u-metric-sel">${selectOption('', t('automatic'), o.metric)}${eng.metrics.map((m) => selectOption(m, names[m] || m, o.metric)).join('')}</select>`;
       slot.style.display = '';
       bind('#u-metric-sel', 'metric', (v) => v);
+    }
+  }
+  // A talent that works after killing blows (Spirit Tap): how many of them the fight has.
+  if (eng?.killBuff) {
+    const slot = $('#u-kills');
+    if (slot) {
+      slot.innerHTML = `<span class="label">${esc(t('Kills per minute'))} ${help(esc(t('Your killing blows per minute, for talents that work after a kill (Spirit Tap). Automatic: one per fight for a damage rotation against normal enemies, none for a healer or against a boss.')))}</span>
+        <select id="u-kills-sel">${selectOption('', t('automatic'), o.kills)}${[0, 1, 2, 3, 4, 6].map((n) => selectOption(String(n), String(n), o.kills)).join('')}</select>`;
+      slot.style.display = '';
+      bind('#u-kills-sel', 'kills', (v) => v);
     }
   }
   const maxGain = Math.max(1, ...d.slots.flatMap((s) => s.candidates.map((c) => c.gain)));

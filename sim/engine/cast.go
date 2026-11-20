@@ -9,6 +9,7 @@ type CastResult struct {
 	Healing     float64
 	ManaCost    float64
 	ExecuteSec  float64 // time the cast occupies (max of cast time and GCD)
+	CooldownSec float64 // cooldown after modifiers
 	DurationSec float64 // periodic effects: duration after modifiers
 	Leech       float64 // health the caster gains from the damage (Drain Life, Siphon Life, Death Coil)
 }
@@ -82,6 +83,16 @@ func Shape(sp *Spell, st *State, tgt Target) CastShape {
 	return ShapeIn(sp, st, tgt, nil)
 }
 
+// CooldownSec is a spell's cooldown after the talents (Soul Warding).
+func CooldownSec(sp *Spell, st *State) float64 {
+	ms := float64(sp.CooldownMs) + st.Mods.flat(OpCooldown, sp)
+	ms *= st.Mods.pct(OpCooldown, sp)
+	if ms < 0 {
+		ms = 0
+	}
+	return ms / 1000
+}
+
 // ShapeIn computes a spell's cast shape within a rotation.
 func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 	s := CastShape{IsHeal: sp.IsHeal, CritBonus: SpellCritBonus * st.Mods.pct(OpCritDamage, sp)}
@@ -108,7 +119,7 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 			s.ExecuteSec = chanSec
 		}
 	}
-	s.CooldownSec = float64(sp.CooldownMs) / 1000
+	s.CooldownSec = CooldownSec(sp, st)
 
 	// Cost.
 	cost := sp.Cost.Mana + st.Mods.flat(OpCost, sp)
@@ -145,6 +156,14 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 		s.DirectAvg = (base + st.Mods.flat(OpDamage, sp) + sp.Direct.Coeff*power) * directPct
 		s.DirectVariance = sp.Direct.Variance
 		s.DirectLeech = sp.Direct.Leech
+	}
+	if sp.Absorb != nil && sp.Direct == nil {
+		// A shield: its amount plus the healing bonus; talents change the
+		// base points (Improved Power Word: Shield). It cannot crit or miss,
+		// and "healing done" percentages do not apply to it.
+		base := st.Mods.points(sp.Absorb.avgBase(st.Level, sp.Levels), sp.Absorb, sp)
+		s.DirectAvg = base + sp.Absorb.Coeff*st.Healing
+		s.IsHeal, s.HitChance, s.CritPct = true, 1, 0
 	}
 	if sp.Periodic != nil && sp.DurationMs > 0 {
 		durMs := float64(sp.DurationMs) + st.Mods.flat(OpDuration, sp)
@@ -220,7 +239,7 @@ func ResolveCast(sp *Spell, st *State, tgt Target, rng *rand.Rand) CastResult {
 // table. Partial resists are not modeled in Stage 1 (noted in the docs).
 func ResolveCastIn(sp *Spell, st *State, tgt Target, ctx *Context, rng *rand.Rand) CastResult {
 	s := ShapeIn(sp, st, tgt, ctx)
-	r := CastResult{ManaCost: s.ManaCost, ExecuteSec: s.ExecuteSec, DurationSec: s.DurationSec}
+	r := CastResult{ManaCost: s.ManaCost, ExecuteSec: s.ExecuteSec, CooldownSec: s.CooldownSec, DurationSec: s.DurationSec}
 
 	direct := s.SampleDirect(rng)
 

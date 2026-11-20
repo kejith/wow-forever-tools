@@ -9,8 +9,9 @@ import (
 // The Monte-Carlo stage: the same priority rotation, played cast by cast
 // over many simulated fights with real rolls (hit, crit, damage range).
 // DoTs tick on their schedule and are refreshed when they fall off, Life
-// Tap converts health on demand, the wand fills mana gaps, and spirit
-// regeneration returns in full once five seconds pass without a cast.
+// Tap (or Dark Sacrifice) converts health on demand, the wand fills mana
+// gaps, and spirit regeneration returns in full once five seconds pass
+// without a cast.
 //
 // Evaluations share the per-iteration seed (common random numbers), so the
 // difference between two gear states comes from the gear, not the dice.
@@ -42,21 +43,23 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 	type slot struct {
 		act   Action
 		shape CastShape
+		cycle float64 // cooldown slots: seconds between two casts
 	}
 	var dots, cooldowns []slot
 	var filler *slot
 	for _, a := range actions {
-		if a.Kind == "wand" || a.Spell == nil {
+		if a.Kind == "wand" || a.Kind == "mana" || a.Spell == nil {
 			continue
 		}
 		s := slot{act: a, shape: ShapeIn(a.Spell, st, tgt, ctx)}
+		s.cycle = math.Max(s.shape.CooldownSec, a.CycleSec)
 		switch a.Kind {
 		case "dot", "hot":
 			if s.shape.Ticks > 0 {
 				dots = append(dots, s)
 			}
 		case "cooldown":
-			if s.shape.CooldownSec > 0 {
+			if s.cycle > 0 {
 				cooldowns = append(cooldowns, s)
 			}
 		case "filler", "heal":
@@ -75,25 +78,45 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 		}
 	}
 	fillerLeeches := filler != nil && (filler.shape.DirectLeech > 0 || filler.shape.TickLeech > 0)
-	tapMana := st.LifeTap.ManaPerCast * (1 + st.Mods.LifeTapPct/100)
-	// Life Tap may take the health down to this floor; leech and hp5 refill it.
+	// What converts health into mana: Life Tap, or the rotation's "mana"
+	// action (Dark Sacrifice). A damage dealer may take the health down to a
+	// floor that leech and hp5 refill; a healer pays the health with healing,
+	// so it comes off the result, and converts only if the mana heals more
+	// than the health costs.
+	conv := converterOf(st, fight, actions)
+	netHealth := metric != "dps"
 	healthFloor := (1 - healthUseFraction) * st.HealthMax
 	wandDPS := WandDPS(st, tgt)
-	regenFull := st.RegenPS()
-	regenCasting := st.MP5/5 + regenFull*st.Mods.CastingRegenPct/100
+	regenCasting, regenIdle := st.Regen(fight)
 	// What the full rotation drains per second beyond the regeneration. When
-	// the mana will not last for the rest of the fight, the player taps as
-	// soon as the health bar is full, so that no leech is wasted.
+	// the mana will not last for the rest of the fight, the player converts
+	// as soon as the health bar is full, so that no leech is wasted.
 	// Full means: the next cast would return more health than fits.
-	drainPS, fullAt := 0.0, st.HealthMax
-	if tapMana > 0 {
+	drainPS, fullAt, refillPS := 0.0, st.HealthMax, st.HP5/5
+	if conv != nil {
 		closed := Evaluate(st, fight, actions, metric)
 		drainPS = closed.ManaSpentPS - regenCasting
-		next := lifeTapGCDSec
+		next := conv.gcd
 		if filler != nil {
 			next = filler.shape.ExecuteSec
 		}
-		fullAt -= (closed.SelfHealPS + st.HP5/5) * next
+		refillPS += closed.SelfHealPS
+		fullAt -= refillPS * next
+		if netHealth && metric != "ttoom" {
+			perMana := 0.0 // healing per mana of what the mana is spent on
+			if filler != nil && filler.shape.ManaCost > 0 {
+				perMana = filler.shape.SampleDirect(nil) / filler.shape.ManaCost
+			} else {
+				for _, d := range dots {
+					if d.shape.ManaCost > 0 {
+						perMana = math.Max(perMana, d.shape.Ticks*d.shape.TickValue/d.shape.ManaCost)
+					}
+				}
+			}
+			if conv.mana*perMana <= conv.health {
+				conv = nil
+			}
+		}
 	}
 
 	values := make([]float64, iterations)
@@ -109,6 +132,8 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 		dotEnd := make([]float64, len(dots))
 		dotRem := make([]float64, len(dots)) // seconds (at normal speed) until the next tick
 		cdReady := make([]float64, len(cooldowns))
+		convReady := 0.0
+		convLeft := 0.0 // seconds a conversion over time (Dark Sacrifice) still pays out
 		t := 0.0
 
 		gain := func(amount, leech float64) { // damage or healing done, and the health it returns
@@ -138,6 +163,19 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 				}
 				dotRem[d] -= progress
 			}
+			if convLeft > 0 { // a conversion over time: health for mana, second by second
+				d := math.Min(convLeft, math.Min(to, fight.Seconds)-from)
+				if d > 0 {
+					part := d / conv.duration
+					mana = math.Min(st.ManaMax, mana+conv.mana*part)
+					if netHealth {
+						total -= conv.health * part
+					} else {
+						health -= conv.health * part
+					}
+				}
+				convLeft -= dur
+			}
 			health += st.HP5 / 5 * dur
 			if health > st.HealthMax {
 				health = st.HealthMax
@@ -153,10 +191,21 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 			lastCast = t + dur
 			advance(dur, channeling)
 		}
-		tap := func() {
-			health -= st.LifeTap.HealthPerCast
-			mana += tapMana
-			spend(0, lifeTapGCDSec, false)
+		// convert trades health for mana: at once (Life Tap), or over the
+		// effect's duration (Dark Sacrifice, see advance).
+		convert := func() {
+			convReady = t + conv.cooldown
+			if conv.duration > 0 {
+				convLeft = conv.duration
+			} else {
+				mana += conv.mana
+				if netHealth {
+					total -= conv.health
+				} else {
+					health -= conv.health
+				}
+			}
+			spend(0, conv.gcd, false)
 		}
 
 		castFiller := func() {
@@ -172,10 +221,21 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 
 		for t < fight.Seconds {
 			acted := false
-			canTap := tapMana > 0 && health-st.LifeTap.HealthPerCast >= healthFloor
+			ready := conv != nil && t >= convReady
+			canTap := ready
+			if ready && !netHealth {
+				// A damage dealer keeps the health above a floor. A cost
+				// spread over time may dip below it if leech and regeneration
+				// bring the health back by the end of the fight.
+				left := health - conv.health
+				if conv.duration > 0 {
+					left += refillPS * (fight.Seconds - t)
+				}
+				canTap = left >= healthFloor
+			}
 			// Too little health to tap and a filler that returns health
 			// (Drain Life): it goes first, or mana and health both run dry.
-			if tapMana > 0 && !canTap && fillerLeeches && mana >= filler.shape.ManaCost && mana < drainPS*(fight.Seconds-t) {
+			if ready && !canTap && fillerLeeches && mana >= filler.shape.ManaCost && mana < drainPS*(fight.Seconds-t) {
 				castFiller()
 				continue
 			}
@@ -199,7 +259,7 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 				sh := &cooldowns[cd].shape
 				if t >= cdReady[cd] && mana >= sh.ManaCost {
 					gain(sh.SampleDirect(rng), sh.DirectLeech)
-					cdReady[cd] = t + sh.CooldownSec
+					cdReady[cd] = t + cooldowns[cd].cycle
 					spend(sh.ManaCost, sh.ExecuteSec, false)
 					acted = true
 					break
@@ -208,21 +268,22 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 			if acted {
 				continue
 			}
-			if canTap && health >= fullAt && mana+tapMana <= st.ManaMax && mana < drainPS*(fight.Seconds-t) {
-				tap()
+			if canTap && (netHealth || health >= fullAt) && mana+conv.mana <= st.ManaMax && mana < drainPS*(fight.Seconds-t) {
+				convert()
 				continue
 			}
 			if filler != nil && mana >= filler.shape.ManaCost {
 				castFiller()
 				continue
 			}
-			// Out of mana for the filler: first note it, then tap or wand.
+			// Out of mana for the filler: convert if possible, else note
+			// it and take the wand.
+			if canTap {
+				convert()
+				continue
+			}
 			if !wentOOM {
 				wentOOM, oom = true, t
-			}
-			if canTap {
-				tap()
-				continue
 			}
 			// Wand (or idle): full spirit regeneration five seconds after
 			// the last cast (the five-second rule).
@@ -234,7 +295,7 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 				total += wandDPS * swing
 			}
 			if t-lastCast >= 5 {
-				mana += (st.MP5/5 + regenFull) * swing
+				mana += regenIdle * swing
 			} else {
 				mana += regenCasting * swing
 			}

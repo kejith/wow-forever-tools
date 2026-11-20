@@ -293,6 +293,31 @@ func applyRule(cat *catalog.Catalog, mods *engine.Mods, info *Info, o override) 
 		mods.ChannelHastes = append(mods.ChannelHastes, engine.ChannelHaste{
 			Channel: channel, Pct: v, Affects: bases(o.AffectsBases),
 		})
+	case "kill_proc":
+		// The talent's value is the chance; the buff it triggers says what it
+		// gives and for how long. Whether it counts depends on the kills the
+		// fight assumes, which run.go knows.
+		proc := engine.KillProc{ChancePct: v}
+		for _, a := range cat.Auras[info.SpellID] {
+			if a.Aura != auraProcTriggerSpell || (o.Effect != nil && a.Index != *o.Effect) {
+				continue
+			}
+			proc.DurationSec = float64(cat.DurationMs[a.Trigger]) / 1000
+			for _, b := range cat.Auras[a.Trigger] {
+				switch {
+				case b.Aura == auraModTotalStatPct && b.Misc1&(1<<4) != 0:
+					proc.SpiritPct += b.BP
+				case b.Aura == auraModManaRegenCast:
+					proc.CastingRegenPct += b.BP
+				}
+			}
+		}
+		if proc.DurationSec > 0 && (proc.SpiritPct != 0 || proc.CastingRegenPct != 0) {
+			mods.KillProcs = append(mods.KillProcs, proc)
+			info.set(StatusUsed, "kills")
+		} else {
+			info.set(StatusUnmodeled, "situational")
+		}
 	case "generic":
 		// Only the flags of the entry count; the auras are decoded.
 	case "ignore":
