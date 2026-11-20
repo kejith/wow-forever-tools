@@ -156,6 +156,8 @@ def upgrade_list(r: dict, tips: dict) -> dict | None:
     if healer:
         note = tr("Budget {m} · combat model: {hps} HPS now", m=coin(r.get("budget")),
                   hps=dec(eng.get("value") or 0))
+        if (eng.get("downrank") or {}).get("spell"):
+            note += " · " + tr("heal with {spell}", spell=clean(eng["downrank"]["spell"]))
     elif eng:
         note = tr("Budget {m} · combat model: {dps} DPS now", m=coin(r.get("budget")),
                   dps=dec(eng.get("value") or 0))

@@ -21,6 +21,7 @@ type Row struct {
 	SharePct float64 `json:"sharePct"`         // share of the fight time spent on it
 	Kind     string  `json:"kind"`             // action kind, or "lifetap"
 	PerMin   float64 `json:"perMin,omitempty"` // casts per minute (regen rows)
+	Rank     int     `json:"rank,omitempty"`   // the spell's rank number (run.go fills it in)
 }
 
 // Metrics is the result of one evaluation.

@@ -82,6 +82,18 @@ type Result struct {
 	MC      bool    `json:"mc,omitempty"`
 }
 
+// Downrank says which spell rank the rotation should cast when a lower (or
+// cheaper) rank beats the biggest heal under the mana budget.
+type Downrank struct {
+	SpellID     int     `json:"spellId"`
+	Name        string  `json:"name"`
+	Rank        int     `json:"rank"`
+	InsteadID   int     `json:"insteadId"`
+	InsteadName string  `json:"insteadName"`
+	InsteadRank int     `json:"insteadRank"`
+	GainPct     float64 `json:"gainPct"` // how much more the metric sustains vs the naive pick
+}
+
 // Output is the engine's answer. Errors are reported in the payload (exit
 // code 0), the same convention as app_bridge.py.
 type Output struct {
@@ -89,6 +101,7 @@ type Output struct {
 	Baseline        *engine.Metrics   `json:"baseline,omitempty"`
 	Spec            string            `json:"spec,omitempty"`
 	SpellbookSource string            `json:"spellbookSource,omitempty"`
+	Downrank        *Downrank         `json:"downrank,omitempty"`
 	Results         map[string]Result `json:"results,omitempty"`
 	Error           string            `json:"error,omitempty"`
 }
@@ -209,17 +222,54 @@ func Run(in Input) Output {
 	// Several candidates (healer: every known rank of each heal) are ranked
 	// by sustained healing under the mana budget; that is how downranking
 	// enters the model. The chosen rotation then stays fixed for the deltas.
+	// The "naive" candidate is the biggest heal a player casts by default;
+	// when a smaller rank beats it, the answer carries the recommendation.
 	actions := rots[0]
 	if len(rots) > 1 {
-		best := -1.0
+		type scored struct {
+			actions []engine.Action
+			filler  *engine.Spell
+			hps     float64
+		}
+		var all []scored
 		for _, r := range rots {
-			if m := engine.Evaluate(st, in.Fight, r, "hps"); m.HPS > best {
-				best, actions = m.HPS, r
+			m := engine.Evaluate(st, in.Fight, r, "hps")
+			var filler *engine.Spell
+			for _, a := range r {
+				if a.Kind == "heal" || a.Kind == "filler" {
+					filler = a.Spell
+				}
+			}
+			all = append(all, scored{r, filler, m.HPS})
+		}
+		best, naive := 0, 0
+		for i, s := range all {
+			if s.hps > all[best].hps {
+				best = i
+			}
+			if s.filler != nil && (all[naive].filler == nil ||
+				s.filler.Levels.Base > all[naive].filler.Levels.Base ||
+				(s.filler.Levels.Base == all[naive].filler.Levels.Base && s.filler.ID > all[naive].filler.ID)) {
+				naive = i
+			}
+		}
+		actions = all[best].actions
+		if b, n := all[best].filler, all[naive].filler; best != naive && b != nil && n != nil &&
+			b.ID != n.ID && all[naive].hps > 0 {
+			out.Downrank = &Downrank{
+				SpellID: b.ID, Name: b.Name, Rank: cat.RankNumber(b.ID),
+				InsteadID: n.ID, InsteadName: n.Name, InsteadRank: cat.RankNumber(n.ID),
+				GainPct: (all[best].hps - all[naive].hps) / all[naive].hps * 100,
 			}
 		}
 	}
 
 	baseline := engine.Evaluate(st, in.Fight, actions, metric)
+	for i := range baseline.Breakdown { // rank numbers for the labels ("Heal (Rank 2)")
+		if id := baseline.Breakdown[i].SpellID; id != 0 {
+			baseline.Breakdown[i].Rank = cat.RankNumber(id)
+		}
+	}
 	out.Baseline = &baseline
 
 	out.Results = make(map[string]Result, len(in.Evaluations))

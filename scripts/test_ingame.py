@@ -119,6 +119,11 @@ def test_upgrade_list():
     assert "combat model" in one["note"] and "98.7 DPS" in one["note"]
     assert sections(one)["Best package for the budget"]["note"] == "+12.5 DPS for {m:90000}"
     assert tips[9001][0] == "Upgrade for Chest: +12.5 DPS, no. 1 in the AH scan ({m:90000})"
+
+    # A healer's note says HPS and carries the downrank recommendation.
+    one = g.upgrade_list(dict(UPGRADES, engine={"metric": "hps", "value": 50.0,
+                                                "downrank": {"spell": "Heal (Rank 1)"}}), {})
+    assert "50.0 HPS" in one["note"] and "heal with Heal (Rank 1)" in one["note"]
     print("ok test_upgrade_list")
 
 

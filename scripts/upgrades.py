@@ -646,13 +646,22 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
     engine_out = None
     if eng:
         b = eng.baseline
+        # Rank labels: the game's own rank line from the spellbook export when
+        # it is there (localized, e.g. "Rang 3"), else the chain position.
+        rank_lines = {int(k): ((v or {}).get("rank") or "")
+                      for k, v in ((c.get("spellbook") or {}).get("spells") or {}).items()}
+
+        def spell_label(spell_id, name, rank):
+            line = rank_lines.get(spell_id) or (tr("Rank {n}", n=rank) if rank and rank > 1 else "")
+            return f"{name} ({line})" if line else (name or "?")
+
         scale_rows = []
         for row in b.get("breakdown") or []:
             note = tr("{share:.1f}% of the fight time", share=row.get("sharePct") or 0)
             if row.get("kind") == "lifetap":
                 note = tr("{n:.1f} casts per minute", n=row.get("perMin") or 0) + ", " + note
-            scale_rows.append(dict(label=row.get("label") or row.get("kind") or "?",
-                                   weight=round(row.get("value") or 0, 1), note=note))
+            label = spell_label(row.get("spellId"), row.get("label") or row.get("kind"), row.get("rank"))
+            scale_rows.append(dict(label=label, weight=round(row.get("value") or 0, 1), note=note))
         fight = eng.bundle["fight"]
         value, metric_name = b.get("value") or 0, b.get("metric")
         if metric_name == "hps":
@@ -676,6 +685,14 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                           manaSpentPs=b.get("manaSpentPs"), manaBudgetPs=b.get("manaBudgetPs"),
                           fight=fight, metrics=simengine.METRICS.get(class_file) or ["dps"],
                           spec=simengine.spec_of(c), mc=b.get("mc"))
+        if eng.downrank:
+            d = eng.downrank
+            spell = spell_label(d.get("spellId"), d.get("name"), d.get("rank"))
+            instead = spell_label(d.get("insteadId"), d.get("insteadName"), d.get("insteadRank"))
+            engine_out["downrank"] = dict(
+                d, spell=spell, instead=instead,
+                text=tr("Downranking pays: heal with {spell} instead of {instead} ({pct:+.0f}% healing over the fight).",
+                        spell=spell, instead=instead, pct=d.get("gainPct") or 0))
 
     review.sort(key=lambda r: r["price"])
     return dict(
@@ -740,7 +757,9 @@ def main() -> None:
              "{missing} not loaded", date=r["scanDate"], when=f"{when:%Y-%m-%d %H:%M}", level=r["level"],
              budget=money(r["budget"]), count=r["exportCount"], missing=r["exportMissing"]))
     if r.get("engine"):
-        print(r["weights"])  # the combat model's summary; gains below are the metric change (DPS)
+        print(r["weights"])  # the combat model's summary; gains below are the metric change
+        if (r["engine"].get("downrank") or {}).get("text"):
+            print(r["engine"]["downrank"]["text"])
     else:
         print(tr("Scale \"{label}\" (1 point = 1 shadow spell power), value of your gear now: {value}",
                  label=r["profileLabel"], value=r["setValue"]))

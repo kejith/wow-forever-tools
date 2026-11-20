@@ -75,6 +75,67 @@ func TestPriestRankChoice(t *testing.T) {
 	}
 }
 
+// Rank numbers land on the breakdown, and the comfortable mana pool means
+// the biggest heal is also the best: no downrank recommendation.
+func TestPriestRanksAndNoDownrank(t *testing.T) {
+	out := Run(priestInput())
+	if out.Downrank != nil {
+		t.Errorf("unexpected downrank: %+v", out.Downrank)
+	}
+	for _, row := range out.Baseline.Breakdown {
+		if row.SpellID == 139 && row.Rank != 1 {
+			t.Errorf("Renew rank = %d", row.Rank)
+		}
+	}
+}
+
+// A tiny mana pool turns the rank choice around: Lesser Heal rank 1
+// sustains more healing than Flash Heal, and the answer says so.
+func TestPriestDownrankRecommendation(t *testing.T) {
+	in := priestInput()
+	in.Character.Stats.ManaMax = 300
+	in.Character.Stats.MP5 = 0
+	in.Character.Stats.Spirit = 0
+	in.Character.Talents = nil
+	out := Run(in)
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	d := out.Downrank
+	if d == nil {
+		t.Fatal("downrank recommendation missing")
+	}
+	if d.SpellID != 2050 || d.Rank != 1 || d.Name != "Lesser Heal" {
+		t.Errorf("chosen = %+v", d)
+	}
+	if d.InsteadID != 2061 || d.InsteadName != "Flash Heal" {
+		t.Errorf("instead = %+v", d)
+	}
+	if d.GainPct <= 0 {
+		t.Errorf("gain = %g", d.GainPct)
+	}
+}
+
+// Monte-Carlo for a healer: the hps distribution comes back and the mean
+// stays in the closed form's region (the loop may idle-regenerate, so it
+// is allowed to sit a bit higher).
+func TestPriestMonteCarloHPS(t *testing.T) {
+	in := priestInput()
+	in.Method = "montecarlo"
+	in.Iterations = 500
+	out := Run(in)
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	mc := out.Baseline.MC
+	if mc == nil || mc.Mean <= 0 || mc.StdDev <= 0 {
+		t.Fatalf("mc = %+v", mc)
+	}
+	if mc.Mean < 50 || mc.Mean > 120 { // closed form: 82.3
+		t.Errorf("hps mean out of range: %g", mc.Mean)
+	}
+}
+
 // The healing metric only moves for stats a healer can use.
 func TestPriestHealerDeltas(t *testing.T) {
 	in := priestInput()

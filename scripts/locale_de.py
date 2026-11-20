@@ -141,6 +141,10 @@ TEXT = {
         "Kampfmodell: das Mana reicht {value:.0f}s bei voller Heilung",
     " · Monte-Carlo over {n} fights: spread ±{sd:.1f}, worst tenth {p10:.1f}":
         " · Monte-Carlo über {n} Kämpfe: Streuung ±{sd:.1f}, schlechtestes Zehntel {p10:.1f}",
+    "Rank {n}": "Rang {n}",
+    "Downranking pays: heal with {spell} instead of {instead} ({pct:+.0f}% healing over the fight).":
+        "Downranking lohnt sich: Heile mit {spell} statt {instead} ({pct:+.0f} % Heilung über den Kampf).",
+    "heal with {spell}": "heile mit {spell}",
     ", mana for {ttoom:.0f}s": ", Mana für {ttoom:.0f}s",
     ", spellbook assumed from level and talents": ", Zauberbuch aus Stufe und Talenten angenommen",
     "{share:.1f}% of the fight time": "{share:.1f} % der Kampfzeit",

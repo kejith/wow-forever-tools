@@ -338,6 +338,23 @@ func (c *Catalog) BestRank(baseID int, known map[int]bool, level int) *engine.Sp
 	return ranks[len(ranks)-1]
 }
 
+// RankNumber returns a spell's position in its rank chain (1 = first rank),
+// counting unknown ranks too, so it matches the game's "Rank N" line.
+func (c *Catalog) RankNumber(spellID int) int {
+	id, rank := c.BaseOf[spellID], 1
+	if id == 0 {
+		return 0
+	}
+	for depth := 0; depth < 32 && id != 0; depth++ {
+		if id == spellID {
+			return rank
+		}
+		id = c.NextRank[id]
+		rank++
+	}
+	return 0
+}
+
 // KnownRanks returns every known rank of a spell chain the character's
 // level allows, lowest first (healers pick the most efficient one).
 func (c *Catalog) KnownRanks(baseID int, known map[int]bool, level int) []*engine.Spell {
