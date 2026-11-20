@@ -58,7 +58,7 @@ func TestPlanDemandLadder(t *testing.T) {
 	almost(t, "light free", light.FreePct, 75, 1e-9)
 	almost(t, "light regen", light.RegenPS, 5.25, 1e-9)
 	almost(t, "light casts", lineOf(light, 1).PerMin, 3, 1e-9)
-	if light.OOMSec != nil || len(light.Lines) != 1 || light.Candidates != 3 {
+	if light.OOMSec != nil || len(light.Lines) != 1 || light.Candidates != 6 {
 		t.Errorf("light: %+v", light)
 	}
 
@@ -112,7 +112,7 @@ func TestPlanDemandUpkeep(t *testing.T) {
 	almost(t, "slow", lineOf(p, 1).SharePct, 84, 1e-4)
 	almost(t, "mana", p.ManaPS, 14.4, 1e-4)
 	almost(t, "oom", *p.OOMSec, 1000/11.4, 1e-2)
-	if p.Candidates != 2 {
+	if p.Candidates != 4 {
 		t.Errorf("candidates: %d", p.Candidates)
 	}
 	// Below what the cheap heal supplies neither is cast.
@@ -121,6 +121,73 @@ func TestPlanDemandUpkeep(t *testing.T) {
 	}
 	// Five targets take five Renews: half of the time, 30 hps.
 	almost(t, "group max", MaxHealing(st, []HealSource{renewOn(5), slowHeal()}), 30+25, 1e-9)
+}
+
+// Ranks of one HoT share the target: it carries one of them at a time.
+//
+//	small  45 over 15 s, instant, 6 mana -> 30 hps and 4 mana/s, 0.133 mana per point
+//	30 hps: the small rank on the target (3), the slow heal for the rest
+//	(27 = 54 % of the time): 0.4 + 5.4 = 5.8 mana/s against 3 -> 357.14 s
+//	50.5 hps: only the big rank is fast enough, and it leaves no room for
+//	the small one: 5 % of the time (3 hps), slow 95 % (47.5): 10.5 mana/s
+func TestPlanDemandRanksShareTargets(t *testing.T) {
+	st := demandState()
+	fight := Fight{Seconds: 60}
+	small := HealSource{Targets: 1, Group: 3, Action: Action{Kind: "hot", Spell: &Spell{ID: 4, BaseID: 3, Name: "Renew", School: Holy,
+		IsHeal: true, DurationMs: 15000, Cost: Cost{Mana: 6}, Periodic: &Effect{BP: 9, PeriodMs: 3000}}}}
+	big := renewOn(1)
+	big.Group = 3
+	sources := []HealSource{small, big, slowHeal()}
+	// Without the group both would run: 3 + 6 + 40.
+	almost(t, "max", MaxHealing(st, sources), 6+45, 1e-9)
+
+	p := PlanDemand(st, fight, sources, 30, nil)
+	almost(t, "hps", p.HPS, 30, 1e-6)
+	almost(t, "small kept on", lineOf(p, 4).Targets, 1, 1e-6)
+	almost(t, "slow", lineOf(p, 1).SharePct, 54, 1e-4)
+	almost(t, "oom", *p.OOMSec, 1000/2.8, 1e-2)
+	if len(p.Lines) != 2 {
+		t.Errorf("30 hps: %+v", p.Lines)
+	}
+
+	q := PlanDemand(st, fight, sources, 50.5, nil)
+	almost(t, "fast hps", q.HPS, 50.5, 1e-6)
+	almost(t, "big", lineOf(q, 3).SharePct, 5, 1e-3)
+	almost(t, "big kept on", lineOf(q, 3).Targets, 0.5, 1e-3)
+	almost(t, "slow at speed", lineOf(q, 1).SharePct, 95, 1e-3)
+	almost(t, "fast mana", q.ManaPS, 10.5, 1e-3)
+	if len(q.Lines) != 2 {
+		t.Errorf("50.5 hps: %+v", q.Lines)
+	}
+
+	// The two ranks alone: the cheap one cannot supply 5 hps, the big one can.
+	r := PlanDemand(st, fight, []HealSource{small, big}, 5, nil)
+	almost(t, "hots hps", r.HPS, 5, 1e-6)
+	if len(r.Lines) != 1 || r.Lines[0].Action.Spell.ID != 3 {
+		t.Errorf("hots: %+v", r.Lines)
+	}
+}
+
+// A cast holds the full regeneration back for five seconds, so while there
+// are pauses a bigger heal can be the cheaper one although its mana per
+// point is worse:
+//
+//	small 50 per 1.5 s for 10 mana (0.2 per point), big 200 per 2.5 s for 46 (0.23)
+//	10 hps: small 12 casts a minute, no time outside the rule: 2 mana/s against 3
+//	        big 3 casts a minute, 75 % outside: 2.3 mana/s against 5.25
+func TestPlanDemandCountsTheFiveSecondRule(t *testing.T) {
+	st := demandState()
+	heal := func(id, castMs int, mana, points float64) HealSource {
+		return HealSource{Action: Action{Kind: "heal", Spell: &Spell{ID: id, BaseID: id, Name: "Heal", School: Holy, IsHeal: true,
+			CastMs: castMs, Cost: Cost{Mana: mana}, Direct: &Effect{BP: points}}}}
+	}
+	p := PlanDemand(st, Fight{Seconds: 60}, []HealSource{heal(1, 1500, 10, 50), heal(2, 2500, 46, 200)}, 10, nil)
+	if len(p.Lines) != 1 || p.Lines[0].Action.Spell.ID != 2 || p.OOMSec != nil {
+		t.Fatalf("plan: %+v", p)
+	}
+	almost(t, "free", p.FreePct, 75, 1e-6)
+	almost(t, "regen", p.RegenPS, 5.25, 1e-6)
+	almost(t, "mana", p.ManaPS, 2.3, 1e-6)
 }
 
 // Dark Sacrifice in a plan whose mana does not last: 300 mana for 200
@@ -148,6 +215,12 @@ func TestPlanDemandConversion(t *testing.T) {
 		t.Fatalf("18 hps: %+v", q)
 	}
 	almost(t, "per minute", q.ConversionsPerMin, 0.3/260*60, 1e-6)
+
+	// 19 hps: 3.8 mana/s against 3.15, and a cast per cooldown returns
+	// 0.433: the mana is gone after more than an hour, which counts as lasting.
+	if h := PlanDemand(st, fight, sources, 19, &conv); h.OOMSec != nil || h.ConversionSpell == nil || h.Conversions != 0 {
+		t.Errorf("19 hps: %+v", h)
+	}
 
 	// A plan that lasts needs none, and health dearer than the mana is kept.
 	if r := PlanDemand(st, fight, sources, 5, &conv); r.ConversionSpell != nil {

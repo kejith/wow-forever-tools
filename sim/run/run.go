@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.6.0"
+const Version = "0.7.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -37,6 +37,9 @@ type Input struct {
 	// Situations asks for the rotation guide: the best rotation in several
 	// kinds of fights (see situations.go).
 	Situations bool `json:"situations"`
+	// HealTable asks for every known heal and shield rank with its numbers
+	// per cast (see healtable.go).
+	HealTable bool `json:"healTable"`
 }
 
 // Character is the snapshot-derived character.
@@ -152,6 +155,7 @@ type Output struct {
 	HealOptions     []HealOption      `json:"healOptions,omitempty"`
 	Coverage        *Coverage         `json:"coverage,omitempty"`
 	Situations      []Situation       `json:"situations,omitempty"`
+	HealTable       *HealTable        `json:"healTable,omitempty"`
 	Spells          []SpellNumbers    `json:"spells,omitempty"`
 	Results         map[string]Result `json:"results,omitempty"`
 	Error           string            `json:"error,omitempty"`
@@ -352,6 +356,20 @@ func Run(in Input) Output {
 		}
 	}
 
+	if in.HealTable {
+		lockouts := map[int]float64{}
+		if in.Character.ClassFile == "PRIEST" {
+			sources, _ := priest.HealSources(cat, known, in.Character.Level, 1)
+			for _, src := range sources {
+				if src.Action.CycleSec > 0 {
+					lockouts[src.Action.Spell.ID] = src.Action.CycleSec
+				}
+			}
+		}
+		if t := healTable(cat, known, st, fight, lockouts); len(t.Rows) > 0 {
+			out.HealTable = t
+		}
+	}
 	if in.Situations && metric == "dps" {
 		var tap *engine.Spell
 		if in.Character.ClassFile == "WARLOCK" {

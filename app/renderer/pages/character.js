@@ -1,7 +1,8 @@
 // Page "Character": the character window as in the game (gear left and right, weapons below, stats in the
-// middle), then professions and talents.
-import { DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, state, tipAttr } from '../core.js';
+// middle), then professions and talents, and for a class that heals the heal table (pages/healing.js).
+import { $, DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, state, tipAttr } from '../core.js';
 import { mark, t } from '../i18n.js';
+import { healingSection } from './healing.js';
 
 // Slot IDs and order of the in-game character window (Classic layout).
 const PAPERDOLL = {
@@ -101,5 +102,13 @@ export async function renderCharacter() {
         <div class="pd-xp-text">${esc(xp)}</div></div>
     </div>
     <div class="grid section"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
-      <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>`;
+      <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>
+    ${d.heals ? `<div class="section" id="c-heal">${loading(t('Computing every heal rank …'))}</div>` : ''}`;
+  if (!d.heals) return;
+  // The heal table takes a few engine runs: the page stands, the section follows.
+  const char = state.char;
+  const h = await cached(`healing:${char}`, () => api.bridge('healing', { char }));
+  const box = $('#c-heal');
+  if (!box || state.char !== char) return;
+  box.innerHTML = h.error ? errorBox(h.error) : healingSection(h);
 }

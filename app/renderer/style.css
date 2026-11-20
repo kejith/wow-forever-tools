@@ -356,6 +356,24 @@ tr.clickable:hover td, tr.clickable.open td { background: var(--panel-2); }
 tr.detail > td { background: #18140f; }
 .nowrap { white-space: nowrap; }
 
+/* Character: the heal table */
+.heal-tiles { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.heal-tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 130px; }
+.heal-tile .big { font-size: 20px; font-weight: 600; }
+.heal-card { overflow-x: auto; }
+.heal-table td, .heal-table th { padding-left: 5px; padding-right: 5px; }
+.heal-table th .help { margin-left: 1px; }
+.heal-table tr.heal-chain td { border-top: 2px solid var(--line); }
+.heal-best { color: var(--gold); }
+.heal-uses { margin-top: 4px; max-width: 330px; }
+.heal-uses .badge { margin: 0 2px 3px 0; }
+.heal-when td:last-child, .heal-when th:last-child { width: 44%; }
+.heal-weights th { white-space: normal; }
+.heal-when td:nth-child(3) { white-space: nowrap; }
+.heal-step + .heal-step { margin-top: 5px; }
+.heal-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); margin-top: 16px; align-items: start; }
+@media (max-width: 1100px) { .heal-grid { grid-template-columns: 1fr; } }
+
 /* Rotations: one card per situation */
 .rot-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(500px, 1fr)); align-items: start; }
 .rot-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }

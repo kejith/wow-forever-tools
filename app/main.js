@@ -343,6 +343,11 @@ async function capturePages(out, required) {
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
     if (page === 'connection') await captureScrolled(out, wait, '#lists', 'connection-lists');
+    if (page === 'character') {
+      // A class that heals has the heal table below the character window.
+      await captureScrolled(out, wait, '#c-heal', 'character-healing');
+      await captureScrolled(out, wait, '.heal-grid', 'character-healing-ranks');
+    }
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
     if (page === 'rotations') await captureRotationDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');

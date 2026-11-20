@@ -21,6 +21,9 @@ type HealSource struct {
 	// per target and cycle (the effect's duration, or Action.CycleSec). 0 is
 	// a heal that is cast as often as time allows.
 	Targets int
+	// Group ties the ranks of one such spell together: a target carries one
+	// of them at a time, so they share the targets. 0 is a group of its own.
+	Group int
 }
 
 // DemandLine is one spell of a demand plan.
@@ -66,7 +69,29 @@ type option struct {
 	exec    float64
 	hps     float64 // healing per second of casting
 	mps     float64 // mana per second of casting
+	cost    float64 // what the plan weighs a second of casting at: mps plus the regeneration its casts hold back
 	cap     float64 // most of the time it can take (1 = all)
+	perAll  float64 // time it takes to keep it on all its targets (0 for a heal)
+	group   int     // options of one group share their targets (0 = none)
+}
+
+// room tracks how much of each group's targets is taken.
+type room map[int]float64
+
+// take gives option o up to want of the time and returns what it got.
+func (r room) take(o option, want float64) float64 {
+	x := math.Min(o.cap, want)
+	shared := o.group != 0 && o.perAll > 0
+	if shared {
+		x = math.Min(x, o.perAll*(1-r[o.group]))
+	}
+	if x <= 0 {
+		return 0
+	}
+	if shared {
+		r[o.group] += x / o.perAll
+	}
+	return x
 }
 
 func healOptionsOf(st *State, sources []HealSource) []option {
@@ -77,18 +102,20 @@ func healOptionsOf(st *State, sources []HealSource) []option {
 			continue
 		}
 		sh := Shape(sp, st, Target{})
-		o := option{src: s, exec: sh.ExecuteSec, cap: 1}
+		o := option{src: s, exec: sh.ExecuteSec, cap: 1, group: s.Group}
 		o.perCast = sh.SampleDirect(nil) + sh.Ticks*sh.TickValue
 		if !sh.IsHeal || o.perCast <= 0 || o.exec <= 0 {
 			continue
 		}
 		o.hps, o.mps = o.perCast/o.exec, sh.ManaCost/o.exec
+		o.cost = o.mps
 		if s.Targets > 0 {
 			cycle := math.Max(math.Max(sh.DurationSec, sh.CooldownSec), s.Action.CycleSec)
 			if cycle <= 0 {
 				continue
 			}
-			o.cap = math.Min(1, float64(s.Targets)*o.exec/cycle)
+			o.perAll = float64(s.Targets) * o.exec / cycle
+			o.cap = math.Min(1, o.perAll)
 		}
 		out = append(out, o)
 	}
@@ -104,18 +131,19 @@ func fill(opts []option, demand, lambda float64) (x []float64, time, hps float64
 	for i := range order {
 		order[i] = i
 	}
-	price := func(i int) float64 { return (opts[i].mps + lambda) / opts[i].hps }
+	price := func(i int) float64 { return (opts[i].cost + lambda) / opts[i].hps }
 	if math.IsInf(lambda, 1) {
 		price = func(i int) float64 { return 1 / opts[i].hps }
 	}
 	sort.SliceStable(order, func(a, b int) bool { return price(order[a]) < price(order[b]) })
 	x = make([]float64, len(opts))
+	taken := room{}
 	for _, i := range order {
 		left := demand - hps
 		if left <= 1e-12 {
 			break
 		}
-		x[i] = math.Min(opts[i].cap, left/opts[i].hps)
+		x[i] = taken.take(opts[i], left/opts[i].hps)
 		time += x[i]
 		hps += x[i] * opts[i].hps
 	}
@@ -129,11 +157,12 @@ func MaxHealing(st *State, sources []HealSource) float64 {
 	order := append([]option(nil), opts...)
 	sort.SliceStable(order, func(a, b int) bool { return order[a].hps > order[b].hps })
 	time, hps := 0.0, 0.0
+	taken := room{}
 	for _, o := range order {
-		x := math.Min(o.cap, 1-time)
-		if x <= 0 {
+		if time >= 1 {
 			break
 		}
+		x := taken.take(o, 1-time)
 		time += x
 		hps += x * o.hps
 	}
@@ -145,12 +174,16 @@ func MaxHealing(st *State, sources []HealSource) float64 {
 // time) the cheapest mix lies between two fillings by price: the last one
 // that is too slow and the first one fast enough.
 func cheapest(opts []option, demand float64) []float64 {
-	x, time, _ := fill(opts, demand, 0)
-	if time <= 1+1e-9 {
+	// A filling is good when it fits the time and supplies the demand (ranks
+	// that share a target can leave it short: the cheap one takes the place
+	// of the strong one).
+	good := func(time, hps float64) bool { return time <= 1+1e-9 && hps >= demand*(1-1e-9) }
+	x, time, hps := fill(opts, demand, 0)
+	if good(time, hps) {
 		return x
 	}
-	fast, fastTime, _ := fill(opts, demand, math.Inf(1))
-	if fastTime >= 1 { // more than can be healed: everything at full speed
+	fast, fastTime, fastHPS := fill(opts, demand, math.Inf(1))
+	if fastTime >= 1 || !good(fastTime, fastHPS) { // more than can be healed: everything at full speed
 		order := make([]int, len(opts))
 		for i := range order {
 			order[i] = i
@@ -158,31 +191,32 @@ func cheapest(opts []option, demand float64) []float64 {
 		sort.SliceStable(order, func(a, b int) bool { return opts[order[a]].hps > opts[order[b]].hps })
 		out := make([]float64, len(opts))
 		left := 1.0
+		taken := room{}
 		for _, i := range order {
-			out[i] = math.Min(opts[i].cap, left)
+			out[i] = taken.take(opts[i], left)
 			left -= out[i]
 		}
 		return out
 	}
 	lo, hi := 0.0, 1.0
-	slow, slowTime := x, time
+	slow, slowTime, slowHPS := x, time, hps
 	for ; hi < 1e9; hi *= 2 {
-		if f, t, _ := fill(opts, demand, hi); t <= 1 {
+		if f, t, h := fill(opts, demand, hi); good(t, h) {
 			fast, fastTime = f, t
 			break
 		}
 	}
 	for i := 0; i < 60; i++ {
 		mid := (lo + hi) / 2
-		if f, t, _ := fill(opts, demand, mid); t <= 1 {
+		if f, t, h := fill(opts, demand, mid); good(t, h) {
 			hi, fast, fastTime = mid, f, t
 		} else {
-			lo, slow, slowTime = mid, f, t
+			lo, slow, slowTime, slowHPS = mid, f, t, h
 		}
 	}
 	w := 0.0 // share of the slow, cheap filling that still fits
-	if slowTime > fastTime {
-		w = (1 - fastTime) / (slowTime - fastTime)
+	if slowTime > fastTime && slowHPS >= demand*(1-1e-9) {
+		w = math.Min(1, (1-fastTime)/(slowTime-fastTime))
 	}
 	out := make([]float64, len(opts))
 	for i := range out {
@@ -202,7 +236,7 @@ func planOf(st *State, fight Fight, opts []option, x []float64, demand float64) 
 		l := DemandLine{Action: o.src.Action, PerCast: o.perCast, PerMin: x[i] / o.exec * 60, HPS: x[i] * o.hps,
 			ManaPS: x[i] * o.mps, SharePct: x[i] * 100}
 		if o.src.Targets > 0 {
-			l.Targets = float64(o.src.Targets) * x[i] / o.cap
+			l.Targets = float64(o.src.Targets) * x[i] / o.perAll
 		}
 		p.Lines = append(p.Lines, l)
 		p.HPS += l.HPS
@@ -225,6 +259,10 @@ func planOf(st *State, fight Fight, opts []option, x []float64, demand float64) 
 
 const fiveSecondRule = 5.0
 
+// LastsSec is from when on a plan's mana counts as lasting: no fight is
+// that long, and "lasts 7 hours" says nothing a player can use.
+const LastsSec = 3600.0
+
 // better says whether plan a lasts longer than plan b; among plans that
 // last forever the one with more mana to spare wins.
 func (a DemandPlan) better(b DemandPlan) bool {
@@ -244,31 +282,48 @@ func (a DemandPlan) better(b DemandPlan) bool {
 
 // PlanDemand finds the plan that supplies the demand (healing per second)
 // for the longest time. Besides the cheapest mix of all sources it tries
-// every single heal next to the HoTs and shields: fewer, bigger casts leave
-// more time outside the five-second rule, which the mix by price does not
-// see. convert is a spell that trades health for mana (Dark Sacrifice), or
-// nil: it is used when the mana does not last and the mana it returns heals
-// more than the health it costs.
+// every single heal next to the HoTs and shields, each once with the mana
+// alone as the price and once with the regeneration a cast holds back on
+// top (fewer, bigger casts leave more time outside the five-second rule).
+// convert is a spell that trades health for mana (Dark Sacrifice), or nil:
+// it is used when the mana does not last and the mana it returns heals more
+// than the health it costs. Mana that lasts longer than LastsSec counts as
+// lasting.
 func PlanDemand(st *State, fight Fight, sources []HealSource, demand float64, convert *Action) DemandPlan {
 	opts := healOptionsOf(st, sources)
 	if len(opts) == 0 || demand <= 0 {
 		return DemandPlan{Demand: demand}
 	}
-	best := planOf(st, fight, opts, cheapest(opts, demand), demand)
-	candidates := 1
-	for i, o := range opts {
-		if o.src.Targets > 0 {
-			continue
-		}
-		var subset []option
-		for j, other := range opts {
-			if other.src.Targets > 0 || j == i {
-				subset = append(subset, other)
+	// Every cast holds the full regeneration back for five seconds. While
+	// the casts leave gaps longer than that, a cast therefore costs that
+	// much on top of its mana; once they do not, it costs its mana alone.
+	// Which of the two holds depends on the plan, so both are tried.
+	casting, idle := st.Regen(fight)
+	taxed := append([]option(nil), opts...)
+	for i := range taxed {
+		taxed[i].cost += fiveSecondRule * (idle - casting) / taxed[i].exec
+	}
+	var best DemandPlan
+	candidates := 0
+	for _, set := range [][]option{opts, taxed} {
+		try := func(subset []option) {
+			p := planOf(st, fight, subset, cheapest(subset, demand), demand)
+			if candidates++; candidates == 1 || p.better(best) {
+				best = p
 			}
 		}
-		candidates++
-		if p := planOf(st, fight, subset, cheapest(subset, demand), demand); p.better(best) {
-			best = p
+		try(set)
+		for i, o := range set {
+			if o.src.Targets > 0 {
+				continue
+			}
+			var subset []option
+			for j, other := range set {
+				if other.src.Targets > 0 || j == i {
+					subset = append(subset, other)
+				}
+			}
+			try(subset)
 		}
 	}
 	best.Candidates = candidates
@@ -299,6 +354,9 @@ func PlanDemand(st *State, fight Fight, sources []HealSource, demand float64, co
 				}
 			}
 		}
+	}
+	if best.OOMSec != nil && *best.OOMSec > LastsSec {
+		best.OOMSec, best.Conversions = nil, 0
 	}
 	return best
 }

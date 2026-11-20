@@ -185,6 +185,12 @@ class Engine:
         damage metric, the cheapest spells per level of demand for a healer."""
         return self._run(dict(self.bundle, evaluations=[], situations=True)).get("situations") or []
 
+    def heal_table(self) -> tuple[dict, list]:
+        """Every known heal and shield rank with what one cast gives and costs (sim/run/healtable.go), and the
+        rotation guide, which says when to cast which of them. One run."""
+        out = self._run(dict(self.bundle, evaluations=[], healTable=True, situations=True))
+        return out.get("healTable") or {}, out.get("situations") or []
+
     def _run(self, payload: dict) -> dict:
         cmd = [sys.executable, self.binary] if self.binary.endswith(".py") else [self.binary]  # .py: test stub
         try:

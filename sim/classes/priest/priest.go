@@ -47,15 +47,22 @@ func darkSacrifice(cat *catalog.Catalog, known map[int]bool, level int) *engine.
 // target, so Weakened Soul sets the pace (its duration, 15 sec), whatever
 // the spell's own cooldown is.
 func shield(cat *catalog.Catalog, known map[int]bool, level int) *engine.Action {
-	sp := cat.BestRank(PowerWordShield, known, level)
+	return shieldOf(cat, cat.BestRank(PowerWordShield, known, level))
+}
+
+func shieldOf(cat *catalog.Catalog, sp *engine.Spell) *engine.Action {
 	if sp == nil || sp.Absorb == nil {
 		return nil
 	}
-	weakened := float64(cat.DurationMs[WeakenedSoul]) / 1000
-	if weakened <= 0 {
-		weakened = 15
+	return &engine.Action{Kind: "cooldown", Spell: sp, CycleSec: WeakenedSoulSec(cat)}
+}
+
+// WeakenedSoulSec is how long a target cannot be shielded again.
+func WeakenedSoulSec(cat *catalog.Catalog) float64 {
+	if weakened := float64(cat.DurationMs[WeakenedSoul]) / 1000; weakened > 0 {
+		return weakened
 	}
-	return &engine.Action{Kind: "cooldown", Spell: sp, CycleSec: weakened}
+	return 15
 }
 
 // healChains are the single-target heals a priest can fill with; every known
@@ -91,18 +98,22 @@ func Choices(cat *catalog.Catalog, known map[int]bool, level int) engine.Choices
 	return c
 }
 
-// HealSources is what a healer can meet a demand for healing with: Renew and
-// Power Word: Shield on up to that many targets (their best ranks), every
-// known rank of the single-target heals, and Dark Sacrifice for the mana
-// (nil if unknown). Heals that reach several targets at once (Prayer of
-// Healing, Holy Nova) are not in the model.
+// HealSources is what a healer can meet a demand for healing with: every
+// known rank of Renew and of Power Word: Shield on up to that many targets
+// (a target carries one Renew and one shield at a time, whatever the rank:
+// a low rank of Renew keeps most of the healing bonus for a fraction of the
+// mana), every known rank of the single-target heals, and Dark Sacrifice
+// for the mana (nil if unknown). Heals that reach several targets at once
+// (Prayer of Healing, Holy Nova) are not in the model.
 func HealSources(cat *catalog.Catalog, known map[int]bool, level, targets int) ([]engine.HealSource, *engine.Action) {
 	var out []engine.HealSource
-	if renew := cat.BestRank(Renew, known, level); renew != nil {
-		out = append(out, engine.HealSource{Action: engine.Action{Kind: "hot", Spell: renew}, Targets: targets})
+	for _, renew := range cat.KnownRanks(Renew, known, level) {
+		out = append(out, engine.HealSource{Action: engine.Action{Kind: "hot", Spell: renew}, Targets: targets, Group: Renew})
 	}
-	if pws := shield(cat, known, level); pws != nil {
-		out = append(out, engine.HealSource{Action: *pws, Targets: targets})
+	for _, rank := range cat.KnownRanks(PowerWordShield, known, level) {
+		if pws := shieldOf(cat, rank); pws != nil {
+			out = append(out, engine.HealSource{Action: *pws, Targets: targets, Group: PowerWordShield})
+		}
 	}
 	seen := map[int]bool{}
 	for _, base := range healChains {
@@ -166,26 +177,34 @@ func Rotations(metric string, cat *catalog.Catalog, known map[int]bool, level in
 		return out
 	}
 
-	// Healer: keep Renew up, fill with one single-target heal rank, each
-	// with and without Power Word: Shield on the target whenever Weakened
-	// Soul allows. In Forever each of the four heals is its own chain; should
-	// a table link two of them anyway (explicit SupercedesSpell), a rank
-	// still becomes one candidate at most.
-	renew := cat.BestRank(Renew, known, level)
-	prefixes := [][]engine.Action{nil}
+	// Healer: fill with one single-target heal rank, each with and without
+	// Power Word: Shield on the target whenever Weakened Soul allows, and
+	// with every known rank of Renew kept up or none (a low rank keeps most
+	// of the healing bonus for a fraction of the mana; the highest one may
+	// cost more per point than the heal). In Forever each of the four heals
+	// is its own chain; should a table link two of them anyway (explicit
+	// SupercedesSpell), a rank still becomes one candidate at most.
+	var prefixes [][]engine.Action
+	shields := [][]engine.Action{nil}
 	if pws := shield(cat, known, level); pws != nil {
-		prefixes = append(prefixes, []engine.Action{*pws})
+		shields = append(shields, []engine.Action{*pws})
+	}
+	renews := append([]*engine.Spell{nil}, cat.KnownRanks(Renew, known, level)...)
+	for _, s := range shields {
+		for _, renew := range renews {
+			prefix := append([]engine.Action(nil), s...)
+			if renew != nil {
+				prefix = append(prefix, engine.Action{Kind: "hot", Spell: renew})
+			}
+			prefixes = append(prefixes, prefix)
+		}
 	}
 	var out [][]engine.Action
 	for _, prefix := range prefixes {
 		before := len(out)
 		seen := map[int]bool{}
 		start := func() []engine.Action {
-			actions := append([]engine.Action(nil), prefix...)
-			if renew != nil {
-				actions = append(actions, engine.Action{Kind: "hot", Spell: renew})
-			}
-			return actions
+			return append([]engine.Action(nil), prefix...)
 		}
 		finish := func(actions []engine.Action) {
 			if mana != nil {
@@ -202,7 +221,7 @@ func Rotations(metric string, cat *catalog.Catalog, known map[int]bool, level in
 				finish(append(start(), engine.Action{Kind: "heal", Spell: rank}))
 			}
 		}
-		if len(out) == before && (renew != nil || len(prefix) > 0) {
+		if len(out) == before && len(prefix) > 0 {
 			finish(start())
 		}
 	}

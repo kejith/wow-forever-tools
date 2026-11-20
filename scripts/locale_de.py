@@ -492,4 +492,47 @@ TEXT = {
     "Left out: {label} ({loss:.1f} {unit} less; {why})": "Weggelassen: {label} ({loss:.1f} {unit} weniger; {why})",
     "Start (mana/health in % before each action):": "Beginn (Mana/Leben in % vor jeder Aktion):",
     "... and {n} more actions": "... und {n} weitere Aktionen",
+    # healing.py
+    "Healing bonus": "Heilbonus",
+    "Spell crit, per 1%": "Zauberkrit, pro 1 %",
+    "The combat engine has no heals for this class ({cls}).": "Das Kampfmodell kennt für diese Klasse keine Heilungen ({cls}).",
+    "This character knows no heal the combat engine models.": "Dieser Charakter kennt keine Heilung, die das Kampfmodell abbildet.",
+    "Sustained": "Dauerhaft",
+    "Mana per 5 sec. on your gear counts all the time ({gear:.0f} now). The regeneration from spirit "
+    "({spirit:.0f} mana per 5 sec.) stops while you cast and for five seconds after a cast that costs mana.":
+        "Mana pro 5 Sek. auf der Ausrüstung zählt immer (jetzt {gear:.0f}). Die Regeneration aus Willenskraft "
+        "({spirit:.0f} Mana pro 5 Sek.) setzt aus, während du zauberst und fünf Sekunden nach einem Zauber, der Mana "
+        "kostet.",
+    "Your talents let {pct:.0f}% of it through while casting.": "Deine Talente lassen davon {pct:.0f} % beim Zaubern durch.",
+    "The numbers are those of your last snapshot, with the buffs you had then.":
+        "Die Zahlen sind die deines letzten Snapshots, mit den Buffs, die du da hattest.",
+    "absorbs {n}": "absorbiert {n}",
+    "{ticks:.0f} x {tick:.0f} over {seconds:.0f} s": "{ticks:.0f} x {tick:.0f} über {seconds:.0f} s",
+    "Healing bonus {healing}, crit {crit:.1f}%, mana {mana}, spirit {spirit}":
+        "Heilbonus {healing}, Krit {crit:.1f} %, Mana {mana}, Willenskraft {spirit}",
+    "Mana per 5 sec.: {casting:.1f} while casting, {idle:.1f} outside the five-second rule":
+        "Mana pro 5 Sek.: {casting:.1f} beim Zaubern, {idle:.1f} außerhalb der Fünf-Sekunden-Regel",
+    "Spell": "Zauber",
+    "One cast": "Ein Zauber",
+    "Average": "Schnitt",
+    "Mana": "Mana",
+    "Cast": "Zauberzeit",
+    "Per mana": "Pro Mana",
+    "From bonus": "Aus Bonus",
+    "Coefficient": "Koeffizient",
+    "Use it for": "Einsatz",
+    "{n:.1f} on the target": "{n:.1f} auf dem Ziel",
+    "{n:.1f} s": "{n:.1f} s",
+    "instant": "sofort",
+    "* the most healing per mana, and the most per second among the heals you can cast back to back":
+        "* die meiste Heilung pro Mana und die meiste pro Sekunde unter den Heilungen, die du am Stück zaubern kannst",
+    "Which rank when": "Welcher Rang wann",
+    "mana lasts": "Mana reicht",
+    "mana lasts {time}": "Mana reicht {time}",
+    "Sustained over {seconds:.0f} s ({value:.1f} {unit}, what your gear is rated by): {spells}":
+        "Dauerhaft über {seconds:.0f} s ({value:.1f} {unit}, danach wird deine Ausrüstung bewertet): {spells}",
+    "What a point adds ({unit}; in brackets: the points of healing bonus that do the same)":
+        "Was ein Punkt bringt ({unit}; in Klammern: so viele Punkte Heilbonus bringen dasselbe)",
+    "{label}: {short} in a fight of {seconds:.0f} s, {long} in one of {long_seconds:.0f} s":
+        "{label}: {short} in einem Kampf von {seconds:.0f} s, {long} in einem von {long_seconds:.0f} s",
 }

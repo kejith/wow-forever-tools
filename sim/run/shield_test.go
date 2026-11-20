@@ -51,7 +51,8 @@ func TestShieldInTheRotation(t *testing.T) {
 		t.Fatalf("shield row = %+v in %+v", shield, out.Baseline.Breakdown)
 	}
 	almost(t, "shield hps", shield.Value, 130.0/16, 1e-6)
-	if out.Coverage.Candidates != 2 {
+	// With and without the shield, with and without Renew.
+	if out.Coverage.Candidates != 4 {
 		t.Errorf("candidates = %d", out.Coverage.Candidates)
 	}
 	cov := out.Coverage

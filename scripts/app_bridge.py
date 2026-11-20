@@ -13,6 +13,7 @@
     uv run scripts/app_bridge.py consumables --char Malgruk [--top 5]
     uv run scripts/app_bridge.py rotations --char Malgruk [--fight-seconds 60] [--target-delta 2]
                                            [--kills-per-minute 1]
+    uv run scripts/app_bridge.py healing --char Siegfried [--fight-seconds 60] [--target-delta 2]
     uv run scripts/app_bridge.py icons --ids 9492,287004
     uv run scripts/app_bridge.py goldperhour
     uv run scripts/app_bridge.py pricehistory
@@ -35,6 +36,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import consumables  # noqa: E402
 import goldperhour  # noqa: E402
+import healing  # noqa: E402
 import i18n  # noqa: E402
 import ingame  # noqa: E402
 import pricehistory  # noqa: E402
@@ -122,13 +124,15 @@ def character(wow: str, name: str) -> dict:
             "equipment": sorted(equipment, key=lambda e: e["slot"] or 0),
             "weights": scale["text"], "profileLabel": scale["label"], "setValue": round(full, 1),
             "professions": skills.get("professions") or [], "talents": talents.get("class") or [],
-            "legacy": talents.get("legacy") or [], "errors": c.get("errors") or {}}
+            "legacy": talents.get("legacy") or [], "errors": c.get("errors") or {},
+            # Whether the window should ask for the heal table (command "healing").
+            "heals": healing.supported((c.get("character") or {}).get("classFile"))}
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "consumables", "icons",
-                                           "goldperhour", "ingame", "pricehistory", "rotations"])
+                                           "goldperhour", "ingame", "pricehistory", "rotations", "healing"])
     ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=3)
@@ -178,6 +182,9 @@ def main() -> None:
         elif a.command == "rotations":
             # What to cast in which situation, from the combat engine: one guide per metric of the class.
             r = rotations.compute(a.wow, a.char, a.fight_seconds, a.target_delta, a.kills_per_minute)
+        elif a.command == "healing":
+            # Every known heal rank with its numbers, the ranks to use and the stat weights.
+            r = healing.compute(a.wow, a.char, a.fight_seconds, a.target_delta)
         elif a.command == "writs":
             r = writs.compute(a.wow, a.char, a.top, a.owned_at_ah_price)
         else:

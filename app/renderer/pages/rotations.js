@@ -6,7 +6,7 @@ import { $, DASH as dash, api, cached, content, errorBox, esc, help, loadStatus,
 import { t } from '../i18n.js';
 
 // A time in a fight: "45 s" or "2:24 min".
-const clock = (seconds) => (seconds < 60 ? t('{n} s', { n: Math.round(seconds) })
+export const clock = (seconds) => (seconds < 60 ? t('{n} s', { n: Math.round(seconds) })
   : t('{m}:{s} min', { m: Math.floor(seconds / 60), s: String(Math.floor(seconds % 60)).padStart(2, '0') }));
 
 const share = (pct) => (pct >= 0.5 ? percent(num(pct, 0)) : dash);

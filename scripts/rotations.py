@@ -212,10 +212,10 @@ def situation_out(s: dict, label, unit: str) -> dict:
             "endManaPct": round(s.get("endManaPct") or 0), "endHpPct": round(s.get("endHpPct") or 0)}
 
 
-def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float = 60.0, target_delta: int = -1,
-            kills_per_minute: float = -1) -> dict:
-    """The rotation guide of a character as plain data: one guide per metric the class has (damage, healing),
-    each with its situations."""
+def character(wow: str, char: str, fight_seconds: float = 60.0, target_delta: int = -1,
+              kills_per_minute: float = -1):
+    """The character's snapshot, the fight as asked for and a function that starts the engine for a metric.
+    Shared with healing.py."""
     files = writs.find_chars(wow, char)
     if not files:
         raise FileNotFoundError(tr("No WoWMCP.lua found for this character."))
@@ -225,16 +225,31 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float =
     if not simengine.supported(class_file):
         raise LookupError(tr("The combat engine does not model this class yet ({cls}).", cls=class_file or "?"))
     st = ch.get("stats") or {}
-    level = ch.get("level") or 60
     _, totals = upgrades.equipped_stats(c)
     life_tap = {"healthPerCast": 0.0, "manaPerCast": 0.0}
     m = upgrades.LIFE_TAP_TEXT.search((st.get("lifeTap") or {}).get("text") or "")
     if m and upgrades.number(m.group(1)) > 0:
         life_tap = {"healthPerCast": upgrades.number(m.group(1)), "manaPerCast": upgrades.number(m.group(2))}
-    profile = "leveling" if level < 60 else "dungeon"
+    profile = "leveling" if (ch.get("level") or 60) < 60 else "dungeon"
     fight = {"seconds": fight_seconds,
              "targetDelta": target_delta if 0 <= target_delta <= 3 else upgrades.PROFILES[profile]["target"],
              "killsPerMinute": kills_per_minute if kills_per_minute >= 0 else -1}
+
+    def start(metric: str, seconds: float | None = None) -> simengine.Engine:
+        return simengine.start(c, totals.get("mp5", 0), totals.get("hp5", 0),
+                               dict(fight, seconds=seconds) if seconds else fight, metric, life_tap)
+
+    return c, fight, start
+
+
+def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float = 60.0, target_delta: int = -1,
+            kills_per_minute: float = -1) -> dict:
+    """The rotation guide of a character as plain data: one guide per metric the class has (damage, healing),
+    each with its situations."""
+    c, fight, start = character(wow, char, fight_seconds, target_delta, kills_per_minute)
+    ch = c.get("character") or {}
+    class_file = ch.get("classFile") or ""
+    level = ch.get("level") or 60
 
     # The spec's own metric first; the time-to-OOM metric has no guide of its own.
     first = simengine.default_metric(class_file, simengine.spec_of(c))
@@ -242,7 +257,7 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float =
     label = labeler(c)
     guides, version, source = [], "", ""
     for metric in metrics:
-        eng = simengine.start(c, totals.get("mp5", 0), totals.get("hp5", 0), fight, metric, life_tap)
+        eng = start(metric)
         situations = eng.situations()
         version, source = eng.version, eng.spellbook_source
         if not situations:
