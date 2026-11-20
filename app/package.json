@@ -1,7 +1,7 @@
 {
   "name": "wow-forever-tools",
   "productName": "WoW Forever Tools",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "private": true,
   "description": "Desktop app for WoW: Forever: installs the WoWMCP and GoldPerHour addons and shows character, writs, AH upgrades, professions and gold per hour.",
   "author": "kejith",
