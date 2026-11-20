@@ -398,4 +398,98 @@ TEXT = {
     "Written to {file}. Type /reload in the game.": "Nach {file} geschrieben. Tippe im Spiel /reload.",
     "Nothing changed, the file in the addon folder is current.":
         "Nichts geändert, die Datei im Addon-Ordner ist aktuell.",
+    # rotations.py
+    "Damage": "Schaden",
+    "Every fight is played cast by cast with each rotation you could cast; this is the best one.":
+        "Jeder Kampf wird Zauber für Zauber mit jeder Rotation durchgespielt, die du wirken könntest; "
+        "das ist die beste.",
+    "How to heal a given amount per second for the least mana. The levels are shares of the most you can heal.":
+        "Wie du eine bestimmte Heilung pro Sekunde mit dem wenigsten Mana lieferst. Die Stufen sind Anteile "
+        "an dem, was du höchstens heilen kannst.",
+    "Heals that reach several targets at once (Prayer of Healing, Holy Nova) are not in the model yet; the group "
+    "level uses heals on one target at a time.":
+        "Heilungen, die mehrere Ziele auf einmal treffen (Gebet der Heilung, Heilige Nova), sind noch nicht im "
+        "Modell; die Gruppenstufe heilt ein Ziel nach dem anderen.",
+    "The casts are spread evenly: after each one the five-second rule holds the spirit regeneration back, the rest "
+    "of the pause regenerates in full.":
+        "Die Zauber sind gleichmäßig verteilt: nach jedem bremst die Fünf-Sekunden-Regel die Regeneration durch "
+        "Willenskraft, der Rest der Pause regeneriert voll.",
+    "One target needs {value:.0f} healing per second: {pct:.0f}% of the most you can heal.":
+        "Ein Ziel braucht {value:.0f} Heilung pro Sekunde: {pct:.0f} % dessen, was du höchstens heilen kannst.",
+    "Quick kill": "Schneller Kill",
+    "An enemy that dies in {seconds:.0f} seconds.": "Ein Gegner, der in {seconds:.0f} Sekunden stirbt.",
+    "Normal fight": "Normaler Kampf",
+    "{seconds:.0f} seconds against an enemy {delta} levels above you: the fight your gear is rated for.":
+        "{seconds:.0f} Sekunden gegen einen Gegner {delta} Stufen über dir: der Kampf, für den deine Ausrüstung "
+        "bewertet wird.",
+    "Boss": "Boss",
+    "{minutes:.0f} minutes against an enemy {delta} levels above you.":
+        "{minutes:.0f} Minuten gegen einen Gegner {delta} Stufen über dir.",
+    "Endurance": "Dauerkampf",
+    "{minutes:.0f} minutes of fighting without a break.": "{minutes:.0f} Minuten Kampf ohne Pause.",
+    "Light damage": "Leichter Schaden",
+    "Tank healing": "Tank heilen",
+    "Heavy damage": "Schwerer Schaden",
+    "Everything you have": "Alles, was geht",
+    "The most you can heal on one target: {value:.0f} healing per second, whatever it costs.":
+        "Das Meiste, was du auf einem Ziel heilen kannst: {value:.0f} Heilung pro Sekunde, egal was es kostet.",
+    "Group damage": "Gruppenschaden",
+    "{targets} targets need {value:.0f} healing per second together: {pct:.0f}% of the most you can heal there.":
+        "{targets} Ziele brauchen zusammen {value:.0f} Heilung pro Sekunde: {pct:.0f} % dessen, was du dort "
+        "höchstens heilen kannst.",
+    "keep it on the enemy": "auf dem Gegner halten",
+    "whenever it is ready": "immer wenn bereit",
+    "fills the rest of the time": "füllt die restliche Zeit",
+    "when the health is too low to trade for mana and the mana is running out (first after {time})":
+        "wenn das Leben zu niedrig ist, um es gegen Mana zu tauschen, und das Mana ausgeht (zuerst nach {time})",
+    "as soon as the health bar is full and the mana has room for it, and when the mana is gone":
+        "sobald das Leben voll ist und das Mana Platz dafür hat, und wenn das Mana leer ist",
+    "when mana is missing and the health allows it": "wenn Mana fehlt und das Leben es erlaubt",
+    "when the mana is gone (first after {time})": "wenn das Mana leer ist (zuerst nach {time})",
+    "fills the rest of the time and costs no mana": "füllt die restliche Zeit und kostet kein Mana",
+    "the weaker filler in this fight": "in diesem Kampf der schwächere Füller",
+    "costs more casting time than it returns in this fight":
+        "kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt",
+    "{n:.0f} s": "{n:.0f} s",
+    "{m}:{s:02d} min": "{m}:{s:02d} min",
+    "{n:.0f}x before the mana is gone: {mana:.0f} mana for {health:.0f} health, which you heal back":
+        "{n:.0f}x, bevor das Mana leer ist: {mana:.0f} Mana für {health:.0f} Leben, das du wieder heilst",
+    "every {minutes:.0f} minutes: {mana:.0f} mana for {health:.0f} health, which you heal back; with it the mana "
+    "lasts":
+        "alle {minutes:.0f} Minuten: {mana:.0f} Mana für {health:.0f} Leben, das du wieder heilst; damit reicht "
+        "das Mana",
+    "keep it on {n:.0f} of the {targets} targets": "auf {n:.0f} der {targets} Ziele halten",
+    "keep it on the target": "auf dem Ziel halten",
+    "on the target {pct:.0f}% of the time": "{pct:.0f} % der Zeit auf dem Ziel",
+    "in between, when the default heal is too slow": "zwischendurch, wenn die Standardheilung zu langsam ist",
+    "the default heal, with pauses in between": "die Standardheilung, mit Pausen dazwischen",
+    "the default heal": "die Standardheilung",
+    "No filler spell: in this fight the mana is worth more on the spells above, and the pauses on the wand "
+    "regenerate it.":
+        "Kein Füllzauber: in diesem Kampf ist das Mana bei den Zaubern oben mehr wert, und die Pausen am "
+        "Zauberstab regenerieren es.",
+    "From {time} on the health is too low for {trade}: {recover} brings it back.":
+        "Ab {time} ist das Leben zu niedrig für {trade}: {recover} holt es zurück.",
+    "From {time} on the mana is gone and the wand fills the gaps.":
+        "Ab {time} ist das Mana leer und der Zauberstab füllt die Lücken.",
+    "The mana lasts with {trade}.": "Das Mana reicht mit {trade}.",
+    "The mana lasts for the whole fight.": "Das Mana reicht für den ganzen Kampf.",
+    "At the end {mana:.0f}% mana and {health:.0f}% health are left.":
+        "Am Ende sind {mana:.0f} % Mana und {health:.0f} % Leben übrig.",
+    "The mana lasts: {spent:.1f} mana per second against {regen:.1f} regenerated.":
+        "Das Mana reicht: {spent:.1f} Mana pro Sekunde gegen {regen:.1f} regeneriert.",
+    "The mana lasts {time}: {spent:.1f} mana per second against {regen:.1f} regenerated.":
+        "Das Mana reicht {time}: {spent:.1f} Mana pro Sekunde gegen {regen:.1f} regeneriert.",
+    "You cast {cast:.0f}% of the time.": "Du zauberst {cast:.0f} % der Zeit.",
+    "{free:.0f}% of the time is outside the five-second rule and regenerates in full.":
+        "{free:.0f} % der Zeit liegen außerhalb der Fünf-Sekunden-Regel und regenerieren voll.",
+    "The combat engine has no rotation guide for this character.":
+        "Das Kampfmodell hat für diesen Charakter keinen Rotationsleitfaden.",
+    "{name}, level {level} {cls} | combat engine {version}": "{name}, Stufe {level} {cls} | Kampfmodell {version}",
+    "No spellbook in the export: every trainer rank up to your level is assumed.":
+        "Kein Zauberbuch im Export: es wird jeder Lehrerrang bis zu deiner Stufe angenommen.",
+    "{n:.1f}/min, {share:.0f}% of the time": "{n:.1f}/min, {share:.0f} % der Zeit",
+    "Left out: {label} ({loss:.1f} {unit} less; {why})": "Weggelassen: {label} ({loss:.1f} {unit} weniger; {why})",
+    "Start (mana/health in % before each action):": "Beginn (Mana/Leben in % vor jeder Aktion):",
+    "... and {n} more actions": "... und {n} weitere Aktionen",
 }

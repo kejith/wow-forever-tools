@@ -60,7 +60,7 @@ function applyLanguage() {
 const publicSettings = () => ({
   ...settings, language: i18n.LANGUAGES.includes(settings.language) ? settings.language : 'auto',
   activeLanguage: language, clientLocale: i18n.clientLocale(settings.wowDir), version: app.getVersion(),
-  capture: !!argValue('capture'),
+  capture: !!argValue('capture'), captureChar: argValue('char'),
 });
 
 function saveSettings() {
@@ -318,7 +318,7 @@ async function runCapture(dir) {
 
 async function capturePages(out, required) {
   fs.mkdirSync(out, { recursive: true });
-  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'consumables', 'pricehistory', 'goldperhour'];
+  const pages = ['connection', 'character', 'writs', 'upgrades', 'rotations', 'recipes', 'consumables', 'pricehistory', 'goldperhour'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const report = { language, version: app.getVersion(), packaged: app.isPackaged, uv: null, pages: {} };
   // The Connection page shows the lists for the game. They arrive after the page; wait for them like for
@@ -344,6 +344,7 @@ async function capturePages(out, required) {
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
     if (page === 'connection') await captureScrolled(out, wait, '#lists', 'connection-lists');
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
+    if (page === 'rotations') await captureRotationDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
     if (page === 'recipes') await captureHelp(out, wait);
     if (page === 'pricehistory') await captureHelp(out, wait, '.ph-chart .hit:last-of-type', 'pricehistory-day');
@@ -386,6 +387,18 @@ async function captureHelp(out, wait, selector = '#content th .help', name = 'he
   const image = await win.webContents.capturePage();
   fs.writeFileSync(path.join(out, `${name}.png`), image.toPNG());
   await win.webContents.executeJavaScript('document.body.click(); document.querySelector(".content").scrollTop = 0');
+}
+
+// The rotations page: the played fight of the first card that has one, opened, and the second guide of a
+// class with two (a priest heals and deals damage).
+async function captureRotationDetails(out, wait) {
+  if (await win.webContents.executeJavaScript('(() => { const el = document.querySelector("details.rot-timeline"); if (!el) return false; el.open = true; el.scrollIntoView(); return true; })()')) {
+    await wait(300);
+    const image = await win.webContents.capturePage();
+    fs.writeFileSync(path.join(out, 'rotations-timeline.png'), image.toPNG());
+    await win.webContents.executeJavaScript('document.querySelector("details.rot-timeline").open = false; document.querySelector(".content").scrollTop = 0');
+  }
+  await captureScrolled(out, wait, '.rot-guide + .rot-guide', 'rotations-second');
 }
 
 async function captureUpgradeDetails(out, wait) {

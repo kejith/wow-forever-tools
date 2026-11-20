@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.5.0"
+const Version = "0.6.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -34,6 +34,9 @@ type Input struct {
 	Iterations  int          `json:"iterations"`
 	Seed        int64        `json:"seed"`  // Monte-Carlo: 0 means 1; every evaluation shares it (common random numbers)
 	MCTop       int          `json:"mcTop"` // Monte-Carlo: refine this many evaluations with the biggest gains (default 16)
+	// Situations asks for the rotation guide: the best rotation in several
+	// kinds of fights (see situations.go).
+	Situations bool `json:"situations"`
 }
 
 // Character is the snapshot-derived character.
@@ -148,6 +151,7 @@ type Output struct {
 	Downrank        *Downrank         `json:"downrank,omitempty"`
 	HealOptions     []HealOption      `json:"healOptions,omitempty"`
 	Coverage        *Coverage         `json:"coverage,omitempty"`
+	Situations      []Situation       `json:"situations,omitempty"`
 	Spells          []SpellNumbers    `json:"spells,omitempty"`
 	Results         map[string]Result `json:"results,omitempty"`
 	Error           string            `json:"error,omitempty"`
@@ -329,12 +333,8 @@ func Run(in Input) Output {
 	if fight.Seconds <= 0 {
 		fight.Seconds = 60
 	}
-	if fight.KillsPerMinute < 0 {
-		fight.KillsPerMinute = 0
-		if metric == "dps" && fight.TargetDelta < 3 {
-			fight.KillsPerMinute = 60 / fight.Seconds
-		}
-	}
+	standard := fight // as asked, with automatic kills still automatic
+	fight = resolveKills(fight, metric)
 	out.Fight = &fight
 	out.Spells = spellNumbers(cat, known, st, engine.NewTarget(in.Character.Level, fight.TargetDelta))
 
@@ -350,6 +350,16 @@ func Run(in Input) Output {
 		if tap := cat.BestRank(warlock.LifeTap, known, in.Character.Level); tap != nil && st.LifeTap.ManaPerCast > 0 {
 			support[tap.ID] = "regen"
 		}
+	}
+
+	if in.Situations && metric == "dps" {
+		var tap *engine.Spell
+		if in.Character.ClassFile == "WARLOCK" {
+			tap = cat.BestRank(warlock.LifeTap, known, in.Character.Level)
+		}
+		out.Situations = damageSituations(in.Character.ClassFile, cat, known, st, standard, tap)
+	} else if in.Situations {
+		out.Situations = healSituations(in.Character.ClassFile, cat, known, st, standard)
 	}
 
 	rots := rotations(in.Character.ClassFile, metric, cat, known, in.Character.Level)

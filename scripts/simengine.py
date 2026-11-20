@@ -177,7 +177,15 @@ class Engine:
 
     def batch(self, evals: list[tuple[str, dict]]) -> dict[str, float]:
         """Evaluates deltas; returns the metric gain per key."""
-        payload = dict(self.bundle, evaluations=[{"key": k, "delta": d} for k, d in evals])
+        out = self._run(dict(self.bundle, evaluations=[{"key": k, "delta": d} for k, d in evals]))
+        return {k: (v.get("gain") or 0.0) for k, v in (out.get("results") or {}).items()}
+
+    def situations(self) -> list:
+        """The rotation guide (sim/run/situations.go): the best rotation in several kinds of fights for a
+        damage metric, the cheapest spells per level of demand for a healer."""
+        return self._run(dict(self.bundle, evaluations=[], situations=True)).get("situations") or []
+
+    def _run(self, payload: dict) -> dict:
         cmd = [sys.executable, self.binary] if self.binary.endswith(".py") else [self.binary]  # .py: test stub
         try:
             proc = subprocess.run(cmd, input=json.dumps(payload), capture_output=True,
@@ -200,7 +208,7 @@ class Engine:
         self.coverage = out.get("coverage") or {}
         self.spells = out.get("spells") or self.spells
         self.fight = out.get("fight") or self.fight
-        return {k: (v.get("gain") or 0.0) for k, v in (out.get("results") or {}).items()}
+        return out
 
 
 def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,

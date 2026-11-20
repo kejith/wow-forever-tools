@@ -41,6 +41,7 @@ func hitChance(sp *Spell, st *State, tgt Target) float64 {
 // are pre-crit and pre-hit; the caller rolls or weighs those.
 type CastShape struct {
 	ExecuteSec  float64
+	CastSec     float64 // cast time or channel length; 0 for an instant
 	GCDSec      float64
 	CooldownSec float64
 	ManaCost    float64
@@ -144,9 +145,11 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 	if s.GCDSec > s.ExecuteSec {
 		s.ExecuteSec = s.GCDSec
 	}
+	s.CastSec = castSec
 	if sp.Channeled && sp.DurationMs > 0 { // a channel occupies its full duration (not haste-scaled in Classic)
-		if chanSec := float64(sp.DurationMs) / 1000; chanSec > s.ExecuteSec {
-			s.ExecuteSec = chanSec
+		s.CastSec = float64(sp.DurationMs) / 1000
+		if s.CastSec > s.ExecuteSec {
+			s.ExecuteSec = s.CastSec
 		}
 	}
 	s.CooldownSec = CooldownSec(sp, st)

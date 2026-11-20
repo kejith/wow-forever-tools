@@ -11,7 +11,10 @@ import "math"
 
 // Action is one entry of a spec's priority rotation.
 type Action struct {
-	Kind  string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana"
+	// Kind "recover" is a second filler that returns health (Drain Life):
+	// the played fight casts it when the health is too low to convert. The
+	// closed form has one filler and ignores it.
+	Kind  string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana", "recover"
 	Spell *Spell
 	// CycleSec is the least time between two casts when something other
 	// than the spell's own cooldown limits it: Weakened Soul after Power
@@ -152,7 +155,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	used := 0.0
 	fillerIdx := -1
 	for _, a := range actions {
-		if a.Kind == "wand" || a.Kind == "mana" || a.Spell == nil {
+		if a.Kind == "wand" || a.Kind == "mana" || a.Kind == "recover" || a.Spell == nil {
 			continue
 		}
 		res := ResolveCastIn(a.Spell, st, tgt, ctx, nil)

@@ -8,6 +8,7 @@ import { renderWrits } from './pages/writs.js';
 import { renderUpgrades } from './pages/upgrades.js';
 import { renderRecipes } from './pages/recipes.js';
 import { renderConsumables } from './pages/consumables.js';
+import { renderRotations } from './pages/rotations.js';
 import { renderGoldPerHour } from './pages/goldperhour.js';
 import { renderPriceHistory } from './pages/pricehistory.js';
 
@@ -16,6 +17,7 @@ Object.assign(pages, {
   character: { title: mark('Character'), render: renderCharacter },
   writs: { title: mark("Craftsman's writs"), render: renderWrits },
   upgrades: { title: mark('AH upgrades'), render: renderUpgrades },
+  rotations: { title: mark('Rotations: what to cast when'), render: renderRotations },
   recipes: { title: mark('Professions and recipes'), render: renderRecipes },
   consumables: { title: mark('Consumables for your level'), render: renderConsumables },
   pricehistory: { title: mark('Price history'), render: renderPriceHistory },
@@ -105,6 +107,12 @@ applyLanguage(settings);
 if (!settings.capture) restoreView(); // screenshots always show the pages as a new user sees them
 await loadStatus();
 // Screenshots wait for the lists; otherwise the card fills in when the sync is done.
+if (settings.capture && settings.captureChar) {
+  // --char=<name> picks the character of the screenshots (the start of its name is enough).
+  const wanted = settings.captureChar.toLowerCase();
+  const found = (state.status?.characters || []).find((c) => !c.error && (c.name || c.key).toLowerCase().startsWith(wanted));
+  if (found) { state.char = found.key; $('#char-select').value = found.key; }
+}
 if (settings.capture) state.ingame = await api.gameData();
 else api.gameData().then((result) => { state.ingame ||= result; });
 showPage(pages[state.page] ? state.page : 'connection');

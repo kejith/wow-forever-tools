@@ -356,6 +356,22 @@ tr.clickable:hover td, tr.clickable.open td { background: var(--panel-2); }
 tr.detail > td { background: #18140f; }
 .nowrap { white-space: nowrap; }
 
+/* Rotations: one card per situation */
+.rot-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(500px, 1fr)); align-items: start; }
+.rot-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.rot-head h3 { color: var(--gold); display: flex; gap: 8px; align-items: center; }
+.rot-verdict { margin: 8px 0 10px; }
+.rot-steps td { vertical-align: top; }
+.rot-steps td:first-child, .rot-steps th:first-child { width: 18px; padding-right: 0; }
+.rot-skipped { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.rot-name { color: var(--text); }
+.rot-timeline table { width: 100%; }
+.rot-timeline th { text-align: left; padding: 3px 14px 3px 0; }
+.rot-meter { width: 90px; height: 7px; border-radius: 4px; background: #00000066; overflow: hidden; }
+.rot-meter > span { display: block; height: 100%; }
+.rot-meter.mana > span { background: #3f7fd6; }
+.rot-meter.health > span { background: #4caf50; }
+
 /* Consumables */
 .cons-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); align-items: start; }
 .cons-card h3 { color: var(--gold); }

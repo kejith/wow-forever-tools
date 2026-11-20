@@ -11,6 +11,8 @@
                                           [--profile leveling|dungeon] [--sort gain|price]
     uv run scripts/app_bridge.py recipes --char Malgruk [--profession Alchemy]
     uv run scripts/app_bridge.py consumables --char Malgruk [--top 5]
+    uv run scripts/app_bridge.py rotations --char Malgruk [--fight-seconds 60] [--target-delta 2]
+                                           [--kills-per-minute 1]
     uv run scripts/app_bridge.py icons --ids 9492,287004
     uv run scripts/app_bridge.py goldperhour
     uv run scripts/app_bridge.py pricehistory
@@ -37,6 +39,7 @@ import i18n  # noqa: E402
 import ingame  # noqa: E402
 import pricehistory  # noqa: E402
 import recipes  # noqa: E402
+import rotations  # noqa: E402
 import upgrades  # noqa: E402
 import writs  # noqa: E402
 from i18n import tr  # noqa: E402
@@ -125,7 +128,7 @@ def character(wow: str, name: str) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "consumables", "icons",
-                                           "goldperhour", "ingame", "pricehistory"])
+                                           "goldperhour", "ingame", "pricehistory", "rotations"])
     ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=3)
@@ -172,6 +175,9 @@ def main() -> None:
         elif a.command == "consumables":
             # Every buff group; the window hides the ones that do not help the class.
             r = consumables.compute(a.wow, a.char, a.top, all_buffs=True)
+        elif a.command == "rotations":
+            # What to cast in which situation, from the combat engine: one guide per metric of the class.
+            r = rotations.compute(a.wow, a.char, a.fight_seconds, a.target_delta, a.kills_per_minute)
         elif a.command == "writs":
             r = writs.compute(a.wow, a.char, a.top, a.owned_at_ah_price)
         else:

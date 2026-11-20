@@ -82,6 +82,29 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 	return out
 }
 
+// Choices is everything a rotation can be built from, for the rotation
+// guide: every DoT is optional there, because a short fight does not pay
+// for all of them, and Drain Life can stand by for the moments when the
+// health is too low for Life Tap.
+func Choices(cat *catalog.Catalog, known map[int]bool, level int) engine.Choices {
+	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
+	c := engine.Choices{Tail: []engine.Action{{Kind: "wand"}}, Recover: best(DrainLife)}
+	for _, opt := range []struct {
+		kind string
+		base int
+	}{{"dot", CurseOfAgony}, {"dot", Corruption}, {"dot", SiphonLife}, {"dot", Immolate}, {"cooldown", DeathCoil}} {
+		if sp := best(opt.base); sp != nil {
+			c.Optional = append(c.Optional, engine.Action{Kind: opt.kind, Spell: sp})
+		}
+	}
+	for _, base := range []int{Wrack, ShadowBolt, DrainLife} {
+		if sp := best(base); sp != nil {
+			c.Fillers = append(c.Fillers, sp)
+		}
+	}
+	return c
+}
+
 // ArmorRegen is the health per 5 seconds the character's armor spell gives
 // in combat (Demon Armor, else Demon Skin) and the spell it comes from. The
 // model takes the armor as always active.

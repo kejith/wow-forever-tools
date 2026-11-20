@@ -61,9 +61,60 @@ func shield(cat *catalog.Catalog, known map[int]bool, level int) *engine.Action 
 // healChains are the single-target heals a priest can fill with; every known
 // rank of each chain is its own rotation candidate, and the engine keeps the
 // one whose sustained healing under the mana budget is highest. That is how
-// downranking enters the model without a Forever-specific penalty rule (none
-// is measured yet, see CLAUDE.md).
+// downranking enters the model; what an outgrown rank loses of its healing
+// bonus is in the spell's numbers (engine.RankBonusShare).
 var healChains = []int{LesserHeal, Heal, GreaterHeal, FlashHeal}
+
+// Choices is everything a damage rotation can be built from, for the
+// rotation guide: every DoT and Mind Blast with and without, Mind Flay or
+// Smite as the filler.
+func Choices(cat *catalog.Catalog, known map[int]bool, level int) engine.Choices {
+	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
+	c := engine.Choices{}
+	for _, opt := range []struct {
+		kind string
+		base int
+	}{{"dot", ShadowWordPain}, {"dot", HolyFire}, {"dot", DevouringPlague}, {"cooldown", MindBlast}} {
+		if sp := best(opt.base); sp != nil {
+			c.Optional = append(c.Optional, engine.Action{Kind: opt.kind, Spell: sp})
+		}
+	}
+	for _, base := range []int{MindFlay, Smite} {
+		if sp := best(base); sp != nil {
+			c.Fillers = append(c.Fillers, sp)
+		}
+	}
+	if mana := darkSacrifice(cat, known, level); mana != nil {
+		c.Tail = append(c.Tail, *mana)
+	}
+	c.Tail = append(c.Tail, engine.Action{Kind: "wand"})
+	return c
+}
+
+// HealSources is what a healer can meet a demand for healing with: Renew and
+// Power Word: Shield on up to that many targets (their best ranks), every
+// known rank of the single-target heals, and Dark Sacrifice for the mana
+// (nil if unknown). Heals that reach several targets at once (Prayer of
+// Healing, Holy Nova) are not in the model.
+func HealSources(cat *catalog.Catalog, known map[int]bool, level, targets int) ([]engine.HealSource, *engine.Action) {
+	var out []engine.HealSource
+	if renew := cat.BestRank(Renew, known, level); renew != nil {
+		out = append(out, engine.HealSource{Action: engine.Action{Kind: "hot", Spell: renew}, Targets: targets})
+	}
+	if pws := shield(cat, known, level); pws != nil {
+		out = append(out, engine.HealSource{Action: *pws, Targets: targets})
+	}
+	seen := map[int]bool{}
+	for _, base := range healChains {
+		for _, rank := range cat.KnownRanks(base, known, level) {
+			if !seen[rank.ID] {
+				seen[rank.ID] = true
+				out = append(out, engine.HealSource{Action: engine.Action{Kind: "heal", Spell: rank}})
+			}
+		}
+	}
+	return out, darkSacrifice(cat, known, level)
+}
 
 // Rotations returns the rotation candidates for a metric.
 func Rotations(metric string, cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
