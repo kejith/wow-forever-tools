@@ -49,9 +49,10 @@ func Rotations(metric string, cat *catalog.Catalog, known map[int]bool, level in
 		return [][]engine.Action{actions}
 	}
 
-	// Healer: keep Renew up, fill with one single-target heal rank. The
-	// chains can overlap (Lesser Heal supersedes into Heal), so every rank
-	// becomes one candidate at most.
+	// Healer: keep Renew up, fill with one single-target heal rank. In
+	// Forever each of the four heals is its own chain; should a table link
+	// two of them anyway (explicit SupercedesSpell), a rank still becomes
+	// one candidate at most.
 	renew := cat.BestRank(Renew, known, level)
 	var out [][]engine.Action
 	seen := map[int]bool{}

@@ -17,3 +17,5 @@ ID,DifficultyID,CastingTimeIndex,DurationIndex,SchoolMask,Attributes_1,SpellID
 16,0,103,1,2,0,2061
 17,0,1,1,32,0,15473
 18,0,1,1,2,0,14521
+19,0,1,203,2,0,6074
+20,0,1,203,2,0,425268

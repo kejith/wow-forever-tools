@@ -44,11 +44,14 @@ func TestBuildDecodesSpells(t *testing.T) {
 
 func TestRankChains(t *testing.T) {
 	cat := build(t)
-	if cat.NextRank[686] != 695 {
-		t.Errorf("next rank of 686 = %d", cat.NextRank[686])
+	if got := cat.Chains[686]; len(got) != 2 || got[0] != 686 || got[1] != 695 {
+		t.Errorf("Shadow Bolt chain = %v", got)
 	}
 	if cat.BaseOf[695] != 686 || cat.Spells[695].BaseID != 686 {
 		t.Errorf("base of 695 = %d", cat.BaseOf[695])
+	}
+	if cat.RankNumber(686) != 1 || cat.RankNumber(695) != 2 {
+		t.Errorf("ranks = %d, %d", cat.RankNumber(686), cat.RankNumber(695))
 	}
 	known := map[int]bool{686: true, 695: true}
 	if sp := cat.BestRank(686, known, 12); sp == nil || sp.ID != 686 {
@@ -59,6 +62,80 @@ func TestRankChains(t *testing.T) {
 	}
 	if sp := cat.BestRank(686, map[int]bool{686: true}, 60); sp == nil || sp.ID != 686 {
 		t.Errorf("best KNOWN rank = %v", sp)
+	}
+}
+
+// Forever leaves SupercedesSpell at 0 for the ranks of most class spells
+// (the fixture mirrors that for the priest heals): the chain then comes
+// from the shared name and spell family mask, in the order the ranks are
+// learned. Without it the engine rated every character with rank 1 only.
+func TestRankChainsWithoutSupersedeLinks(t *testing.T) {
+	cat, err := Build("../testdata", "9.9.9.9", "xxXX", "PRIEST")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cat.Chains[2050]; len(got) != 2 || got[0] != 2050 || got[1] != 2052 {
+		t.Errorf("Lesser Heal chain = %v", got)
+	}
+	if cat.RankNumber(2052) != 2 || cat.BaseOf[2052] != 2050 {
+		t.Errorf("Lesser Heal rank 2: rank %d, base %d", cat.RankNumber(2052), cat.BaseOf[2052])
+	}
+	// Heal shares the fixture's family mask with Lesser Heal but not the
+	// name: its own chain, rank 1.
+	if cat.BaseOf[2054] != 2054 || cat.RankNumber(2054) != 1 {
+		t.Errorf("Heal: base %d, rank %d", cat.BaseOf[2054], cat.RankNumber(2054))
+	}
+	book := map[int]bool{2050: true, 2052: true}
+	if ranks := cat.KnownRanks(2050, book, 60); len(ranks) != 2 || ranks[1].ID != 2052 {
+		t.Errorf("known ranks = %v", ranks)
+	}
+	if sp := cat.BestRank(2052, book, 60); sp == nil || sp.ID != 2052 {
+		t.Errorf("best rank asked through rank 2 = %v", sp)
+	}
+}
+
+// A translation may name the ranks of one spell differently (deDE: Smite
+// rank 1 "Heilige Pein", rank 2 "Goettliche Pein"); the English names in
+// the cache keep the chain together, the labels stay in the client's language.
+func TestRankChainsUseTheEnglishNames(t *testing.T) {
+	cat, err := Build("../testdata", "9.9.9.9", "zzZZ", "PRIEST")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cat.Spells[2050].Name != "Kleines Heilen" || cat.Spells[2052].Name != "Geringes Heilen" {
+		t.Fatalf("labels = %q, %q", cat.Spells[2050].Name, cat.Spells[2052].Name)
+	}
+	if got := cat.Chains[2050]; len(got) != 2 || got[1] != 2052 || cat.RankNumber(2052) != 2 {
+		t.Errorf("chain = %v, rank %d", got, cat.RankNumber(2052))
+	}
+}
+
+// A granted alternative version of a rank (AcquireMethod 3, same name, mask
+// and level as Renew rank 1) shares that rank's number, never becomes the
+// chain's first rank, and is not part of the assumed spellbook.
+func TestGrantedVariantOfARank(t *testing.T) {
+	cat, err := Build("../testdata", "9.9.9.9", "xxXX", "PRIEST")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cat.Chains[139]; len(got) != 3 || got[0] != 139 || got[1] != 425268 || got[2] != 6074 {
+		t.Errorf("Renew chain = %v", got)
+	}
+	if cat.RankNumber(139) != 1 || cat.RankNumber(425268) != 1 || cat.RankNumber(6074) != 2 {
+		t.Errorf("ranks = %d, %d, %d", cat.RankNumber(139), cat.RankNumber(425268), cat.RankNumber(6074))
+	}
+	if cat.BaseOf[425268] != 139 || cat.BaseOf[6074] != 139 {
+		t.Errorf("bases = %d, %d", cat.BaseOf[425268], cat.BaseOf[6074])
+	}
+	known := cat.AssumedSpellbook(30, nil)
+	if known[425268] {
+		t.Error("the granted version is in the assumed spellbook")
+	}
+	if sp := cat.BestRank(139, known, 30); sp == nil || sp.ID != 6074 {
+		t.Errorf("best Renew at 30 = %v", sp)
+	}
+	if sp := cat.BestRank(139, cat.AssumedSpellbook(20, nil), 20); sp == nil || sp.ID != 139 {
+		t.Errorf("best Renew at 20 = %v", sp)
 	}
 }
 

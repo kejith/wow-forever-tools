@@ -183,6 +183,8 @@ def write_fixture(tmp: str) -> dict:
                 '{ slot = 16, name = "Old Staff", equipLoc = "INVTYPE_2HWEAPON", stats = { ITEM_MOD_SPELL_POWER_SHORT = 30 } },'
                 '{ slot = 11, name = "Ring A", equipLoc = "INVTYPE_FINGER", stats = { ITEM_MOD_SPELL_POWER_SHORT = 2 } },'
                 '{ slot = 12, name = "Ring B", equipLoc = "INVTYPE_FINGER", stats = { ITEM_MOD_SPELL_POWER_SHORT = 8 } },'
+                '{ slot = 18, name = "Old Wand", equipLoc = "INVTYPE_RANGEDRIGHT", '
+                'stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 20 } },'
                 '} }\n')
     with open(os.path.join(wtf, "SavedVariables", "WoWMCP.lua"), "w", encoding="utf-8") as f:
         f.write("WoWMCP_Items = { updated = 1, items = {\n"
@@ -227,6 +229,7 @@ data = json.load(sys.stdin)
 assert data["character"]["classFile"] == "WARLOCK" and data["build"] == "9.9.9.9" and data["cacheDir"]
 assert data["fight"] == {"seconds": 45.0, "targetDelta": 3}
 assert data["character"]["spellbook"] == [172, 686], "the addon's spellbook export reaches the engine"
+assert data["character"]["stats"]["wand"]["dps"] == 20, "the equipped wand's damage per second reaches the engine"
 res = {e["key"]: {"gain": 2.0 * e["delta"].get("sp", 0), "value": 100 + 2.0 * e["delta"].get("sp", 0),
                  "gainPct": 0} for e in data["evaluations"]}
 json.dump({"engine": "stub", "spellbookSource": "assumed",

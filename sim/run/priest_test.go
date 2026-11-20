@@ -109,8 +109,8 @@ func TestPriestDownrankRecommendation(t *testing.T) {
 		t.Errorf("chosen = %+v", d)
 	}
 	// The comparison stays within the chain: the next higher known rank of
-	// the same heal (Heal, rank 3 of the Lesser Heal chain), not Flash Heal.
-	if d.InsteadID != 2054 || d.InsteadName != "Heal" || d.InsteadRank != 3 {
+	// the same heal (Lesser Heal rank 2), not Heal or Flash Heal.
+	if d.InsteadID != 2052 || d.InsteadName != "Lesser Heal" || d.InsteadRank != 2 {
 		t.Errorf("instead = %+v", d)
 	}
 	if d.GainPct <= 0 {

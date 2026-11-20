@@ -213,10 +213,16 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		})
 	}
 	if wandFraction > 0.0005 {
+		// The wand is damage: in a healing breakdown the row only says how
+		// much of the fight is left without mana.
+		wandValue := wandDPS * wandFraction
+		if metric != "dps" {
+			wandValue = 0
+		}
 		m.Breakdown = append(m.Breakdown, Row{
 			Label:    "Wand",
 			Kind:     "wand",
-			Value:    wandDPS * wandFraction,
+			Value:    wandValue,
 			SharePct: wandFraction * 100,
 		})
 	}

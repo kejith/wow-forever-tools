@@ -6,6 +6,7 @@ package catalog
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/kejith/wow-forever-tools/sim/db2"
 	"github.com/kejith/wow-forever-tools/sim/engine"
@@ -43,15 +44,27 @@ type Aura struct {
 
 // Catalog is the decoded game data for one class.
 type Catalog struct {
-	ClassID  int
-	Spells   map[int]*engine.Spell
-	Auras    map[int][]Aura
-	NextRank map[int]int // spell id -> the rank that supersedes it
-	BaseOf   map[int]int // spell id -> first rank of its chain
-	// skillSpells are the class's trainable spells from SkillLineAbility,
-	// with the level each becomes available (for the assumed spellbook).
+	ClassID int
+	Spells  map[int]*engine.Spell
+	Auras   map[int][]Aura
+	BaseOf  map[int]int   // spell id -> first rank of its chain
+	Chains  map[int][]int // first rank -> every spell of the chain, lowest rank first
+	// skillSpells are the class's spells from SkillLineAbility, with the
+	// level each becomes available (for the assumed spellbook).
 	skillSpells map[int]int
+	// granted marks the skill spells nobody trains (AcquireMethod 3:
+	// talent casts and alternative versions of a rank).
+	granted map[int]bool
+	rankOf  map[int]int // spell id -> rank number (1 = first rank)
 }
+
+// ReferenceLocale is the locale whose spell names group the rank chains
+// (scripts/simengine.py downloads that SpellName table next to the client's).
+const ReferenceLocale = "enUS"
+
+// acquireGranted is SkillLineAbility.AcquireMethod for spells that come from
+// a talent or another effect instead of the trainer.
+const acquireGranted = 3
 
 // Effect numbers and aura numbers the catalog decodes (client enums).
 const (
@@ -113,7 +126,17 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		return nil, err
 	}
 	names, nameErr := load("SpellName")
-	_ = nameErr // names are cosmetic; a missing locale file leaves them empty
+	_ = nameErr // a missing locale file leaves the labels empty
+	// The rank chains are grouped by the English name where the cache has
+	// it: a translation may name the ranks of one spell differently (the
+	// German client calls Smite rank 1 "Heilige Pein" and the higher ranks
+	// "Goettliche Pein").
+	refNames := names
+	if locale != ReferenceLocale {
+		if t, err := db2.Load(cacheDir, "SpellName", build, ReferenceLocale); err == nil {
+			refNames = t
+		}
+	}
 
 	// Index the lookup tables.
 	castBase := map[int]int{}
@@ -166,15 +189,25 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 			nameOf[r.Int("ID")] = r.Str("Name_lang")
 		}
 	}
+	chainName := nameOf
+	if refNames != nil && refNames != names {
+		chainName = map[int]string{}
+		for i := 0; i < refNames.Len(); i++ {
+			r := refNames.Row(i)
+			chainName[r.Int("ID")] = r.Str("Name_lang")
+		}
+	}
 
 	// The class's spells by SpellClassOptions.
 	cat := &Catalog{
 		ClassID:     classID,
 		Spells:      map[int]*engine.Spell{},
 		Auras:       map[int][]Aura{},
-		NextRank:    map[int]int{},
 		BaseOf:      map[int]int{},
+		Chains:      map[int][]int{},
 		skillSpells: map[int]int{},
+		granted:     map[int]bool{},
+		rankOf:      map[int]int{},
 	}
 	for i := 0; i < classOpt.Len(); i++ {
 		r := classOpt.Row(i)
@@ -260,7 +293,8 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		}
 	}
 
-	// Rank chains and trainable spells from SkillLineAbility.
+	// Skill spells and the explicit rank links from SkillLineAbility.
+	supersedes := map[int]int{} // spell id -> the rank below it
 	for i := 0; i < sla.Len(); i++ {
 		r := sla.Row(i)
 		id := r.Int("Spell")
@@ -268,8 +302,8 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		if sp == nil {
 			continue
 		}
-		if prev := r.Int("SupercedesSpell"); prev != 0 {
-			cat.NextRank[prev] = id
+		if prev := r.Int("SupercedesSpell"); prev != 0 && cat.Spells[prev] != nil {
+			supersedes[id] = prev
 		}
 		lvl := 0
 		if lv, ok := levelsOf[id]; ok {
@@ -278,25 +312,128 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		if old, seen := cat.skillSpells[id]; !seen || lvl < old {
 			cat.skillSpells[id] = lvl
 		}
+		// Granted only if no row of the spell says it is trained.
+		if r.Int("AcquireMethod") != acquireGranted {
+			cat.granted[id] = false
+		} else if _, seen := cat.granted[id]; !seen {
+			cat.granted[id] = true
+		}
 	}
-	// Resolve each chain to its first rank.
-	prevOf := map[int]int{}
-	for prev, next := range cat.NextRank {
-		prevOf[next] = prev
+	cat.buildChains(supersedes, chainName)
+	return cat, nil
+}
+
+// buildChains groups the class's spells into rank chains.
+//
+// Forever leaves SkillLineAbility.SupercedesSpell at 0 for most class spells
+// (every rank of Heal, Renew, Shadow Bolt ...), so the link alone finds only
+// the first rank. The ranks of one spell share their name and their spell
+// family mask, and that is what groups them here; the explicit links still
+// count where the table has them (they also join renamed ranks). Within a
+// chain the level a rank is learned at gives the order. names are the
+// reference names by spell id (English where the cache has them).
+func (c *Catalog) buildChains(supersedes map[int]int, names map[int]string) {
+	parent := map[int]int{}
+	var find func(int) int
+	find = func(x int) int {
+		p, ok := parent[x]
+		if !ok || p == x {
+			return x
+		}
+		root := find(p)
+		parent[x] = root
+		return root
 	}
-	for id := range cat.Spells {
-		base := id
-		for depth := 0; depth < 32; depth++ {
-			prev, ok := prevOf[base]
-			if !ok {
+	union := func(a, b int) {
+		if ra, rb := find(a), find(b); ra != rb {
+			parent[ra] = rb
+		}
+	}
+	for id, prev := range supersedes {
+		union(id, prev)
+	}
+	type family struct {
+		name string
+		mask [4]uint32
+	}
+	first := map[family]int{}
+	for id := range c.skillSpells {
+		name := names[id]
+		if name == "" {
+			continue // without the name table only the explicit links are left
+		}
+		key := family{name, c.Spells[id].ClassMask}
+		if other, ok := first[key]; ok {
+			union(id, other)
+		} else {
+			first[key] = id
+		}
+	}
+
+	members := map[int][]int{}
+	for id := range c.Spells {
+		root := find(id)
+		members[root] = append(members[root], id)
+	}
+	learnedAt := func(id int) int {
+		lv := c.Spells[id].Levels
+		if lv.Spell > 0 {
+			return lv.Spell
+		}
+		return lv.Base
+	}
+	for _, ids := range members {
+		sort.Slice(ids, func(i, j int) bool {
+			a, b := ids[i], ids[j]
+			if la, lb := learnedAt(a), learnedAt(b); la != lb {
+				return la < lb
+			}
+			if c.granted[a] != c.granted[b] {
+				return !c.granted[a] // the trained version of a rank comes first
+			}
+			return a < b
+		})
+		// The rank number counts the trained ranks; an alternative version
+		// of a rank (same level) shares its number. A chain nobody trains
+		// (a talent cast with ranks) counts its own levels.
+		trained := false
+		for _, id := range ids {
+			if !c.granted[id] {
+				trained = true
 				break
 			}
-			base = prev
 		}
-		cat.BaseOf[id] = base
-		cat.Spells[id].BaseID = base
+		base, rank, lastLevel := 0, 0, -1
+		for _, id := range ids {
+			if trained && c.granted[id] {
+				continue
+			}
+			if base == 0 {
+				base = id
+			}
+			if lvl := learnedAt(id); lvl != lastLevel {
+				rank, lastLevel = rank+1, lvl
+			}
+			c.rankOf[id] = rank
+		}
+		for _, id := range ids {
+			if _, ok := c.rankOf[id]; ok {
+				continue
+			}
+			n := 1 // the trained rank at or below this version's level
+			for _, other := range ids {
+				if !c.granted[other] && learnedAt(other) <= learnedAt(id) {
+					n = c.rankOf[other]
+				}
+			}
+			c.rankOf[id] = n
+		}
+		c.Chains[base] = ids
+		for _, id := range ids {
+			c.BaseOf[id] = base
+			c.Spells[id].BaseID = base
+		}
 	}
-	return cat, nil
 }
 
 // schoolOf picks the school of a mask (the lowest set bit).
@@ -312,11 +449,12 @@ func schoolOf(mask int) engine.School {
 // AssumedSpellbook returns the "all trainer ranks known" fallback: every
 // trainable class spell whose level requirement the character meets, plus
 // the talent spells the character has points in (talent-granted casts like
-// Siphon Life are their own talent spell).
+// Siphon Life are their own talent spell). Spells the table marks as granted
+// are left out: they are talent casts or alternative versions of a rank.
 func (c *Catalog) AssumedSpellbook(level int, talents map[int]int) map[int]bool {
 	known := map[int]bool{}
 	for id, reqLevel := range c.skillSpells {
-		if reqLevel <= level {
+		if reqLevel <= level && !c.granted[id] {
 			known[id] = true
 		}
 	}
@@ -338,34 +476,21 @@ func (c *Catalog) BestRank(baseID int, known map[int]bool, level int) *engine.Sp
 	return ranks[len(ranks)-1]
 }
 
-// RankNumber returns a spell's position in its rank chain (1 = first rank),
-// counting unknown ranks too, so it matches the game's "Rank N" line.
+// RankNumber returns a spell's rank within its chain (1 = first rank), the
+// number the game shows as "Rank N". 0 for a spell the catalog does not have.
 func (c *Catalog) RankNumber(spellID int) int {
-	id, rank := c.BaseOf[spellID], 1
-	if id == 0 {
-		return 0
-	}
-	for depth := 0; depth < 32 && id != 0; depth++ {
-		if id == spellID {
-			return rank
-		}
-		id = c.NextRank[id]
-		rank++
-	}
-	return 0
+	return c.rankOf[spellID]
 }
 
 // KnownRanks returns every known rank of a spell chain the character's
-// level allows, lowest first (healers pick the most efficient one).
+// level allows, lowest first (healers pick the most efficient one). baseID
+// may be any spell of the chain.
 func (c *Catalog) KnownRanks(baseID int, known map[int]bool, level int) []*engine.Spell {
 	var out []*engine.Spell
-	id := baseID
-	for depth := 0; depth < 32 && id != 0; depth++ {
-		sp := c.Spells[id]
-		if sp != nil && known[id] && sp.Levels.Base <= level {
+	for _, id := range c.Chains[c.BaseOf[baseID]] {
+		if sp := c.Spells[id]; known[id] && sp.Levels.Base <= level {
 			out = append(out, sp)
 		}
-		id = c.NextRank[id]
 	}
 	return out
 }

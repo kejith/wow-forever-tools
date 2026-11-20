@@ -31,6 +31,7 @@ TREES = {"WARLOCK": ["affliction", "demonology", "destruction"],
 # Tables the engine reads from the shared cache (sim/catalog/catalog.go).
 TABLES = ["SpellClassOptions", "SpellMisc", "SpellEffect", "SpellCastTimes", "SpellDuration",
           "SpellPower", "SpellLevels", "SpellCooldowns", "SkillLineAbility", "SpellName"]
+REFERENCE_LOCALE = "enUS"  # sim/catalog.ReferenceLocale
 WANDS_SKILL_ID = 228
 # ITEM_MOD stats (stat_key form) -> the engine's delta keys. Armor and
 # resistances are dropped: the modeled metrics cannot see them yet.
@@ -173,6 +174,10 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
     locale = client.get("locale") or "deDE"
     for t in TABLES:
         icons.table(t, build, locale)
+    # The rank chains are grouped by the English spell names: a translation may name the ranks of one spell
+    # differently (deDE: Smite rank 1 "Heilige Pein", rank 2 "Goettliche Pein"). See sim/catalog.
+    if locale != REFERENCE_LOCALE:
+        icons.table("SpellName", build, REFERENCE_LOCALE)
 
     intellect = st.get("intellect") or 0
     crit_per_int = 0.0
@@ -183,7 +188,7 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
         if isinstance(s, dict) and s.get("skillID") == WANDS_SKILL_ID:
             wand_skill = (s.get("rank") or 0) + (s.get("modifier") or 0)
     wand = next((e for e in (c.get("equipment") or []) if e.get("slot") == 18), None) or {}
-    wand_dps = ((wand.get("stats") or {}).get("DAMAGE_PER_SECOND")) or 0
+    wand_dps = norm_item(wand, ranged=True).get("wandDps", 0)
     talents = {str(t.get("spellID")): t.get("rank") or 0
                for tree in ((c.get("talents") or {}).get("class") or [])
                for t in (tree.get("talents") or []) if isinstance(t, dict) and t.get("spellID")}
