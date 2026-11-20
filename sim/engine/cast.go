@@ -1,6 +1,9 @@
 package engine
 
-import "math/rand"
+import (
+	"math"
+	"math/rand"
+)
 
 // CastResult is what one cast of a spell is worth. With rng == nil every
 // field is an expectation; with an rng it is one sampled outcome.
@@ -45,12 +48,14 @@ type CastShape struct {
 	CritPct     float64 // chance in percent
 	CritBonus   float64 // extra damage factor on a crit (0.5 for spells)
 	IsHeal      bool
-	// Direct portion (0 when absent): the modded average and its variance.
+	// Direct portion (0 when absent): the modded average and the width of
+	// its range as a share of that average.
 	DirectAvg      float64
 	DirectVariance float64
 	// Periodic portion (Ticks 0 when absent): modded value per tick; DotCrit
 	// says whether ticks crit (weighed in per tick, not rolled).
 	TickValue   float64
+	TickBase    float64 // the tick before the crit expectation: what a tooltip shows
 	Ticks       float64
 	PeriodSec   float64
 	DurationSec float64
@@ -76,6 +81,31 @@ func ContextOf(actions []Action) *Context {
 	}
 	return ctx
 }
+
+// RankBonusShare is the share of the healing bonus an outgrown heal rank
+// still gets: 5 % less per caster level beyond twelve levels above the last
+// level its base points grow at (SpellLevels.MaxLevel), down to none.
+//
+// Measured on a level-27 priest's tooltips with 124 healing: Lesser Heal
+// rank 1 (max level 3) 0.39, rank 2 (max level 9) 0.71, Renew rank 1 (max
+// level 13) 0.90, every rank with a max level of 15 or more in full. Most
+// ranks stop growing five levels after they are learned, which gives the
+// rule as players state it: 1 - (level - 17 - learned at) * 0.05. Damage
+// spells keep their full bonus whatever the rank (Corruption rank 1 at
+// level 51, Smite rank 1 at 27), and so does the shield. A spell without a
+// max level (talent spells) has no ranks to outgrow.
+func RankBonusShare(level int, lv Levels) float64 {
+	if lv.Max <= 0 {
+		return 1
+	}
+	share := 1 - float64(level-lv.Max-rankGraceLevels)*rankLossPerLevel
+	return math.Max(0, math.Min(1, share))
+}
+
+const (
+	rankGraceLevels  = 12
+	rankLossPerLevel = 0.05
+)
 
 // Shape computes a spell's cast shape for this state and target, outside
 // any rotation.
@@ -135,7 +165,7 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 	power := st.SP[sp.School]
 	schoolPct := 1 + st.Mods.SchoolDamagePct[sp.School]/100
 	if sp.IsHeal {
-		power = st.Healing
+		power = st.Healing * RankBonusShare(st.Level, sp.Levels)
 		schoolPct = 1 + st.Mods.HealingPct/100
 	} else if ctx != nil {
 		schoolPct *= st.Mods.dotStackPct(sp, ctx.Dots)
@@ -154,7 +184,12 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 	if sp.Direct != nil {
 		base := st.Mods.points(sp.Direct.avgBase(st.Level, sp.Levels), sp.Direct, sp)
 		s.DirectAvg = (base + st.Mods.flat(OpDamage, sp) + sp.Direct.Coeff*power) * directPct
-		s.DirectVariance = sp.Direct.Variance
+		// The range comes from the base points alone: the bonus from spell
+		// power is the same on every cast (the tooltips show it: Shadow Bolt
+		// rank 7 spans 18 points at 148 base and 0.114 variance).
+		if s.DirectAvg > 0 {
+			s.DirectVariance = sp.Direct.Variance * base * directPct / s.DirectAvg
+		}
 		s.DirectLeech = sp.Direct.Leech
 	}
 	if sp.Absorb != nil && sp.Direct == nil {
@@ -175,6 +210,7 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 		}
 		base := st.Mods.points(sp.Periodic.avgBase(st.Level, sp.Levels), sp.Periodic, sp)
 		s.TickValue = (base + sp.Periodic.Coeff*power) * tickPct
+		s.TickBase = s.TickValue
 		s.TickLeech = sp.Periodic.Leech
 		// DoTs crit only when a talent says so; the crit is weighed into the
 		// tick value (per-tick rolls would barely move the variance).

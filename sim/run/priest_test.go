@@ -1,6 +1,7 @@
 package run
 
 import (
+	"math"
 	"testing"
 
 	"github.com/kejith/wow-forever-tools/sim/engine"
@@ -244,5 +245,53 @@ func TestPriestShadow(t *testing.T) {
 	}
 	if out.Baseline.Value <= 0 {
 		t.Error("no dps")
+	}
+}
+
+// The answer lists every known rank with the numbers a tooltip shows, so
+// the caller can lay the model next to the game. Lesser Heal rank 2 stops
+// growing at level 15: at level 30 it keeps 1 - (30-15-12)*5 % = 85 % of
+// its bonus, 80 + 0.5*100*0.85 = 122.5. Renew has no max level and stays
+// at 5 * (20 + 0.2*100) = 200.
+func TestSpellNumbers(t *testing.T) {
+	in := priestInput()
+	in.Character.Level = 30
+	in.Character.Spellbook = []int{139, 2050, 2052, 585}
+	out := Run(in)
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	byID := map[int]SpellNumbers{}
+	for i, n := range out.Spells {
+		if i > 0 && out.Spells[i-1].BaseID > n.BaseID {
+			t.Error("spells are not ordered by their base spell")
+		}
+		byID[n.SpellID] = n
+	}
+	if len(byID) != 4 {
+		t.Fatalf("spells = %+v", out.Spells)
+	}
+	lesser := byID[2052]
+	almost(t, "lesser heal rank 2", lesser.DirectMin, 122.5, 1e-9)
+	almost(t, "no range without a variance", lesser.DirectMax, 122.5, 1e-9)
+	if math.Abs(lesser.BonusLossPct-15) > 1e-9 || lesser.Rank != 2 || !lesser.Heal || lesser.Level != 10 {
+		t.Errorf("lesser heal rank 2 = %+v", lesser)
+	}
+	renew := byID[139]
+	almost(t, "renew", renew.Periodic, 200, 1e-9)
+	if renew.BonusLossPct != 0 || renew.Ticks != 5 {
+		t.Errorf("renew = %+v", renew)
+	}
+	if smite := byID[585]; smite.BonusLossPct != 0 || smite.Heal || smite.DirectMin <= 0 {
+		t.Errorf("smite = %+v", smite)
+	}
+	// The heal-rank list says which ranks are outgrown.
+	for _, o := range out.HealOptions {
+		if want := map[int]float64{2052: 15}[o.SpellID]; o.BonusLossPct != want {
+			t.Errorf("heal option %d: loss %g, want %g", o.SpellID, o.BonusLossPct, want)
+		}
+	}
+	if len(out.HealOptions) != 2 {
+		t.Errorf("heal options = %+v", out.HealOptions)
 	}
 }

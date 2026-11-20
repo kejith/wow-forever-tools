@@ -134,7 +134,7 @@ export async function renderUpgrades() {
     [t('HPS in the fight'), 'num', esc(t('What the whole rotation sustains over the fight when this rank fills it — the number the rank choice uses. Mana, Renew and the fight length are all in here.'))],
     [t('Healing/mana'), 'num', esc(t('Healing one point of mana buys. Downranking trades cast speed for this efficiency.'))],
     [t('Healing/cast'), 'num'], [t('Mana'), 'num'], [t('Cast (s)'), 'num'])}</tr></thead><tbody>
-      ${eng.healOptions.map((o) => `<tr><td>${esc(o.spell)}${o.chosen ? ` <span class="badge new">${esc(t('the model heals with this'))}</span>` : ''}</td>
+      ${eng.healOptions.map((o) => `<tr><td>${esc(o.spell)}${o.chosen ? ` <span class="badge new">${esc(t('the model heals with this'))}</span>` : ''}${o.bonusLossPct ? ` <span class="badge warn"${hintAttr(t('You have outgrown this rank: the game gives it only part of your healing bonus. The numbers in this row already have that loss.'))}>${esc(t('{pct}% less bonus', { pct: num(o.bonusLossPct) }))}</span>` : ''}</td>
         <td class="num"><b>${num(o.hpsSustained, 1)}</b></td><td class="num">${num(o.healPerMana, 2)}</td>
         <td class="num">${num(o.healPerCast)}</td><td class="num">${num(o.manaPerCast)}</td><td class="num">${num(o.castSec, 1)}</td></tr>`).join('')}</tbody></table></details>` : '';
   // What the model did with every known spell and talent, so that nothing is left out silently.
@@ -148,11 +148,17 @@ export async function renderUpgrades() {
       ${quiet.length ? `<tr><td><span class="badge">${esc(quiet[0].statusLabel)}</span></td>
         <td colspan="2" class="small muted">${esc(quiet.map((e) => e.label).join(', '))}</td></tr>` : ''}</tbody></table>`;
   };
+  // The model's numbers per spell rank next to the game's own spell texts.
+  const check = eng?.tooltipCheck;
+  const tipCheck = check ? `<h3>${esc(t('Checked against the game'))} ${help(esc(t('The spell texts in your spellbook hold the numbers of your character: spell power, talents and the loss of an outgrown rank are in them. For every rank of the spells above, the model computes the same numbers; here is how many agree. A rank that differs means the model misses something for it.')))}</h3>
+      <p class="small ${check.off.length ? '' : 'muted'}">${esc(check.text)}</p>
+      ${check.off.length ? `<table><tbody>${check.off.map((o) => `<tr><td><span class="badge warn">${esc(t('differs'))}</span></td>
+        <td>${esc(o.label)}</td><td class="small muted">${esc(o.model)}</td><td class="small">${esc(o.text)}</td></tr>`).join('')}</tbody></table>` : ''}` : '';
   const covCount = (status) => (cov ? [...cov.spells, ...cov.talents].filter((e) => e.status === status).length : 0);
   const coverage = cov ? `<details class="scale coverage"><summary>${esc(t('What the model does with your spells and talents: {used} used, {open} not modeled, {n} rotations compared',
     { used: covCount('used'), open: covCount('unmodeled'), n: cov.candidates }))}</summary>
       ${cov.exactTalents ? '' : `<div class="notice" style="margin-top:8px">${esc(t('The talent tables of the game could not be loaded: talent values are estimates.'))}</div>`}
-      <h3>${esc(t('Spells'))}</h3>${covRows(cov.spells)}<h3>${esc(t('Talents'))}</h3>${covRows(cov.talents)}</details>` : '';
+      <h3>${esc(t('Spells'))}</h3>${covRows(cov.spells)}<h3>${esc(t('Talents'))}</h3>${covRows(cov.talents)}${tipCheck}</details>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(t('Budget'))}</h2><div class="big">${money(d.budget)}</div></div>
       <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng

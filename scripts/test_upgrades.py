@@ -179,7 +179,8 @@ def write_fixture(tmp: str) -> dict:
         f.write('WoWMCP_Char = { character = { name = "Tester", class = "Warlock", classFile = "WARLOCK", '
                 'level = 46, money = 1000000, '
                 'stats = { spellHit = 5, spellDamage = { shadow = 100 } } }, '
-                'spellbook = { updated = 1, count = 2, spells = { [686] = { name = "Shadow Bolt", rank = "Rank 3" }, '
+                'spellbook = { updated = 1, count = 2, spells = { [686] = { name = "Shadow Bolt", rank = "Rank 3", '
+                'text = "Sends a shadowy bolt at the enemy, causing 133 to 139 Shadow damage." }, '
                 '[172] = { name = "Corruption" } } }, '
                 'talents = { class = { { spent = 5, talents = { '
                 '{ spellID = 18174, name = "Suppression", rank = 5, maxRank = 5 } } } } }, '
@@ -271,8 +272,49 @@ json.dump({"engine": "stub", "spellbookSource": "assumed",
                                      "reason": "kills", "value": 10.0},
                                     {"spellId": 1, "name": "Mystery", "rank": 1, "status": "unmodeled",
                                      "reason": "brand new code"}]},
+           "spells": [{"spellId": 686, "baseId": 686, "rank": 3, "level": 12, "directMin": 133.8, "directMax": 138.2,
+                       "mana": 25, "castSec": 1.7},
+                      {"spellId": 172, "baseId": 172, "level": 4, "periodic": 999.0, "ticks": 4, "mana": 35,
+                       "castSec": 1.5}],  # not in the coverage as cast or tried, and without a text: not checked
            "results": res}, sys.stdout)
 '''
+
+
+def test_tooltip_check():
+    """The model's numbers per spell rank against the numbers in the game's text for that rank: both ends of
+    a hit, all ticks together or one tick, a shield. Only the spells the model casts or tried count."""
+    import simengine
+    spells = [
+        {"spellId": 2054, "baseId": 2054, "directMin": 366.0, "directMax": 406.5},  # 366 to 407: agrees
+        {"spellId": 2055, "baseId": 2054, "directMin": 469.5, "directMax": 522.0},  # 470 to 521: rounding
+        {"spellId": 139, "baseId": 139, "periodic": 156.6, "ticks": 5},  # all ticks together
+        {"spellId": 689, "baseId": 689, "periodic": 215.2, "ticks": 5},  # the text names one tick
+        {"spellId": 17, "baseId": 17, "absorb": 70.0},  # the game says 81
+        {"spellId": 2050, "baseId": 2050, "directMin": 94.5, "directMax": 115.1},  # the range is off
+        {"spellId": 755, "baseId": 755, "periodic": 54.5, "ticks": 10},  # a spell the model has no use for
+        {"spellId": 8092, "baseId": 8092, "directMin": 63.6, "directMax": 70.1},  # not in the book
+        {"spellId": 21562, "baseId": 21562},  # a buff: no amount to compare
+    ]
+    book = {
+        2054: {"name": "Heal", "rank": "Rank 1", "text": "Heal your target for 366 to 407."},
+        "2055": {"name": "Heal", "rank": "Rank 2", "text": "Heal your target for 470 to 521."},  # keys as text
+        139: {"name": "Renew", "rank": "Rank 1", "text": "Heals the target of 156 damage over 15 sec."},
+        689: {"name": "Drain Life", "text": "Transfers 43 health every 1 sec. Lasts 5 sec."},
+        17: {"name": "Power Word: Shield", "rank": "Rank 1", "text": "Absorbs 81 damage. Lasts 30 sec."},
+        2050: {"name": "Lesser Heal", "rank": "Rank 1", "text": "Heal your target for 67 to 78."},
+        755: {"name": "Health Funnel", "text": "Gives 12 health per second to the pet for 10 sec."},
+        21562: {"name": "Fortitude", "text": "Increases Stamina by 43."},
+    }
+    cov = {"spells": [{"spellId": i, "status": st} for i, st in (
+        (2055, "used"), (139, "used"), (689, "idle"), (17, "idle"), (2050, "idle"), (755, "none"), (8092, "used"))]}
+    r = simengine.tooltip_check(spells, book, cov)
+    assert (r["checked"], r["matched"]) == (6, 4), r
+    assert [(o["spellId"], o["name"], o["rank"], o["model"]) for o in r["off"]] == [
+        (17, "Power Word: Shield", "Rank 1", [70]), (2050, "Lesser Heal", "Rank 1", [94, 115])], r["off"]
+    assert r["off"][0]["text"].startswith("Absorbs 81")
+    # Without a coverage report every spell with an amount and a text is checked.
+    assert simengine.tooltip_check(spells, book)["checked"] == 7
+    assert simengine.tooltip_check(spells, {}) is None and simengine.tooltip_check([], book) is None
 
 
 def test_compute_with_engine(tmp: str):
@@ -331,6 +373,10 @@ def test_compute_with_engine(tmp: str):
     assert cov["talents"][1]["text"] == "active after your killing blows: 10% of the fight with the kills it assumes"
     assert "unverified" not in cov["talents"][2] and cov["talents"][2]["statusLabel"] == "in your stats"
     assert cov["talents"][3]["text"] == "an effect the model does not know"  # a reason code this version does not know
+    # The model's numbers next to the game's spell text of the same rank.
+    assert r["engine"]["tooltipCheck"] == dict(
+        checked=1, matched=1, off=[],
+        text="Checked against the spell texts of the game: 1 of 1 spell ranks agree.")
     assert r["package"]["gain"] == round(sum(p["gain"] for p in r["package"]["items"]), 1)
     assert r["package"]["gainPct"] == round(r["package"]["gain"] / 100 * 100)
     # Gains that do not add up: once the first purchases reach the cap, the others add nothing on top and

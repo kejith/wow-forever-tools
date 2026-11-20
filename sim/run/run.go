@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.4.0"
+const Version = "0.5.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -95,7 +95,10 @@ type HealOption struct {
 	HealPerMana   float64 `json:"healPerMana"`
 	HPSThroughput float64 `json:"hpsThroughput"` // heal per cast / cast time, mana ignored
 	HPSSustained  float64 `json:"hpsSustained"`  // the rotation's HPS under the mana budget
-	Chosen        bool    `json:"chosen,omitempty"`
+	// BonusLossPct: the rank is outgrown and heals with this much less of
+	// the healing bonus (percent).
+	BonusLossPct float64 `json:"bonusLossPct,omitempty"`
+	Chosen       bool    `json:"chosen,omitempty"`
 }
 
 // Downrank says which spell rank the rotation should cast when a lower (or
@@ -145,8 +148,70 @@ type Output struct {
 	Downrank        *Downrank         `json:"downrank,omitempty"`
 	HealOptions     []HealOption      `json:"healOptions,omitempty"`
 	Coverage        *Coverage         `json:"coverage,omitempty"`
+	Spells          []SpellNumbers    `json:"spells,omitempty"`
 	Results         map[string]Result `json:"results,omitempty"`
 	Error           string            `json:"error,omitempty"`
+}
+
+// SpellNumbers is what one cast of a known spell rank does in the model,
+// without crits: the numbers the game's tooltip shows for the same spell,
+// so the caller can lay the two side by side.
+type SpellNumbers struct {
+	SpellID   int     `json:"spellId"`
+	BaseID    int     `json:"baseId"`
+	Rank      int     `json:"rank,omitempty"`
+	Level     int     `json:"level"` // level the rank is learned at
+	DirectMin float64 `json:"directMin,omitempty"`
+	DirectMax float64 `json:"directMax,omitempty"`
+	Periodic  float64 `json:"periodic,omitempty"` // all ticks together
+	Ticks     float64 `json:"ticks,omitempty"`
+	Absorb    float64 `json:"absorb,omitempty"`
+	Mana      float64 `json:"mana"`
+	CastSec   float64 `json:"castSec"`
+	Heal      bool    `json:"heal,omitempty"`
+	// BonusLossPct is the share of the healing bonus an outgrown heal rank
+	// has lost, in percent (0 = the rank heals with the full bonus).
+	BonusLossPct float64 `json:"bonusLossPct,omitempty"`
+}
+
+// bonusLossPct is how much of the healing bonus a heal rank has lost at
+// this level, in percent.
+func bonusLossPct(level int, sp *engine.Spell) float64 {
+	return math.Round((1-engine.RankBonusShare(level, sp.Levels))*1000) / 10
+}
+
+// spellNumbers lists every known rank of every spell with an amount.
+func spellNumbers(cat *catalog.Catalog, known map[int]bool, st *engine.State, tgt engine.Target) []SpellNumbers {
+	var out []SpellNumbers
+	for id := range known {
+		sp := cat.Spells[id]
+		if sp == nil || sp.Passive || (sp.Direct == nil && sp.Periodic == nil && sp.Absorb == nil) {
+			continue
+		}
+		sh := engine.Shape(sp, st, tgt)
+		n := SpellNumbers{SpellID: id, BaseID: sp.BaseID, Rank: cat.RankNumber(id), Level: sp.Levels.Spell,
+			Mana: sh.ManaCost, CastSec: sh.ExecuteSec, Heal: sp.IsHeal, Periodic: sh.Ticks * sh.TickBase}
+		if n.Periodic != 0 {
+			n.Ticks = sh.Ticks
+		}
+		if sp.IsHeal {
+			n.BonusLossPct = bonusLossPct(st.Level, sp)
+		}
+		if sp.Absorb != nil && sp.Direct == nil {
+			n.Absorb = sh.DirectAvg
+		} else {
+			n.DirectMin = sh.DirectAvg * (1 - sh.DirectVariance/2)
+			n.DirectMax = sh.DirectAvg * (1 + sh.DirectVariance/2)
+		}
+		out = append(out, n)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].BaseID != out[j].BaseID {
+			return out[i].BaseID < out[j].BaseID
+		}
+		return out[i].Level < out[j].Level
+	})
+	return out
 }
 
 // Metrics lists what each modeled class can optimize for; the first entry
@@ -271,6 +336,7 @@ func Run(in Input) Output {
 		}
 	}
 	out.Fight = &fight
+	out.Spells = spellNumbers(cat, known, st, engine.NewTarget(in.Character.Level, fight.TargetDelta))
 
 	// Self buffs the model takes as active: the warlock's armor regenerates
 	// health in combat, which Life Tap can spend.
@@ -346,6 +412,7 @@ func Run(in Input) Output {
 				SpellID: s.filler.ID, Name: s.filler.Name, Rank: cat.RankNumber(s.filler.ID),
 				HealPerCast: sh.SampleDirect(nil), ManaPerCast: sh.ManaCost, CastSec: sh.ExecuteSec,
 				HPSSustained: s.score, Chosen: i == best,
+				BonusLossPct: bonusLossPct(st.Level, s.filler),
 			}
 			if o.ManaPerCast > 0 {
 				o.HealPerMana = o.HealPerCast / o.ManaPerCast

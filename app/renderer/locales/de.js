@@ -282,6 +282,13 @@ export default {
   'Healing/cast': 'Heilung/Wirken',
   'Cast (s)': 'Wirkzeit (s)',
   'the model heals with this': 'damit heilt das Modell',
+  'You have outgrown this rank: the game gives it only part of your healing bonus. The numbers in this row already have that loss.':
+    'Diesem Rang bist du entwachsen: Das Spiel gibt ihm nur noch einen Teil deines Heilbonus. Die Zahlen dieser Zeile enthalten den Verlust schon.',
+  '{pct}% less bonus': '{pct} % weniger Bonus',
+  'Checked against the game': 'Mit dem Spiel verglichen',
+  'The spell texts in your spellbook hold the numbers of your character: spell power, talents and the loss of an outgrown rank are in them. For every rank of the spells above, the model computes the same numbers; here is how many agree. A rank that differs means the model misses something for it.':
+    'Die Zaubertexte in deinem Zauberbuch enthalten die Zahlen deines Charakters: Zaubermacht, Talente und der Verlust eines entwachsenen Rangs stecken darin. Für jeden Rang der Zauber oben berechnet das Modell dieselben Zahlen; hier steht, wie viele übereinstimmen. Weicht ein Rang ab, fehlt dem Modell dafür etwas.',
+  'differs': 'weicht ab',
   'Fight length (s)': 'Kampflänge (s)',
   'The combat model computes DPS over a fight of this length. A longer fight makes mana, regeneration and Life Tap matter more.': 'Das Kampfmodell rechnet die DPS über einen Kampf dieser Länge. Ein längerer Kampf macht Mana, Regeneration und Lebensentzug wichtiger.',
   'Enemy level': 'Gegnerstufe',

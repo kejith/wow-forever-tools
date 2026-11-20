@@ -153,6 +153,10 @@ TEXT = {
     " · Monte-Carlo over {n} fights: spread ±{sd:.1f}, worst tenth {p10:.1f}":
         " · Monte-Carlo über {n} Kämpfe: Streuung ±{sd:.1f}, schlechtestes Zehntel {p10:.1f}",
     "Rank {n}": "Rang {n}",
+    "Checked against the spell texts of the game: {matched} of {checked} spell ranks agree.":
+        "Mit den Zaubertexten des Spiels verglichen: {matched} von {checked} Zauberrängen stimmen überein.",
+    "the model has {numbers}": "das Modell hat {numbers}",
+    "(outgrown: {pct:.0f}% less healing bonus)": "(entwachsen: {pct:.0f} % weniger Heilbonus)",
     "Downranking pays: heal with {spell} instead of {instead} ({pct:+.0f}% healing over the fight).":
         "Downranking lohnt sich: Heile mit {spell} statt {instead} ({pct:+.0f} % Heilung über den Kampf).",
     "heal with {spell}": "heile mit {spell}",

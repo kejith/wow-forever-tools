@@ -266,3 +266,74 @@ func TestEvaluateDeltas(t *testing.T) {
 	over := Evaluate(st.ApplyDelta(map[string]float64{"hit": 25}), fight, actions, "dps").DPS
 	almost(t, "hit beyond the cap", over, capped, 1e-9)
 }
+
+// A heal rank the caster has outgrown loses 5 % of its healing bonus per
+// level beyond twelve above the rank's max level. Measured on a level-27
+// priest: Lesser Heal rank 1 (max level 3) keeps 40 %, rank 2 (max 9) 70 %,
+// Renew rank 1 (max 13) 90 %.
+func TestRankBonusShare(t *testing.T) {
+	for _, c := range []struct {
+		level, max int
+		want       float64
+	}{
+		{27, 3, 0.40}, {27, 9, 0.70}, {27, 13, 0.90}, {27, 15, 1}, {27, 21, 1},
+		{60, 3, 0}, {60, 30, 0.10}, {60, 48, 1},
+		{60, 0, 1}, // no max level: a talent spell, nothing to outgrow
+	} {
+		almost(t, "share", RankBonusShare(c.level, Levels{Max: c.max}), c.want, 1e-9)
+	}
+}
+
+// The lost share comes off the bonus, not the base points, for direct and
+// periodic heals alike; damage of an old rank keeps its full bonus.
+func TestOutgrownHealRank(t *testing.T) {
+	st := testState()
+	st.Level = 27
+	st.Healing = 124
+	lesser := &Spell{
+		ID: 2052, BaseID: 2050, School: Holy, CastMs: 2000, IsHeal: true,
+		Levels: Levels{Base: 4, Max: 9, Spell: 4},
+		Direct: &Effect{BP: 94, PerLevel: 0.7, Coeff: 0.571},
+	}
+	// 94 + 0.7*5 = 97.5 base, 0.571*124*0.7 = 49.56 bonus: the tooltip's 139-156.
+	almost(t, "lesser heal", Shape(lesser, st, NewTarget(27, 0)).DirectAvg, 97.5+0.571*124*0.7, 1e-9)
+	renew := &Spell{
+		ID: 139, BaseID: 139, School: Holy, DurationMs: 15000, IsHeal: true,
+		Levels:   Levels{Base: 8, Max: 13, Spell: 8},
+		Periodic: &Effect{BP: 9, Coeff: 0.2, PeriodMs: 3000},
+	}
+	sh := Shape(renew, st, NewTarget(27, 0))
+	almost(t, "renew", sh.Ticks*sh.TickBase, 5*(9+0.2*124*0.9), 1e-9) // the tooltip's 156
+
+	st.SP[Shadow] = 100
+	old := bolt()
+	old.Levels = Levels{Base: 1, Max: 5, Spell: 1}
+	almost(t, "old damage rank", Shape(old, st, NewTarget(27, 0)).DirectAvg, 80+0.6*100, 1e-9)
+}
+
+// The range of a hit is the range of its base points: spell power adds the
+// same amount to both ends. Shadow Bolt rank 7 at level 51 with 266 shadow
+// spell power: 148 base, variance 0.114 -> 367 to 385 in the tooltip.
+func TestRangeFromBasePoints(t *testing.T) {
+	st := testState()
+	st.Level = 51
+	st.SP[Shadow] = 266
+	sp := &Spell{
+		ID: 11659, BaseID: 686, School: Shadow, CastMs: 3000,
+		Levels: Levels{Base: 44, Max: 49, Spell: 44},
+		Direct: &Effect{BP: 141, PerLevel: 1.4, Variance: 0.114, Coeff: 0.857},
+	}
+	sh := Shape(sp, st, NewTarget(51, 0))
+	avg := 148 + 0.857*266
+	almost(t, "average", sh.DirectAvg, avg, 1e-9)
+	almost(t, "width", sh.DirectAvg*sh.DirectVariance, 148*0.114, 1e-9)
+	// Sampled hits stay inside that range (crits aside).
+	st.Crit[Shadow] = 0
+	sh = Shape(sp, st, NewTarget(51, 0))
+	rng := rand.New(rand.NewSource(3))
+	for i := 0; i < 1000; i++ {
+		if v := sh.SampleLanded(rng); v < avg-148*0.057-1e-9 || v > avg+148*0.057+1e-9 {
+			t.Fatalf("hit %g outside %g..%g", v, avg-148*0.057, avg+148*0.057)
+		}
+	}
+}

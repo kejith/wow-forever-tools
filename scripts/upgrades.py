@@ -799,6 +799,16 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             engine_out["healOptions"] = [
                 dict(o, spell=spell_label(o.get("spellId"), o.get("name"), o.get("rank")))
                 for o in eng.heal_options]
+        check = simengine.tooltip_check(eng.spells, (c.get("spellbook") or {}).get("spells") or {}, eng.coverage)
+        if check:
+            # The game's own spell texts are the reference: they hold this character's numbers.
+            engine_out["tooltipCheck"] = dict(
+                checked=check["checked"], matched=check["matched"],
+                text=tr("Checked against the spell texts of the game: {matched} of {checked} spell ranks agree.",
+                        matched=check["matched"], checked=check["checked"]),
+                off=[dict(spellId=o["spellId"], label=spell_label(o["spellId"], o["name"], 0), text=o["text"],
+                          model=tr("the model has {numbers}", numbers=" / ".join(f"{v:g}" for v in o["model"])))
+                     for o in check["off"]])
 
     review.sort(key=lambda r: r["price"])
     return dict(
@@ -874,6 +884,8 @@ def main() -> None:
                       "{mana:.0f} mana over {cast:.1f}s · {spell}", hps=o.get("hpsSustained") or 0,
                       hpm=o.get("healPerMana") or 0, heal=o.get("healPerCast") or 0,
                       mana=o.get("manaPerCast") or 0, cast=o.get("castSec") or 0, spell=o.get("spell"))
+            if o.get("bonusLossPct"):
+                text += " " + tr("(outgrown: {pct:.0f}% less healing bonus)", pct=o["bonusLossPct"])
             print(f"   {text}" + (" <==" if o.get("chosen") else ""))
     else:
         print(tr("Scale \"{label}\" (1 point = 1 shadow spell power), value of your gear now: {value}",
@@ -895,6 +907,11 @@ def main() -> None:
                     print(f"      {e['statusLabel']:17} {e['label']}: {e['text']}{flag}")
             if quiet:
                 print(f"      {tr(COVERAGE_STATUS['none']):17} " + ", ".join(quiet))
+    check = (r.get("engine") or {}).get("tooltipCheck")
+    if check:
+        print("   " + check["text"])
+        for o in check["off"]:
+            print(f"      {o['label']}: {o['model']} | {o['text'][:160]}")
     print(tr("Prices are the lowest buyout at the scan.") + "\n")
     p = r["package"]
     unit = {"dps": "DPS", "hps": "HPS", "ttoom": "s"}.get((r.get("engine") or {}).get("metric") or "", tr("points"))

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -118,6 +119,47 @@ def delta(adds: list[dict], removes: list[dict] = ()) -> dict:
     return {k: v for k, v in d.items() if v}
 
 
+NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def tooltip_check(spells: list, book: dict, coverage: dict | None = None) -> dict | None:
+    """Lays the model's numbers next to the game's own spell texts.
+
+    The spellbook export has, per learned rank, the description with the numbers resolved for this
+    character: spell power, talents and the loss of an outgrown rank are in them. A rank agrees if each of
+    the model's amounts (lowest and highest hit, all ticks together or one tick, the shield) is a number of
+    that text, give or take the rounding. Language does not matter: only the numbers are read. With a
+    coverage report only the spells the model casts or tried are checked (it has no use for the others).
+
+    Returns {"checked", "matched", "off": [{"spellId", "name", "rank", "model": [...], "text"}]}, or None
+    without an exported spellbook or without numbers from the engine."""
+    if not spells or not book:
+        return None
+    bases = None
+    if coverage is not None:
+        base_of = {n.get("spellId"): n.get("baseId") for n in spells}
+        bases = {base_of.get(e.get("spellId")) for e in coverage.get("spells") or []
+                 if e.get("status") in ("used", "idle")}
+    checked, off = 0, []
+    for n in spells:
+        entry = book.get(n.get("spellId")) or book.get(str(n.get("spellId"))) or {}
+        text = entry.get("text") or ""
+        if not text or (bases is not None and n.get("baseId") not in bases):
+            continue
+        seen = [float(x.replace(",", ".")) for x in NUMBER.findall(text)]
+        amounts = [[n.get(k)] for k in ("directMin", "directMax", "absorb") if n.get(k)]
+        if n.get("periodic"):
+            amounts.append([n["periodic"], n["periodic"] / n["ticks"]] if n.get("ticks") else [n["periodic"]])
+        if not amounts:
+            continue
+        checked += 1
+        # The client rounds the ends of the base range and then the sum: up to a point and a bit.
+        if not all(any(abs(x - v) <= 1 + 0.002 * v for v in forms for x in seen) for forms in amounts):
+            off.append({"spellId": n.get("spellId"), "name": entry.get("name") or "", "rank": entry.get("rank") or "",
+                        "model": [round(forms[0]) for forms in amounts], "text": text})
+    return {"checked": checked, "matched": checked - len(off), "off": off} if checked else None
+
+
 class Engine:
     """One started engine: the bundle without evaluations, run per batch."""
 
@@ -130,6 +172,7 @@ class Engine:
         self.downrank: dict | None = None
         self.heal_options: list = []
         self.coverage: dict = {}  # what the model did with every known spell and talent
+        self.spells: list = []  # per known spell rank what one cast does, as a tooltip shows it
         self.fight: dict = dict(bundle.get("fight") or {})  # as evaluated: the engine resolves automatic values
 
     def batch(self, evals: list[tuple[str, dict]]) -> dict[str, float]:
@@ -155,6 +198,7 @@ class Engine:
         self.downrank = out.get("downrank")
         self.heal_options = out.get("healOptions") or []
         self.coverage = out.get("coverage") or {}
+        self.spells = out.get("spells") or self.spells
         self.fight = out.get("fight") or self.fight
         return {k: (v.get("gain") or 0.0) for k, v in (out.get("results") or {}).items()}
 
