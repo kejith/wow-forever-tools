@@ -44,11 +44,14 @@ func (s School) Name() string {
 }
 
 // Spell miss chance in percent against a target 0..3 levels above the
-// character, and the floor that always remains. Source: Forever's
-// Camelot/PaperDollFrameStats.lua (same constants as scripts/upgrades.py).
+// character. Source: Forever's Camelot/PaperDollFrameStats.lua (same
+// constants as scripts/upgrades.py). No miss remains once the hit covers
+// it (Classic keeps 1 %): a combat log of 2026-11-20 has no miss in 557
+// casts and 645 area pulses on enemies up to the character's level, with
+// 5 % hit.
 var SpellMiss = map[int]float64{0: 4, 1: 5, 2: 6, 3: 17}
 
-const MinMiss = 1.0
+const MinMiss = 0.0
 
 // Crit bonus damage: spells +50%, melee/ranged +100% (Classic rules).
 const (

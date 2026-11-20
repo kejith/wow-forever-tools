@@ -78,7 +78,7 @@ func TestEvaluationsAndHitCap(t *testing.T) {
 	in := input()
 	in.Evaluations = []Evaluation{
 		{Key: "sp", Delta: map[string]float64{"sp": 10}},
-		{Key: "hitCap", Delta: map[string]float64{"hit": 4}},
+		{Key: "hitCap", Delta: map[string]float64{"hit": 5}}, // 6 % miss against +2, 1 % on the sheet
 		{Key: "hitOver", Delta: map[string]float64{"hit": 25}},
 	}
 	out := Run(in)
@@ -91,7 +91,7 @@ func TestEvaluationsAndHitCap(t *testing.T) {
 	if out.Results["hitCap"].Gain <= 0 {
 		t.Errorf("hit gain = %g", out.Results["hitCap"].Gain)
 	}
-	almost(t, "hit past the floor", out.Results["hitOver"].Value, out.Results["hitCap"].Value, 1e-9)
+	almost(t, "hit past the cap", out.Results["hitOver"].Value, out.Results["hitCap"].Value, 1e-9)
 	if p := out.Results["sp"].GainPct; p <= 0 {
 		t.Errorf("gainPct = %g", p)
 	}

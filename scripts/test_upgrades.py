@@ -52,16 +52,17 @@ def test_learn_ratings():
 
 
 def test_hit_counts_only_up_to_the_cap():
-    lvl = u.build_scale(char(hit=5))  # levelling: 6 % miss against +2, 1 % always stays, 5 % already there
+    lvl = u.build_scale(char(hit=5))  # levelling: 6 % miss against +2, 5 % already there, 1 % missing
     assert lvl["profile"] == "leveling"
-    assert u.set_value({"hit": 3}, lvl) == 0
+    assert u.set_value({"hit": 3}, lvl) == u.set_value({"hit": 1}, lvl) > 0
+    assert u.set_value({"hit": 3}, u.build_scale(char(hit=6))) == 0
 
-    # 16 % needed, 11 missing. The 5 % of the sheet already hold Suppression (1 % per rank in Forever,
+    # 17 % needed, 12 missing. The 5 % of the sheet already hold Suppression (1 % per rank in Forever,
     # for every spell), so the talent adds nothing on top.
     dung = u.build_scale(char(hit=5, talents=[(18174, 5)]), "dungeon")
-    one, two, cap, over = (u.set_value({"hit": h}, dung) for h in (1, 2, 11, 20))
+    one, two, cap, over = (u.set_value({"hit": h}, dung) for h in (1, 2, 12, 20))
     assert one > 0 and cap == over  # nothing beyond the cap
-    assert abs(two - 2 * one) < 1e-9 and abs(cap - 11 * one) < 1e-9  # every percent up to the cap counts alike
+    assert abs(two - 2 * one) < 1e-9 and abs(cap - 12 * one) < 1e-9  # every percent up to the cap counts alike
 
     assert u.build_scale(char(level=60))["profile"] == "dungeon"
 

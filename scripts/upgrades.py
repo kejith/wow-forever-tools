@@ -62,7 +62,9 @@ IMPROVED_LIFE_TAP_ID, PANDEMIC = 18182, 427712
 # Chance of spells to miss enemies 0 to 3 levels above you. Source: Forever's own character pane
 # (Blizzard_UIPanels_Game/Camelot/PaperDollFrameStats.lua, spellMissChances).
 SPELL_MISS = {0: 4.0, 1: 5.0, 2: 6.0, 3: 17.0}
-MIN_MISS = 1.0  # as in Classic: 1% miss always remains
+# No miss remains once the hit covers it (Classic keeps 1 %): the combat log of 2026-11-20 has no miss in
+# 557 casts and 645 area pulses on enemies up to the character's level, with 5 % hit from Suppression.
+MIN_MISS = 0.0
 BASE_PER_LEVEL = 13  # base damage / spell power coefficient of warlock spells: about 13 per level in Classic
 CRIT_BONUS = 0.5  # spell crits deal 150% damage
 DEFAULT_RATINGS = {"hit": 10.0, "crit": 14.0}  # rating per 1%, measured again from the tooltips of the export

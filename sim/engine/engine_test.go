@@ -115,14 +115,18 @@ func TestSpellModsCastTimeAndMask(t *testing.T) {
 	almost(t, "execute corruption", r.ExecuteSec, 1.5, 1e-9)
 }
 
-// The hit floor: one percent miss always remains.
-func TestHitFloor(t *testing.T) {
+// The hit cap: no miss remains once the hit covers it, and more hit adds
+// nothing.
+func TestHitCap(t *testing.T) {
 	st := testState()
-	st.Hit = 5 // miss vs +2 would be 6 - 5 = 1 = the floor
+	st.Hit = 5 // 6 % miss against +2: one percent is left
+	short := ResolveCast(bolt(), st, NewTarget(20, 2), nil).Damage
+	st.Hit = 6
 	a := ResolveCast(bolt(), st, NewTarget(20, 2), nil).Damage
 	st.Hit = 50
 	b := ResolveCast(bolt(), st, NewTarget(20, 2), nil).Damage
 	almost(t, "capped hit", a, b, 1e-9)
+	almost(t, "one percent short of the cap", short, a*0.99, 1e-9)
 }
 
 // A channel occupies its full duration and deals its ticks: 3 ticks à
