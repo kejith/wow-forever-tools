@@ -36,6 +36,7 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 		iterations = 10000
 	}
 	tgt := NewTarget(st.Level, fight.TargetDelta)
+	ctx := ContextOf(actions)
 
 	// Pre-compute every spell's shape once; the rolls stay per cast.
 	type slot struct {
@@ -48,7 +49,7 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 		if a.Kind == "wand" || a.Spell == nil {
 			continue
 		}
-		s := slot{act: a, shape: Shape(a.Spell, st, tgt)}
+		s := slot{act: a, shape: ShapeIn(a.Spell, st, tgt, ctx)}
 		switch a.Kind {
 		case "dot", "hot":
 			if s.shape.Ticks > 0 {
@@ -65,11 +66,35 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 			}
 		}
 	}
+	// How much faster each DoT ticks while the filler is channeled (Wrack).
+	channelFactor := make([]float64, len(dots))
+	for d := range dots {
+		channelFactor[d] = 1
+		if filler != nil {
+			channelFactor[d] += st.Mods.channelHaste(filler.act.Spell, dots[d].act.Spell) / 100
+		}
+	}
+	fillerLeeches := filler != nil && (filler.shape.DirectLeech > 0 || filler.shape.TickLeech > 0)
 	tapMana := st.LifeTap.ManaPerCast * (1 + st.Mods.LifeTapPct/100)
-	healthBudget := healthUseFraction*st.HealthMax + fight.Seconds*st.HP5/5
+	// Life Tap may take the health down to this floor; leech and hp5 refill it.
+	healthFloor := (1 - healthUseFraction) * st.HealthMax
 	wandDPS := WandDPS(st, tgt)
 	regenFull := st.RegenPS()
 	regenCasting := st.MP5/5 + regenFull*st.Mods.CastingRegenPct/100
+	// What the full rotation drains per second beyond the regeneration. When
+	// the mana will not last for the rest of the fight, the player taps as
+	// soon as the health bar is full, so that no leech is wasted.
+	// Full means: the next cast would return more health than fits.
+	drainPS, fullAt := 0.0, st.HealthMax
+	if tapMana > 0 {
+		closed := Evaluate(st, fight, actions, metric)
+		drainPS = closed.ManaSpentPS - regenCasting
+		next := lifeTapGCDSec
+		if filler != nil {
+			next = filler.shape.ExecuteSec
+		}
+		fullAt -= (closed.SelfHealPS + st.HP5/5) * next
+	}
 
 	values := make([]float64, iterations)
 	oomAt := make([]float64, iterations)
@@ -77,44 +102,92 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 		rng := rand.New(rand.NewSource(seed + int64(i)))
 		var total float64 // damage or healing, by the metric
 		mana := st.ManaMax
-		health := healthBudget
+		health := st.HealthMax
 		oom := fight.Seconds
 		wentOOM := false
 		lastCast := 0.0
 		dotEnd := make([]float64, len(dots))
-		dotNext := make([]float64, len(dots))
+		dotRem := make([]float64, len(dots)) // seconds (at normal speed) until the next tick
 		cdReady := make([]float64, len(cooldowns))
 		t := 0.0
 
-		credit := func(now float64) { // dots and hots tick on their own schedule
-			for d := range dots {
-				for dotNext[d] > 0 && dotNext[d] <= now && dotNext[d] <= dotEnd[d] && dotNext[d] <= fight.Seconds {
-					total += dots[d].shape.TickValue
-					dotNext[d] += dots[d].shape.PeriodSec
-				}
+		gain := func(amount, leech float64) { // damage or healing done, and the health it returns
+			total += amount
+			health += amount * leech
+			if health > st.HealthMax {
+				health = st.HealthMax
 			}
 		}
-		spend := func(cost, dur float64) { // a cast: pay, regenerate, advance
+		// advance moves the clock: dots and hots tick on their own schedule
+		// (faster while the filler channel says so), health regenerates.
+		advance := func(dur float64, channeling bool) {
+			from, to := t, t+dur
+			for d := range dots {
+				end := math.Min(to, math.Min(dotEnd[d], fight.Seconds))
+				if end <= from {
+					continue
+				}
+				progress := end - from
+				if channeling {
+					progress *= channelFactor[d]
+				}
+				for progress >= dotRem[d]-1e-9 {
+					progress -= dotRem[d]
+					gain(dots[d].shape.TickValue, dots[d].shape.TickLeech)
+					dotRem[d] = dots[d].shape.PeriodSec
+				}
+				dotRem[d] -= progress
+			}
+			health += st.HP5 / 5 * dur
+			if health > st.HealthMax {
+				health = st.HealthMax
+			}
+			t = to
+		}
+		spend := func(cost, dur float64, channeling bool) { // a cast: pay, regenerate, advance
 			mana -= cost
 			mana += regenCasting * dur
 			if mana > st.ManaMax {
 				mana = st.ManaMax
 			}
 			lastCast = t + dur
-			t += dur
-			credit(t)
+			advance(dur, channeling)
+		}
+		tap := func() {
+			health -= st.LifeTap.HealthPerCast
+			mana += tapMana
+			spend(0, lifeTapGCDSec, false)
+		}
+
+		castFiller := func() {
+			sh := &filler.shape
+			gain(sh.SampleDirect(rng), sh.DirectLeech)
+			if sh.Ticks > 0 { // a channel: its ticks land within the cast
+				if rng.Float64() < sh.HitChance {
+					gain(sh.Ticks*sh.TickValue, sh.TickLeech)
+				}
+			}
+			spend(sh.ManaCost, sh.ExecuteSec, filler.act.Spell.Channeled)
 		}
 
 		for t < fight.Seconds {
 			acted := false
+			canTap := tapMana > 0 && health-st.LifeTap.HealthPerCast >= healthFloor
+			// Too little health to tap and a filler that returns health
+			// (Drain Life): it goes first, or mana and health both run dry.
+			if tapMana > 0 && !canTap && fillerLeeches && mana >= filler.shape.ManaCost && mana < drainPS*(fight.Seconds-t) {
+				castFiller()
+				continue
+			}
 			for d := range dots { // keep every DoT/HoT up
 				sh := &dots[d].shape
 				if t >= dotEnd[d] && mana >= sh.ManaCost {
 					if rng.Float64() < sh.HitChance {
+						gain(sh.SampleLanded(rng), sh.DirectLeech) // the direct part of Immolate, Holy Fire
 						dotEnd[d] = t + sh.DurationSec
-						dotNext[d] = t + sh.PeriodSec
+						dotRem[d] = sh.PeriodSec
 					}
-					spend(sh.ManaCost, sh.ExecuteSec)
+					spend(sh.ManaCost, sh.ExecuteSec, false)
 					acted = true
 					break
 				}
@@ -125,9 +198,9 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 			for cd := range cooldowns {
 				sh := &cooldowns[cd].shape
 				if t >= cdReady[cd] && mana >= sh.ManaCost {
-					total += sh.SampleDirect(rng)
+					gain(sh.SampleDirect(rng), sh.DirectLeech)
 					cdReady[cd] = t + sh.CooldownSec
-					spend(sh.ManaCost, sh.ExecuteSec)
+					spend(sh.ManaCost, sh.ExecuteSec, false)
 					acted = true
 					break
 				}
@@ -135,25 +208,20 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 			if acted {
 				continue
 			}
+			if canTap && health >= fullAt && mana+tapMana <= st.ManaMax && mana < drainPS*(fight.Seconds-t) {
+				tap()
+				continue
+			}
 			if filler != nil && mana >= filler.shape.ManaCost {
-				sh := &filler.shape
-				total += sh.SampleDirect(rng)
-				if sh.Ticks > 0 { // a channel: its ticks land within the cast
-					if rng.Float64() < sh.HitChance {
-						total += sh.Ticks * sh.TickValue
-					}
-				}
-				spend(sh.ManaCost, sh.ExecuteSec)
+				castFiller()
 				continue
 			}
 			// Out of mana for the filler: first note it, then tap or wand.
 			if !wentOOM {
 				wentOOM, oom = true, t
 			}
-			if tapMana > 0 && health >= st.LifeTap.HealthPerCast {
-				health -= st.LifeTap.HealthPerCast
-				mana += tapMana
-				spend(0, lifeTapGCDSec)
+			if canTap {
+				tap()
 				continue
 			}
 			// Wand (or idle): full spirit regeneration five seconds after
@@ -173,8 +241,7 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 			if mana > st.ManaMax {
 				mana = st.ManaMax
 			}
-			t += swing
-			credit(t)
+			advance(swing, false)
 		}
 		values[i] = total / fight.Seconds
 		oomAt[i] = oom

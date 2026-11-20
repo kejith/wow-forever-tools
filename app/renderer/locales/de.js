@@ -295,6 +295,11 @@ export default {
   'The metric of the simulated fight with the gear you wear now. Every gain below is the change of this number.': 'Der Messwert des simulierten Kampfes mit der Ausrüstung, die du jetzt trägst. Jeder Gewinn unten ist die Änderung dieser Zahl.',
   '+{pct} {unit}': '+{pct} {unit}',
   'show which spell contributes what': 'anzeigen, welcher Zauber was beiträgt',
+  'What the model does with your spells and talents: {used} used, {open} not modeled, {n} rotations compared':
+    'Was das Modell mit deinen Zaubern und Talenten macht: {used} genutzt, {open} nicht modelliert, {n} Rotationen verglichen',
+  'The talent tables of the game could not be loaded: talent values are estimates.':
+    'Die Talenttabellen des Spiels konnten nicht geladen werden: Talentwerte sind Schätzungen.',
+  'assumption': 'Annahme',
   'Change of your {unit} in the simulated fight when you swap the item in.': 'Änderung deiner {unit} im simulierten Kampf beim Tausch.',
   'The gain relative to the {unit} the replaced item contributes.': 'Der Gewinn im Verhältnis zu den {unit}, die das ersetzte Item beiträgt.',
   'Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.': 'Items der letzten AH-Scans, deren Werte das WoWMCP-Addon im Spiel gelesen hat. Nur diese lassen sich vergleichen.',

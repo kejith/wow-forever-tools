@@ -28,9 +28,11 @@ SUPPORTED = set(METRICS)
 # trees in that order); used to name the spec from where the points sit.
 TREES = {"WARLOCK": ["affliction", "demonology", "destruction"],
          "PRIEST": ["discipline", "holy", "shadow"]}
-# Tables the engine reads from the shared cache (sim/catalog/catalog.go).
+# Tables the engine reads from the shared cache (sim/catalog/catalog.go). The three trait tables hold the
+# exact value of every talent rank; without them the engine falls back to the single value in SpellEffect.
 TABLES = ["SpellClassOptions", "SpellMisc", "SpellEffect", "SpellCastTimes", "SpellDuration",
-          "SpellPower", "SpellLevels", "SpellCooldowns", "SkillLineAbility", "SpellName"]
+          "SpellPower", "SpellLevels", "SpellCooldowns", "SkillLineAbility", "SpellName",
+          "TraitDefinition", "TraitDefinitionEffectPoints", "CurvePoint"]
 REFERENCE_LOCALE = "enUS"  # sim/catalog.ReferenceLocale
 WANDS_SKILL_ID = 228
 # ITEM_MOD stats (stat_key form) -> the engine's delta keys. Armor and
@@ -127,6 +129,7 @@ class Engine:
         self.spellbook_source = ""
         self.downrank: dict | None = None
         self.heal_options: list = []
+        self.coverage: dict = {}  # what the model did with every known spell and talent
 
     def batch(self, evals: list[tuple[str, dict]]) -> dict[str, float]:
         """Evaluates deltas; returns the metric gain per key."""
@@ -150,6 +153,7 @@ class Engine:
         self.spellbook_source = out.get("spellbookSource") or ""
         self.downrank = out.get("downrank")
         self.heal_options = out.get("healOptions") or []
+        self.coverage = out.get("coverage") or {}
         return {k: (v.get("gain") or 0.0) for k, v in (out.get("results") or {}).items()}
 
 

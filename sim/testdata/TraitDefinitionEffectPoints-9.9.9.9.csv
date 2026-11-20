@@ -1,0 +1,6 @@
+ID,TraitDefinitionID,EffectIndex,OperationType,CurveID
+1,1,0,0,500
+2,2,1,0,501
+3,3,0,0,502
+4,4,0,0,503
+5,4,1,0,503

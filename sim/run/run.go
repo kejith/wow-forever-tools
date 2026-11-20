@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.2.1"
+const Version = "0.3.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -110,6 +110,30 @@ type Downrank struct {
 	GainPct     float64 `json:"gainPct"` // how much more the metric sustains vs the naive pick
 }
 
+// CoverageEntry says what the model does with one known spell or talent.
+type CoverageEntry struct {
+	SpellID    int     `json:"spellId"`
+	Name       string  `json:"name"`
+	Rank       int     `json:"rank,omitempty"` // the spell's rank, or the points in the talent
+	Status     string  `json:"status"`         // used, sheet, idle, unmodeled, none (talents.Status*)
+	Reason     string  `json:"reason"`         // a short code the app turns into a sentence
+	Unverified bool    `json:"unverified,omitempty"`
+	Note       string  `json:"note,omitempty"`  // the rule's source note (English)
+	Value      float64 `json:"value,omitempty"` // idle spells: the metric of the best rotation with it
+}
+
+// Coverage lists every known spell and every talent with what the model does
+// with it, so that nothing is left out silently.
+type Coverage struct {
+	Spells  []CoverageEntry `json:"spells"`
+	Talents []CoverageEntry `json:"talents"`
+	// TalentValues is "tables" when the per-rank values came from the trait
+	// tables, "basepoints" when only SpellEffect was in the cache (one rank's
+	// value for every rank).
+	TalentValues string `json:"talentValues"`
+	Candidates   int    `json:"candidates"` // how many rotations were compared
+}
+
 // Output is the engine's answer. Errors are reported in the payload (exit
 // code 0), the same convention as app_bridge.py.
 type Output struct {
@@ -119,6 +143,7 @@ type Output struct {
 	SpellbookSource string            `json:"spellbookSource,omitempty"`
 	Downrank        *Downrank         `json:"downrank,omitempty"`
 	HealOptions     []HealOption      `json:"healOptions,omitempty"`
+	Coverage        *Coverage         `json:"coverage,omitempty"`
 	Results         map[string]Result `json:"results,omitempty"`
 	Error           string            `json:"error,omitempty"`
 }
@@ -165,7 +190,7 @@ func metricAllowed(classFile, metric string) bool {
 func rotations(classFile, metric string, cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
 	switch classFile {
 	case "WARLOCK":
-		return [][]engine.Action{warlock.Rotation(cat, known, level)}
+		return warlock.Rotations(cat, known, level)
 	case "PRIEST":
 		return priest.Rotations(metric, cat, known, level)
 	}
@@ -197,7 +222,7 @@ func Run(in Input) Output {
 			ranks[n] = rank
 		}
 	}
-	mods, err := talents.Decode(cat, ranks)
+	mods, talentInfos, err := talents.Decode(cat, ranks)
 	if err != nil {
 		out.Error = err.Error()
 		return out
@@ -231,41 +256,58 @@ func Run(in Input) Output {
 	}
 	out.Spec = in.Character.SpecOverride
 
+	// Self buffs the model takes as active: the warlock's armor regenerates
+	// health in combat, which Life Tap can spend.
+	support := map[int]string{} // spell id -> coverage reason
+	if in.Character.ClassFile == "WARLOCK" {
+		hp5, armor := warlock.ArmorRegen(cat, known, in.Character.Level)
+		st.HP5 += hp5
+		if armor != nil && hp5 > 0 {
+			support[armor.ID] = "buff"
+		}
+		if tap := cat.BestRank(warlock.LifeTap, known, in.Character.Level); tap != nil && st.LifeTap.ManaPerCast > 0 {
+			support[tap.ID] = "regen"
+		}
+	}
+
 	rots := rotations(in.Character.ClassFile, metric, cat, known, in.Character.Level)
 	if len(rots) == 0 {
 		out.Error = "no castable rotation: the spellbook has none of the modeled spells"
 		return out
 	}
-	// Several candidates (healer: every known rank of each heal) are ranked
-	// by sustained healing under the mana budget; that is how downranking
-	// enters the model. The chosen rotation then stays fixed for the deltas.
-	// The "naive" candidate is the biggest heal a player casts by default;
-	// when a smaller rank beats it, the answer carries the recommendation.
-	actions := rots[0]
-	if len(rots) > 1 {
-		type scored struct {
-			actions []engine.Action
-			filler  *engine.Spell
-			hps     float64
-		}
-		var all []scored
-		for _, r := range rots {
-			m := engine.Evaluate(st, in.Fight, r, "hps")
-			var filler *engine.Spell
-			for _, a := range r {
-				if a.Kind == "heal" || a.Kind == "filler" {
-					filler = a.Spell
-				}
-			}
-			all = append(all, scored{r, filler, m.HPS})
-		}
-		best := 0
-		for i, s := range all {
-			if s.hps > all[best].hps {
-				best = i
+	// Several candidates are compared and the best one stays fixed for the
+	// deltas. A healer's candidates are the known ranks of each heal, ranked
+	// by sustained healing under the mana budget (that is how downranking
+	// enters the model, also for the time-to-OOM metric); a damage dealer's
+	// are the fillers and optional spells, ranked by damage.
+	scoreMetric := metric
+	if metric != "dps" {
+		scoreMetric = "hps"
+	}
+	type scored struct {
+		actions []engine.Action
+		filler  *engine.Spell
+		score   float64
+	}
+	var all []scored
+	for _, r := range rots {
+		m := engine.Evaluate(st, in.Fight, r, scoreMetric)
+		var filler *engine.Spell
+		for _, a := range r {
+			if a.Kind == "heal" || a.Kind == "filler" {
+				filler = a.Spell
 			}
 		}
-		actions = all[best].actions
+		all = append(all, scored{r, filler, m.Value})
+	}
+	best := 0
+	for i, s := range all {
+		if s.score > all[best].score {
+			best = i
+		}
+	}
+	actions := all[best].actions
+	if len(rots) > 1 && scoreMetric == "hps" {
 		chosen := all[best].filler
 
 		// The visible list: every heal-rank candidate with what one cast
@@ -279,7 +321,7 @@ func Run(in Input) Output {
 			o := HealOption{
 				SpellID: s.filler.ID, Name: s.filler.Name, Rank: cat.RankNumber(s.filler.ID),
 				HealPerCast: sh.SampleDirect(nil), ManaPerCast: sh.ManaCost, CastSec: sh.ExecuteSec,
-				HPSSustained: s.hps, Chosen: i == best,
+				HPSSustained: s.score, Chosen: i == best,
 			}
 			if o.ManaPerCast > 0 {
 				o.HealPerMana = o.HealPerCast / o.ManaPerCast
@@ -317,20 +359,43 @@ func Run(in Input) Output {
 				naive = bestOther
 			}
 		}
-		if naive >= 0 && all[naive].hps > 0 && all[best].hps > all[naive].hps {
+		if naive >= 0 && all[naive].score > 0 && all[best].score > all[naive].score {
 			n := all[naive].filler
 			out.Downrank = &Downrank{
 				SpellID: chosen.ID, Name: chosen.Name, Rank: cat.RankNumber(chosen.ID),
 				InsteadID: n.ID, InsteadName: n.Name, InsteadRank: cat.RankNumber(n.ID),
-				GainPct: (all[best].hps - all[naive].hps) / all[naive].hps * 100,
+				GainPct: (all[best].score - all[naive].score) / all[naive].score * 100,
 			}
 		}
 	}
 
+	// Coverage: what became of every known spell and every talent.
+	tried := map[int]float64{} // spell id -> the best score of a candidate that casts it
+	for _, s := range all {
+		for _, a := range s.actions {
+			if a.Spell == nil {
+				continue
+			}
+			if old, ok := tried[a.Spell.ID]; !ok || s.score > old {
+				tried[a.Spell.ID] = s.score
+			}
+		}
+	}
+	out.Coverage = coverage(cat, known, in.Character.Level, metric, actions, tried, support, ranks, talentInfos)
+	out.Coverage.Candidates = len(all)
+
 	baseline := engine.Evaluate(st, in.Fight, actions, metric)
 	for i := range baseline.Breakdown { // rank numbers for the labels ("Heal (Rank 2)")
-		if id := baseline.Breakdown[i].SpellID; id != 0 {
-			baseline.Breakdown[i].Rank = cat.RankNumber(id)
+		row := &baseline.Breakdown[i]
+		if row.Kind == "lifetap" { // the spell's own name and rank where the book has it
+			for id, reason := range support {
+				if reason == "regen" {
+					row.SpellID, row.Label = id, cat.Spells[id].Name
+				}
+			}
+		}
+		if row.SpellID != 0 {
+			row.Rank = cat.RankNumber(row.SpellID)
 		}
 	}
 	out.Baseline = &baseline
@@ -423,4 +488,158 @@ func buildState(ch Character, mods engine.Mods) *engine.State {
 		}
 	}
 	return st
+}
+
+// relevant reports whether a spell could move the metric at all: damage for
+// dps, healing and shields for the healer metrics, mana for every metric.
+func relevant(sp *engine.Spell, metric string) (bool, string) {
+	switch {
+	case sp.IsHeal:
+		return metric != "dps", "heal"
+	case sp.Direct != nil || sp.Periodic != nil:
+		return metric == "dps", "damage"
+	case sp.Absorbs:
+		return metric != "dps", "absorb"
+	case sp.GivesMana:
+		return true, "mana"
+	}
+	return false, ""
+}
+
+// coverage classifies every known spell (one entry per rank chain) and every
+// talent: cast in the chosen rotation, tried in a weaker candidate, not
+// modeled, or without influence on the metric.
+func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string, actions []engine.Action,
+	tried map[int]float64, support map[int]string, ranks map[int]int, infos []talents.Info) *Coverage {
+	cov := &Coverage{TalentValues: "basepoints"}
+	if cat.HasTraits {
+		cov.TalentValues = "tables"
+	}
+	inRotation := map[int]bool{}
+	var rotation []*engine.Spell
+	for _, a := range actions {
+		if a.Spell != nil {
+			inRotation[a.Spell.ID] = true
+			rotation = append(rotation, a.Spell)
+		}
+	}
+	castable := func(sp *engine.Spell) bool {
+		return sp != nil && !sp.Passive && (sp.Direct != nil || sp.Periodic != nil)
+	}
+
+	// Spells, one entry per chain: the rank the rotation casts, else the
+	// best rank a candidate tried, else the highest known rank.
+	chainStatus := map[int]CoverageEntry{} // chain base -> its entry
+	bases := make([]int, 0, len(cat.Chains))
+	for base := range cat.Chains {
+		bases = append(bases, base)
+	}
+	sort.Ints(bases)
+	for _, base := range bases {
+		knownRanks := cat.KnownRanks(base, known, level)
+		if len(knownRanks) == 0 {
+			continue
+		}
+		top := knownRanks[len(knownRanks)-1]
+		if top.Passive || (ranks[top.ID] > 0 && !castable(top)) {
+			continue // passives and passive talents are not spells one casts
+		}
+		entry := func(sp *engine.Spell, status, reason string) CoverageEntry {
+			return CoverageEntry{SpellID: sp.ID, Name: sp.Name, Rank: cat.RankNumber(sp.ID), Status: status, Reason: reason}
+		}
+		var e CoverageEntry
+		found := false
+		for _, sp := range knownRanks { // cast in the rotation, or supporting it
+			if inRotation[sp.ID] {
+				e, found = entry(sp, talents.StatusUsed, "rotation"), true
+			} else if reason, ok := support[sp.ID]; ok && !found {
+				e, found = entry(sp, talents.StatusUsed, reason), true
+			}
+		}
+		if !found { // tried in a candidate that lost
+			for _, sp := range knownRanks {
+				if score, ok := tried[sp.ID]; ok && (!found || score > e.Value) {
+					e, found = entry(sp, talents.StatusIdle, "weaker"), true
+					e.Value = score
+				}
+			}
+		}
+		if !found {
+			if ok, what := relevant(top, metric); ok {
+				e = entry(top, talents.StatusUnmodeled, what)
+			} else {
+				e = entry(top, talents.StatusNone, "other")
+			}
+		}
+		chainStatus[base] = e
+		cov.Spells = append(cov.Spells, e)
+	}
+
+	// Talents. A talent that is a spell one casts (Siphon Life, Wrack)
+	// follows that spell; one that changes spells is judged by whether the
+	// rotation casts any of them.
+	matches := func(info talents.Info, sp *engine.Spell) bool {
+		if info.Bases[sp.BaseID] {
+			return true
+		}
+		for _, m := range info.Mods {
+			if m.Op == engine.OpHit && sp.IsHeal {
+				continue // heals never miss
+			}
+			if m.Matches(sp) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, info := range infos {
+		name := cat.Name(info.SpellID)
+		e := CoverageEntry{SpellID: info.SpellID, Name: name, Rank: info.Rank,
+			Status: info.Status, Reason: info.Reason, Unverified: info.Unverified, Note: info.Note}
+		if sp := cat.Spells[info.SpellID]; castable(sp) {
+			if ce, ok := chainStatus[cat.BaseOf[sp.ID]]; ok {
+				e.Status, e.Reason, e.Value = ce.Status, ce.Reason, ce.Value
+			}
+		} else if len(info.Mods) > 0 || len(info.Bases) > 0 {
+			status, reason := talents.StatusNone, "nospell"
+			for _, sp := range rotation {
+				if matches(info, sp) {
+					status, reason = talents.StatusUsed, "mods"
+					break
+				}
+			}
+			if status != talents.StatusUsed {
+				for id := range tried {
+					if matches(info, cat.Spells[id]) {
+						status, reason = talents.StatusIdle, "idle"
+						break
+					}
+				}
+			}
+			if status == talents.StatusNone {
+				for id := range known {
+					sp := cat.Spells[id]
+					if sp == nil || sp.Passive || !matches(info, sp) {
+						continue
+					}
+					if ok, _ := relevant(sp, metric); ok {
+						status, reason = talents.StatusUnmodeled, "notcast"
+						break
+					}
+					reason = "othermetric"
+				}
+			}
+			if talents.Better(status, e.Status) {
+				e.Status, e.Reason = status, reason
+			}
+		}
+		if e.Reason == "wand" && metric != "dps" {
+			e.Status, e.Reason = talents.StatusNone, "othermetric"
+		}
+		if e.Status != talents.StatusUsed && e.Status != talents.StatusIdle {
+			e.Unverified = false // an assumption only matters where it is applied
+		}
+		cov.Talents = append(cov.Talents, e)
+	}
+	return cov
 }

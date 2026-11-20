@@ -70,6 +70,11 @@ type LifeTap struct {
 	ManaPerCast   float64 `json:"manaPerCast"`
 }
 
+// lifeTapPerSpirit is how much one point of spirit adds to the health a
+// Life Tap takes and the mana it gives. Source: the spell's description in
+// the client's Spell table, "Converts ($m1+$SPI*1) Health into ... Mana".
+const lifeTapPerSpirit = 1.0
+
 // State is the character at the moment of evaluation: snapshot sheet totals
 // (gear and buffs included) plus the talent modifiers that the sheet does
 // not show. Copy it with ApplyDelta to rate an item swap.
@@ -169,20 +174,26 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 				s.Crit[sc] += v
 			}
 		case "int":
+			v *= 1 + s.Mods.IntellectPct/100
 			s.Intellect += v
 			s.ManaMax += v * s.ManaPerInt
 			for _, sc := range magicSchools {
 				s.Crit[sc] += v * s.CritPerInt
 			}
 		case "sta":
-			s.HealthMax += v * s.HPPerSta
+			s.HealthMax += v * (1 + s.Mods.StaminaPct/100) * s.HPPerSta
 		case "spi":
+			v *= 1 + s.Mods.SpiritPct/100
 			s.Spirit += v
-			if p := s.Mods.SPPerSpirit; p > 0 { // Spiritual Guidance: spirit feeds spell power
+			if p := s.Mods.SPPerSpirit; p > 0 { // Spiritual Guidance: spirit feeds spell damage
 				for _, sc := range magicSchools {
 					s.SP[sc] += v * p
 				}
-				s.Healing += v * p
+			}
+			s.Healing += v * s.Mods.HealPerSpirit
+			if s.LifeTap.ManaPerCast > 0 { // spirit raises what a Life Tap converts
+				s.LifeTap.HealthPerCast += v * lifeTapPerSpirit
+				s.LifeTap.ManaPerCast += v * lifeTapPerSpirit
 			}
 		case "mp5":
 			s.MP5 += v

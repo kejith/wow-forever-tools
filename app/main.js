@@ -387,6 +387,13 @@ async function captureHelp(out, wait, selector = '#content th .help', name = 'he
 }
 
 async function captureUpgradeDetails(out, wait) {
+  // What the combat model does with the spells and talents: the list is closed by default.
+  if (await win.webContents.executeJavaScript('(() => { const el = document.querySelector("details.coverage"); if (!el) return false; el.open = true; el.scrollIntoView(); return true; })()')) {
+    await wait(300);
+    const image = await win.webContents.capturePage();
+    fs.writeFileSync(path.join(out, 'upgrades-coverage.png'), image.toPNG());
+    await win.webContents.executeJavaScript('document.querySelector("details.coverage").open = false; document.querySelector(".content").scrollTop = 0');
+  }
   // The upgrades page is longer than the window: a second shot of the cards per slot below the shopping list.
   if (await win.webContents.executeJavaScript('!!document.querySelector(".slot-card")?.scrollIntoView()  || !!document.querySelector(".slot-card")')) {
     await wait(300);

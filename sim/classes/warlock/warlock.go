@@ -1,7 +1,10 @@
-// Package warlock is the first class module: the damage rotation of a
-// leveling/dungeon Warlock. The rotation is a priority list the engine
-// turns into a steady-state cycle: keep the DoTs up, fill with Shadow Bolt,
-// convert health to mana with Life Tap, wand when nothing is affordable.
+// Package warlock is the first class module: the damage rotations of a
+// leveling/dungeon Warlock. A rotation is a priority list the engine turns
+// into a steady-state cycle: keep the DoTs up, fill with one spell, convert
+// health to mana with Life Tap, wand when nothing is affordable. Which
+// filler and which optional spells pay is not decided here: every
+// combination the character can cast is a candidate, and the engine keeps
+// the one with the most damage.
 package warlock
 
 import (
@@ -10,30 +13,90 @@ import (
 )
 
 // First ranks of the rotation spells (stable Classic ids, present in the
-// Forever tables).
+// Forever tables; Wrack is Forever's Affliction talent).
 const (
 	ShadowBolt   = 686
 	Corruption   = 172
-	CurseOfAgony = 980
+	CurseOfAgony = 980   // "Bane of Agony" in Forever
 	SiphonLife   = 18265 // talent-granted
+	Immolate     = 348
+	DeathCoil    = 6789
+	DrainLife    = 689
+	Wrack        = 1316697 // talent-granted, channeled
 	LifeTap      = 1454
+	DemonSkin    = 687
+	DemonArmor   = 706
 )
+
+// auraHealthRegenInCombat is the aura of Demon Skin/Armor that regenerates
+// health in combat (points per 5 seconds).
+const auraHealthRegenInCombat = 161
 
 // DefaultMetric is what a Warlock optimizes for.
 const DefaultMetric = "dps"
 
-// Rotation builds the priority list from what the character actually knows.
-func Rotation(cat *catalog.Catalog, known map[int]bool, level int) []engine.Action {
-	var actions []engine.Action
-	add := func(kind string, base int) {
-		if sp := cat.BestRank(base, known, level); sp != nil {
-			actions = append(actions, engine.Action{Kind: kind, Spell: sp})
+// Rotations builds the candidate priority lists from what the character
+// actually knows: the three DoTs always, Immolate and Death Coil each with
+// and without, and one of the fillers Wrack, Shadow Bolt or Drain Life.
+func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
+	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
+	var dots []engine.Action
+	for _, base := range []int{CurseOfAgony, Corruption, SiphonLife} {
+		if sp := best(base); sp != nil {
+			dots = append(dots, engine.Action{Kind: "dot", Spell: sp})
 		}
 	}
-	add("dot", CurseOfAgony)
-	add("dot", Corruption)
-	add("dot", SiphonLife)
-	add("filler", ShadowBolt)
-	actions = append(actions, engine.Action{Kind: "wand"})
-	return actions
+	// Each optional spell doubles the candidates: without it and with it.
+	options := [][]engine.Action{nil}
+	for _, opt := range []struct {
+		kind string
+		base int
+	}{{"dot", Immolate}, {"cooldown", DeathCoil}} {
+		sp := best(opt.base)
+		if sp == nil {
+			continue
+		}
+		for _, o := range options[:len(options):len(options)] {
+			options = append(options, append(append([]engine.Action(nil), o...), engine.Action{Kind: opt.kind, Spell: sp}))
+		}
+	}
+	var fillers []*engine.Spell
+	for _, base := range []int{Wrack, ShadowBolt, DrainLife} {
+		if sp := best(base); sp != nil {
+			fillers = append(fillers, sp)
+		}
+	}
+	if len(fillers) == 0 {
+		fillers = []*engine.Spell{nil}
+	}
+	var out [][]engine.Action
+	for _, filler := range fillers {
+		for _, opt := range options {
+			actions := append(append([]engine.Action(nil), dots...), opt...)
+			if filler != nil {
+				actions = append(actions, engine.Action{Kind: "filler", Spell: filler})
+			}
+			out = append(out, append(actions, engine.Action{Kind: "wand"}))
+		}
+	}
+	return out
+}
+
+// ArmorRegen is the health per 5 seconds the character's armor spell gives
+// in combat (Demon Armor, else Demon Skin) and the spell it comes from. The
+// model takes the armor as always active.
+func ArmorRegen(cat *catalog.Catalog, known map[int]bool, level int) (float64, *engine.Spell) {
+	for _, base := range []int{DemonArmor, DemonSkin} {
+		sp := cat.BestRank(base, known, level)
+		if sp == nil {
+			continue
+		}
+		for _, a := range cat.Auras[sp.ID] {
+			if a.Aura == auraHealthRegenInCombat {
+				return a.BP, sp
+			}
+		}
+		return 0, sp
+	}
+	return 0, nil
 }

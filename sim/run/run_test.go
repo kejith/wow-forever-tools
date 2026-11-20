@@ -40,13 +40,19 @@ func almost(t *testing.T, name string, got, want, eps float64) {
 
 // The golden fixture character, every number hand-computed:
 //
-//	Corruption  228 dmg/18 s (6 ticks à 40, hit 95%), share 1.5/18
-//	Curse of Agony 190 dmg/24 s (8 ticks à 25, hit 95%), share 1.5/24
-//	Shadow Bolt r2 139.65 dmg per 3 s cast (140 base+sp, crit 1.05, hit 95%)
-//	rotDPS 60.3448, rotMPS 44.3056, budget 1000/60+2 = 18.6667
-//	Life Tap capped by health: 0.4*500/(60*100) = 1/30 taps/s
-//	cast fraction (18.6667+4)/44.3056 = 0.51160, wand rest 0.43840 à 19.364
-//	DPS = 39.3615, ttoom = 1000/(44.3056-2) = 23.638
+//	Corruption  228 dmg/18 s (6 ticks à 40, hit 95%), 50 mana
+//	Curse of Agony 190 dmg/24 s (8 ticks à 25, hit 95%), 40 mana
+//	Shadow Bolt r2 139.65 dmg per 3 s cast (140 base+sp, crit 1.05, hit 95%), 140 mana
+//	Before the wait the DoTs take 1.5/18 + 1.5/24 = 0.145833 of the timeline;
+//	a recast waits (1 - 0.145833)*3/2 = 1.28125 s behind a bolt on average:
+//	Corruption cycle 19.28125 s -> 11.8250 dps, 2.59319 mana/s, share 0.077796
+//	Curse of Agony cycle 25.28125 s -> 7.51545 dps, 1.58220 mana/s, share 0.059333
+//	filler share 0.862872 at 46.55 dps and 46.6667 mana/s per unit
+//	rotMPS 44.4427, budget 1000/60+2 = 18.6667, ttoom = 1000/(44.4427-2) = 23.561
+//	Life Tap capped by health: 0.4*500/(60*100) = 1/30 taps/s (4 mana/s, 5 % of the time)
+//	The DoTs stay up; the filler gets (18.6667+4-4.17539)/46.6667 = 0.396242,
+//	the wand the rest 0.416630 à 19.364
+//	DPS = 19.3405 + 18.4451 + 8.0676 = 45.8531
 func TestGoldenWarlock(t *testing.T) {
 	out := Run(input())
 	if out.Error != "" {
@@ -55,12 +61,12 @@ func TestGoldenWarlock(t *testing.T) {
 	if out.SpellbookSource != "assumed" {
 		t.Errorf("spellbook source = %q", out.SpellbookSource)
 	}
-	almost(t, "dps", out.Baseline.Value, 39.3615, 0.01)
+	almost(t, "dps", out.Baseline.Value, 45.8531, 0.01)
 	if out.Baseline.TTOOMSec == nil {
 		t.Fatal("ttoom missing")
 	}
-	almost(t, "ttoom", *out.Baseline.TTOOMSec, 23.638, 0.01)
-	almost(t, "spent", out.Baseline.ManaSpentPS, 44.3056, 0.001)
+	almost(t, "ttoom", *out.Baseline.TTOOMSec, 23.561, 0.01)
+	almost(t, "spent", out.Baseline.ManaSpentPS, 44.4427, 0.001)
 	almost(t, "budget", out.Baseline.ManaBudgetPS, 18.6667, 0.001)
 	// Curse of Agony, Corruption, Shadow Bolt, Life Tap, Wand.
 	if len(out.Baseline.Breakdown) != 5 {

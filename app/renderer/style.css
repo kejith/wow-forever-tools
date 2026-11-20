@@ -156,6 +156,9 @@ table.sticky > thead th {
 .scale summary { cursor: pointer; }
 .scale table { margin-top: 6px; width: auto; }
 .scale td { padding: 3px 14px 3px 0; border: none; color: var(--text); }
+.coverage h3 { margin: 10px 0 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.coverage td { vertical-align: top; }
+.coverage td.muted { color: var(--muted); }
 
 .loading { color: var(--muted); padding: 30px 0; display: flex; gap: 10px; align-items: center; }
 .spinner {

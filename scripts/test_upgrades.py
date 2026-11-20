@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import i18n  # noqa: E402
 import upgrades as u  # noqa: E402
 
-SUPPRESSION, IMPROVED_LIFE_TAP, PANDEMIC = u.SUPPRESSION, u.IMPROVED_LIFE_TAP_ID, u.PANDEMIC
+IMPROVED_LIFE_TAP, PANDEMIC = u.IMPROVED_LIFE_TAP_ID, u.PANDEMIC
 
 
 def char(level=46, hit=5, talents=(), equipment=()):
@@ -56,10 +56,12 @@ def test_hit_counts_only_up_to_the_cap():
     assert lvl["profile"] == "leveling"
     assert u.set_value({"hit": 3}, lvl) == 0
 
-    dung = u.build_scale(char(hit=5, talents=[(SUPPRESSION, 5)]), "dungeon")  # 16 % needed, 11 missing
+    # 16 % needed, 11 missing. The 5 % of the sheet already hold Suppression (1 % per rank in Forever,
+    # for every spell), so the talent adds nothing on top.
+    dung = u.build_scale(char(hit=5, talents=[(18174, 5)]), "dungeon")
     one, two, cap, over = (u.set_value({"hit": h}, dung) for h in (1, 2, 11, 20))
     assert one > 0 and cap == over  # nothing beyond the cap
-    assert abs((two - one) - 0.25 * one) < 1e-9  # after 1 % the affliction spells are capped by Suppression
+    assert abs(two - 2 * one) < 1e-9 and abs(cap - 11 * one) < 1e-9  # every percent up to the cap counts alike
 
     assert u.build_scale(char(level=60))["profile"] == "dungeon"
 
@@ -179,6 +181,8 @@ def write_fixture(tmp: str) -> dict:
                 'stats = { spellHit = 5, spellDamage = { shadow = 100 } } }, '
                 'spellbook = { updated = 1, count = 2, spells = { [686] = { name = "Shadow Bolt", rank = "Rank 3" }, '
                 '[172] = { name = "Corruption" } } }, '
+                'talents = { class = { { spent = 5, talents = { '
+                '{ spellID = 18174, name = "Suppression", rank = 5, maxRank = 5 } } } } }, '
                 'client = { version = "9.9.9", build = 9, locale = "deDE" }, equipment = {'
                 '{ slot = 16, name = "Old Staff", equipLoc = "INVTYPE_2HWEAPON", stats = { ITEM_MOD_SPELL_POWER_SHORT = 30 } },'
                 '{ slot = 11, name = "Ring A", equipLoc = "INVTYPE_FINGER", stats = { ITEM_MOD_SPELL_POWER_SHORT = 2 } },'
@@ -230,13 +234,32 @@ assert data["character"]["classFile"] == "WARLOCK" and data["build"] == "9.9.9.9
 assert data["fight"] == {"seconds": 45.0, "targetDelta": 3}
 assert data["character"]["spellbook"] == [172, 686], "the addon's spellbook export reaches the engine"
 assert data["character"]["stats"]["wand"]["dps"] == 20, "the equipped wand's damage per second reaches the engine"
+assert data["character"]["talents"] == {"18174": 5}
 res = {e["key"]: {"gain": 2.0 * e["delta"].get("sp", 0), "value": 100 + 2.0 * e["delta"].get("sp", 0),
                  "gainPct": 0} for e in data["evaluations"]}
 json.dump({"engine": "stub", "spellbookSource": "assumed",
            "baseline": {"metric": "dps", "value": 100.0, "ttoomSeconds": 42.0,
-                        "manaSpentPs": 5.0, "manaBudgetPs": 6.0,
-                        "breakdown": [{"label": "Shadow Bolt", "value": 60.0, "sharePct": 80.0, "kind": "filler"},
-                                      {"label": "Life Tap", "kind": "lifetap", "perMin": 3.0, "sharePct": 5.0}]},
+                        "manaSpentPs": 5.0, "manaBudgetPs": 6.0, "selfHealPs": 4.5,
+                        "breakdown": [{"label": "Shadow Bolt", "spellId": 686, "rank": 3, "value": 60.0,
+                                       "sharePct": 80.0, "kind": "filler"},
+                                      {"label": "Drain Life", "spellId": 689, "rank": 2, "value": 9.0,
+                                       "sharePct": 5.0, "kind": "dot", "leech": 4.5},
+                                      {"label": "Life Tap", "spellId": 1454, "kind": "lifetap", "perMin": 3.0,
+                                       "sharePct": 5.0},
+                                      {"label": "wand", "kind": "wand", "value": 1.0, "sharePct": 10.0}]},
+           "coverage": {"talentValues": "tables", "candidates": 4,
+                        "spells": [{"spellId": 5676, "name": "Searing Pain", "rank": 2, "status": "unmodeled",
+                                    "reason": "damage"},
+                                   {"spellId": 348, "name": "Immolate", "status": "idle", "reason": "weaker",
+                                    "value": 97.5},
+                                   {"spellId": 686, "name": "Shadow Bolt", "rank": 3, "status": "used",
+                                    "reason": "rotation"}],
+                        "talents": [{"spellId": 427712, "name": "Pandemic", "rank": 3, "status": "used",
+                                     "reason": "rule", "unverified": True, "note": "Classic value."},
+                                    {"spellId": 18174, "name": "", "rank": 5, "status": "sheet",
+                                     "reason": "sheet"},
+                                    {"spellId": 1, "name": "Mystery", "rank": 1, "status": "unmodeled",
+                                     "reason": "brand new code"}]},
            "results": res}, sys.stdout)
 '''
 
@@ -267,7 +290,22 @@ def test_compute_with_engine(tmp: str):
     assert by_slot[11]["Ring D"]["gain"] == 20  # still against the weaker ring (2 x (12 - 2))
     assert r["setValue"] == 100 and r["engine"]["metric"] == "dps" and r["engine"]["ttoomSeconds"] == 42
     assert r["engine"]["spellbookSource"] == "assumed" and r["engine"]["fight"] == {"seconds": 45.0, "targetDelta": 3}
-    assert [row["label"] for row in r["scale"]] == ["Shadow Bolt", "Life Tap"]
+    assert [row["label"] for row in r["scale"]] == ["Shadow Bolt (Rank 3)", "Drain Life (Rank 2)", "Life Tap", "Wand"]
+    assert "returns 4.5 health per second" in r["scale"][1]["note"] and r["engine"]["selfHealPs"] == 4.5
+    assert "3.0 casts per minute" in r["scale"][2]["note"]
+
+    # The coverage report: every spell and talent with what the model does with it, the used ones first.
+    cov = r["engine"]["coverage"]
+    assert cov["candidates"] == 4 and cov["exactTalents"] is True
+    assert [(e["label"], e["status"]) for e in cov["spells"]] == [
+        ("Shadow Bolt (Rank 3)", "used"), ("Immolate", "idle"), ("Searing Pain (Rank 2)", "unmodeled")]
+    assert cov["spells"][0]["text"] == "cast in the rotation" and cov["spells"][0]["statusLabel"] == "used"
+    assert cov["spells"][1]["text"] == "tried instead: 97.5 DPS, less than the rotation above"
+    assert [(e["label"], e["status"]) for e in cov["talents"]] == [
+        ("Pandemic (3)", "used"), ("Suppression (5/5)", "sheet"), ("Mystery (1)", "unmodeled")]  # names: snapshot first
+    assert cov["talents"][0]["unverified"] and cov["talents"][0]["note"].endswith("measured in the game. Classic value.")
+    assert "unverified" not in cov["talents"][1] and cov["talents"][1]["statusLabel"] == "in your stats"
+    assert cov["talents"][2]["text"] == "an effect the model does not know"  # a reason code this version does not know
     assert r["package"]["gain"] == round(sum(p["gain"] for p in r["package"]["items"]), 1)
     assert r["package"]["gainPct"] == round(r["package"]["gain"] / 100 * 100)
 

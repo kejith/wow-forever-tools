@@ -1,64 +1,83 @@
 {
-  "comment": "Hand-written talent facts the generic DB2 decode cannot or should not derive. Every entry names its source; 'Classic value' means the number is taken from Classic-era theorycraft and has NOT been measured on Forever yet. 'spells' lists the rank spell ids as the talent export reports them; 'perRank' is multiplied by the exported rank.",
+  "comment": "Hand-written talent rules for what the generic DB2 decode (sim/talents) cannot express. 'spells' lists the talent's spell ids as the talent export reports them. The value of a rule is the talent's own number at the character's rank: 'effect' names the effect index whose per-rank value the trait tables hold (TraitDefinitionEffectPoints + CurvePoint); 'perRank' is the fallback when the tables are not in the cache, 'value' a fixed number. 'unverified' marks a mechanic or number that is an assumption and has not been measured in Forever; the coverage report shows it. 'generic' additionally decodes the spell's auras. Base ids are the first rank of a spell chain.",
   "entries": [
-    {
-      "name": "Suppression",
-      "spells": [18174, 18175, 18176, 18177, 18178],
-      "kind": "spell_hit_flat",
-      "perRank": 2,
-      "affectsBases": [172, 980, 603, 689, 1120, 18265],
-      "source": "Classic value (2% per rank on Affliction spells); Forever unmeasured, CLAUDE.md 2026-11"
-    },
     {
       "name": "Improved Life Tap",
       "spells": [18182, 18183],
       "kind": "life_tap_pct",
+      "effect": 0,
       "perRank": 10,
-      "source": "Classic value (+10% mana per rank); Forever unmeasured, tooltip not exported"
+      "source": "Talent text: 'Increases the amount of Mana awarded by your Life Tap spell by $s1%' (10/20 in the trait tables). The Life Tap text of the spellbook does not include it."
     },
     {
       "name": "Pandemic",
       "spells": [427712],
       "kind": "dot_crit",
       "schools": ["shadow"],
-      "source": "SoD rune with the same spell id lets Shadow DoTs crit; Forever unverified"
+      "generic": true,
+      "unverified": true,
+      "source": "Talent text: 'Increases the critical strike damage bonus of your Corruption, Bane of Agony, Bane of Doom, Drain Soul, Drain Life, Siphon Life, and Wrack spells by $m1%' (33/67/100, decoded from the spell). Assumed: these periodic spells can crit once the talent is taken (not measured), and the base crit bonus of spells is 50%."
     },
     {
-      "name": "Meditation",
-      "spells": [14521, 14776, 14777],
-      "kind": "casting_regen_pct",
-      "perRank": 5,
-      "source": "Classic value (5% per rank of spirit regeneration continues while casting); Forever unmeasured"
+      "name": "Wrack",
+      "spells": [1316697],
+      "kind": "channel_dot_haste",
+      "effect": 1,
+      "affectsBases": [172, 980, 18265],
+      "unverified": true,
+      "source": "Spell text: 'While channeling, your Siphon Life, Corruption, and Bane of Agony effects on the target deal their periodic damage $s2% faster' (100). Assumed: the DoTs tick twice as fast and keep their duration, so the faster ticks are extra damage (and extra Siphon Life healing). If the game shortens the DoTs instead, Wrack is worth less than modeled."
+    },
+    {
+      "name": "Soul Siphon",
+      "spells": [17804],
+      "kind": "dot_stack",
+      "effect": 0,
+      "affectsBases": [689, 1120, 1316697],
+      "countsBases": [172, 980, 18265],
+      "max": 3,
+      "source": "Talent text: 'Increases the damage done or health drained by your Drain Life, Drain Soul, and Wrack spells by $s1% per each of your Corruption, Siphon Life, and Bane of Agony effects active on the target' (4/8/12). The model counts the DoTs the rotation keeps up."
+    },
+    {
+      "name": "Soul Harvest",
+      "spells": [437032],
+      "kind": "ignore",
+      "reason": "situational",
+      "source": "Talent text: mana regeneration after 'killing a non-trivial target afflicted by your Drain Soul'. The model fights one target that does not die."
+    },
+    {
+      "name": "Power in Light",
+      "spells": [1309969],
+      "kind": "dot_stack",
+      "effect": 0,
+      "affectsBases": [585, 402174],
+      "countsBases": [589, 14914],
+      "max": 1,
+      "source": "Talent text: 'Your Smite and Penance spells deal $m1% increased damage to targets afflicted with your Holy Fire or Shadow Word: Pain' (2/4/6/8/10)."
     },
     {
       "name": "Shadowform",
       "spells": [15473],
-      "kind": "school_damage_pct",
-      "schools": ["shadow"],
-      "perRank": 15,
-      "source": "Classic value (+15% shadow damage); the model assumes the form is active for damage rotations"
+      "kind": "generic",
+      "generic": true,
+      "unverified": true,
+      "source": "Decoded from the form's own auras (shadow damage, mana cost of shadow spells, crit damage bonus). Assumed: the form is active whenever the talent is taken."
     },
     {
       "name": "Shadow Weaving",
-      "spells": [15257, 15331, 15332, 15333, 15334],
+      "spells": [15257],
       "kind": "school_damage_pct",
       "schools": ["shadow"],
-      "perRank": 3,
-      "source": "Classic debuff (3% per rank at 5 stacks); the model assumes the stacks are kept up"
+      "value": 10,
+      "unverified": true,
+      "source": "Talent text: a chance per rank to make the target take $15258s1% (2) more Shadow damage from you, stacking. Assumed: five stacks are kept up (the stack limit is not read from the client)."
     },
     {
-      "name": "Spiritual Guidance",
-      "spells": [14901, 15028, 15029, 15030, 15031],
-      "kind": "sp_per_spirit",
-      "perRank": 0.05,
-      "source": "Classic value (5% of spirit per rank as spell damage and healing); the character sheet already includes it, so the model applies it only to spirit changes from items"
-    },
-    {
-      "name": "Wand Specialization (Priest)",
+      "name": "Wand Specialization",
       "spells": [14524, 14525, 14526, 14527, 14528],
       "kind": "wand_pct",
+      "effect": 0,
       "perRank": 5,
-      "source": "Classic value (+5% wand damage per rank)"
+      "source": "Talent text: 'Increases your damage with Wands by $s1%' (13/25 in the trait tables). The aura is a school damage percent limited to wands, so it must not count for spells."
     }
   ]
 }

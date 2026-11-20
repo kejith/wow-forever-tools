@@ -190,9 +190,13 @@ func TestResolveCastSampledMean(t *testing.T) {
 
 // The full cycle, hand-computed in the comments (fight 60 s, target +2):
 //
-//	Corruption: 228 dmg / 18 s, share 1.5/18; CoA-like omitted here.
-//	Shadow Bolt filler: 139.65 per 3 s cast.
-//	Unconstrained: see values below; mana forces Life Tap and wanding.
+//	Corruption: 228 dmg / 18 s for 50 mana, 1.5 s to cast.
+//	Shadow Bolt filler: 139.65 per 3 s cast for 140 mana.
+//
+// Corruption falls off while a bolt is being cast: the recast waits half a
+// cast on average for the share of the timeline the filler holds, which
+// stretches its cycle. Mana forces Life Tap and wanding, and both take
+// their time from the filler; the DoT keeps its uptime.
 func TestEvaluateManaClipping(t *testing.T) {
 	st := testState()
 	st.ManaMax = 1000
@@ -209,27 +213,36 @@ func TestEvaluateManaClipping(t *testing.T) {
 	}
 	m := Evaluate(st, Fight{Seconds: 60, TargetDelta: 2}, actions, "dps")
 
-	// Shares: corruption 1/12, filler 11/12.
-	// rotDPS = 228/18 + (11/12)*139.65/3 = 12.6667 + 42.6708 = 55.3375
-	// rotMPS = 50/18 + (11/12)*140/3 = 2.7778 + 42.7778 = 45.5556
-	almost(t, "manaSpentPs", m.ManaSpentPS, 45.5556, 0.001)
+	// Before the wait: corruption 1/12 of the timeline, filler 11/12.
+	// wait = (11/12)*3/2 = 1.375 s, so the cycle is 19.375 s (k = 0.929032):
+	// corruption share 0.077419, 11.7677 dps, 2.58065 mana/s;
+	// filler share 0.922581 at 46.55 dps and 46.6667 mana/s per unit.
+	// rotMPS = 2.58065 + 0.922581*46.6667 = 45.6344
+	almost(t, "manaSpentPs", m.ManaSpentPS, 45.6344, 0.001)
 	// budget = 1000/60 + 10/5 = 18.6667
 	almost(t, "manaBudgetPs", m.ManaBudgetPS, 18.6667, 0.001)
-	// ttoom = 1000 / (45.5556 - 2) = 22.959
+	// ttoom = 1000 / (45.6344 - 2) = 22.9177
 	if m.TTOOMSec == nil {
 		t.Fatal("ttoom missing")
 	}
-	almost(t, "ttoom", *m.TTOOMSec, 22.959, 0.01)
-	// Health caps the taps: 0.4*500 / (60*100) = 1/30 taps per second,
-	// castFraction = (18.6667 + 4) / 45.5556 = 0.49756 (mana-bound),
-	// wand = 1 - 0.49756 - 0.05 = 0.45244, wandDPS = 20*0.94*1.03 = 19.364.
-	// dps = 55.3377*0.49756 + 19.364*0.45244 = 27.534 + 8.761 = 36.295
-	almost(t, "dps", m.DPS, 36.295, 0.01)
+	almost(t, "ttoom", *m.TTOOMSec, 22.9177, 0.01)
+	// Health caps the taps: 0.4*500 / (60*100) = 1/30 taps per second
+	// (4 mana/s, 5 % of the time). The filler gets the mana that is left:
+	// (18.6667 + 4 - 2.58065) / 46.6667 = 0.430415 of the timeline.
+	// wand = 1 - 0.077419 - 0.430415 - 0.05 = 0.442166, wandDPS = 20*0.94*1.03 = 19.364.
+	// dps = 11.7677 + 0.430415*46.55 + 0.442166*19.364 = 40.3656
+	almost(t, "dps", m.DPS, 40.3656, 0.01)
+	for _, row := range m.Breakdown {
+		if row.Kind == "dot" {
+			almost(t, "the DoT keeps its uptime", row.Value, 11.7677, 0.001)
+		}
+	}
 
 	// Without mana pressure the full rotation runs.
 	st.ManaMax = 1e9
 	m2 := Evaluate(st, Fight{Seconds: 60, TargetDelta: 2}, actions, "dps")
-	almost(t, "unconstrained dps", m2.DPS, 55.3375, 0.001)
+	// 11.7677 + 0.922581*46.55 = 54.7139
+	almost(t, "unconstrained dps", m2.DPS, 54.7139, 0.001)
 	if m2.TTOOMSec != nil && *m2.TTOOMSec < 60 {
 		t.Errorf("unexpected early ttoom %g", *m2.TTOOMSec)
 	}

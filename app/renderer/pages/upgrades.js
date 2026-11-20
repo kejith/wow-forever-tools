@@ -1,5 +1,5 @@
 // Page "AH upgrades": gear from the auction house against the equipped gear, rated by scripts/upgrades.py.
-import { $, ago, api, cached, content, errorBox, esc, help, itemIcon, loadStatus, loading, money, num, percent, quality, selectOption, state, terms, th, tipAttr } from '../core.js';
+import { $, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, selectOption, state, terms, th, tipAttr } from '../core.js';
 import { t } from '../i18n.js';
 
 // What the columns of the cards per slot mean; the cards repeat, so the explanation sits at the heading once.
@@ -125,6 +125,22 @@ export async function renderUpgrades() {
       ${eng.healOptions.map((o) => `<tr><td>${esc(o.spell)}${o.chosen ? ` <span class="badge new">${esc(t('the model heals with this'))}</span>` : ''}</td>
         <td class="num"><b>${num(o.hpsSustained, 1)}</b></td><td class="num">${num(o.healPerMana, 2)}</td>
         <td class="num">${num(o.healPerCast)}</td><td class="num">${num(o.manaPerCast)}</td><td class="num">${num(o.castSec, 1)}</td></tr>`).join('')}</tbody></table></details>` : '';
+  // What the model did with every known spell and talent, so that nothing is left out silently.
+  const cov = eng?.coverage;
+  const covBadge = { used: 'ok', sheet: 'ok', unmodeled: 'warn' };
+  const covRows = (rows) => {
+    const quiet = rows.filter((e) => e.status === 'none');
+    return `<table><tbody>${rows.filter((e) => e.status !== 'none').map((e) => `<tr>
+        <td><span class="badge ${covBadge[e.status] || ''}">${esc(e.statusLabel)}</span></td><td>${esc(e.label)}</td>
+        <td class="small muted">${esc(e.text)}${e.unverified ? ` <span class="badge warn"${hintAttr(e.note)}>${esc(t('assumption'))}</span>` : ''}</td></tr>`).join('')}
+      ${quiet.length ? `<tr><td><span class="badge">${esc(quiet[0].statusLabel)}</span></td>
+        <td colspan="2" class="small muted">${esc(quiet.map((e) => e.label).join(', '))}</td></tr>` : ''}</tbody></table>`;
+  };
+  const covCount = (status) => (cov ? [...cov.spells, ...cov.talents].filter((e) => e.status === status).length : 0);
+  const coverage = cov ? `<details class="scale coverage"><summary>${esc(t('What the model does with your spells and talents: {used} used, {open} not modeled, {n} rotations compared',
+    { used: covCount('used'), open: covCount('unmodeled'), n: cov.candidates }))}</summary>
+      ${cov.exactTalents ? '' : `<div class="notice" style="margin-top:8px">${esc(t('The talent tables of the game could not be loaded: talent values are estimates.'))}</div>`}
+      <h3>${esc(t('Spells'))}</h3>${covRows(cov.spells)}<h3>${esc(t('Talents'))}</h3>${covRows(cov.talents)}</details>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(t('Budget'))}</h2><div class="big">${money(d.budget)}</div></div>
       <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng
@@ -136,7 +152,7 @@ export async function renderUpgrades() {
       <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.')))}</h2>
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>
       <span class="spacer"></span></div>
-      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${healRanks}</div>
+      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${healRanks}${coverage}</div>
     ${packageHtml}
     ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
 }

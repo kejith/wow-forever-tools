@@ -11,15 +11,17 @@ import (
 // First ranks of the rotation spells (stable Classic ids, present in the
 // Forever tables).
 const (
-	Smite          = 585
-	ShadowWordPain = 589
-	MindBlast      = 8092
-	MindFlay       = 15407 // talent-granted, channeled
-	Renew          = 139
-	LesserHeal     = 2050
-	Heal           = 2054
-	GreaterHeal    = 2060
-	FlashHeal      = 2061
+	Smite           = 585
+	ShadowWordPain  = 589
+	MindBlast       = 8092
+	MindFlay        = 15407 // talent-granted, channeled
+	HolyFire        = 14914 // a cast with a direct hit and a short DoT
+	DevouringPlague = 2944  // a DoT whose cooldown equals its duration
+	Renew           = 139
+	LesserHeal      = 2050
+	Heal            = 2054
+	GreaterHeal     = 2060
+	FlashHeal       = 2061
 )
 
 // healChains are the single-target heals a priest can fill with; every known
@@ -32,21 +34,47 @@ var healChains = []int{LesserHeal, Heal, GreaterHeal, FlashHeal}
 // Rotations returns the rotation candidates for a metric.
 func Rotations(metric string, cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
 	if metric == "dps" {
-		var actions []engine.Action
-		add := func(kind string, base int) {
-			if sp := cat.BestRank(base, known, level); sp != nil {
-				actions = append(actions, engine.Action{Kind: kind, Spell: sp})
+		// Shadow Word: Pain and Mind Blast always; Holy Fire and Devouring
+		// Plague each with and without; Mind Flay or Smite as the filler.
+		// The engine keeps the combination with the most damage.
+		best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
+		options := [][]engine.Action{nil}
+		for _, base := range []int{HolyFire, DevouringPlague} {
+			sp := best(base)
+			if sp == nil {
+				continue
+			}
+			for _, o := range options[:len(options):len(options)] {
+				options = append(options, append(append([]engine.Action(nil), o...), engine.Action{Kind: "dot", Spell: sp}))
 			}
 		}
-		add("dot", ShadowWordPain)
-		add("cooldown", MindBlast)
-		if sp := cat.BestRank(MindFlay, known, level); sp != nil {
-			actions = append(actions, engine.Action{Kind: "filler", Spell: sp})
-		} else {
-			add("filler", Smite)
+		var fillers []*engine.Spell
+		for _, base := range []int{MindFlay, Smite} {
+			if sp := best(base); sp != nil {
+				fillers = append(fillers, sp)
+			}
 		}
-		actions = append(actions, engine.Action{Kind: "wand"})
-		return [][]engine.Action{actions}
+		if len(fillers) == 0 {
+			fillers = []*engine.Spell{nil}
+		}
+		var out [][]engine.Action
+		for _, filler := range fillers {
+			for _, opt := range options {
+				var actions []engine.Action
+				if sp := best(ShadowWordPain); sp != nil {
+					actions = append(actions, engine.Action{Kind: "dot", Spell: sp})
+				}
+				actions = append(actions, opt...)
+				if sp := best(MindBlast); sp != nil {
+					actions = append(actions, engine.Action{Kind: "cooldown", Spell: sp})
+				}
+				if filler != nil {
+					actions = append(actions, engine.Action{Kind: "filler", Spell: filler})
+				}
+				out = append(out, append(actions, engine.Action{Kind: "wand"}))
+			}
+		}
+		return out
 	}
 
 	// Healer: keep Renew up, fill with one single-target heal rank. In

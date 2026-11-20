@@ -15,6 +15,9 @@ type Spell struct {
 	CooldownMs int
 	DurationMs int
 	Channeled  bool
+	Passive    bool
+	Absorbs    bool // has a damage shield (Power Word: Shield); not modeled yet, the coverage report says so
+	GivesMana  bool // returns mana (energize effects); not modeled yet
 	Cost       Cost
 	Levels     Levels
 	ClassMask  [4]uint32
@@ -43,6 +46,8 @@ type Effect struct {
 	Variance float64 // range is BP*(1 +/- Variance/2); expectations use the midpoint
 	Coeff    float64 // spell power coefficient (per tick for periodic effects)
 	PeriodMs int     // periodic effects only
+	Index    int     // EffectIndex (talents may change one effect's points)
+	Leech    float64 // share of the damage the caster gains as health (0 = none)
 }
 
 // avgBase is the level-scaled midpoint of an effect's base value.

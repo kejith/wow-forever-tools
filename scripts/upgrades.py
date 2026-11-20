@@ -40,17 +40,16 @@ from i18n import mark, tr  # noqa: E402
 # Unlike a fixed Pawn scale, hit and crit depend on the character (build_scale), and the whole set is
 # always rated (set_value). That way hit only counts up to the cap.
 PROFILES = {
-    # target: how many levels the enemies are above you, aff_share: share of the damage from Affliction
-    # spells (DoTs, drains).
+    # target: how many levels the enemies are above you.
     # mana_share: 1% more pool (mana + health usable through Life Tap) counts like mana_share % more damage.
     # survival_share: 1% more health additionally counts like survival_share % more damage (survival,
     # less downtime). Both are judgement values (chosen so that a level 46 warlock lands near the older
     # fixed weights); build_scale derives intellect and stamina from them with level, stats and talents.
     # weights: fixed weights; stamina/intellect only when the export has no health and mana values.
-    "leveling": dict(label=mark("Leveling"), target=2, aff_share=0.75, mana_share=0.10, survival_share=0.05,
+    "leveling": dict(label=mark("Leveling"), target=2, mana_share=0.10, survival_share=0.05,
                      weights={"stamina": 0.5, "intellect": 0.35, "spirit": 0.25, "mp5": 0.7, "hp5": 0.15,
                               "armor": 0.01, "wand_dps": 0.6}),
-    "dungeon": dict(label=mark("Dungeon/raid"), target=3, aff_share=0.75, mana_share=0.06, survival_share=0.02,
+    "dungeon": dict(label=mark("Dungeon/raid"), target=3, mana_share=0.06, survival_share=0.02,
                     weights={"stamina": 0.25, "intellect": 0.25, "spirit": 0.05, "mp5": 0.3, "hp5": 0.0,
                              "armor": 0.0, "wand_dps": 0.1}),
 }
@@ -59,12 +58,11 @@ MANA_PER_INT = 15  # MANA_PER_INTELLECT in the game
 HP_PER_STAMINA = 10  # UnitHPPerStamina in the game
 IMPROVED_LIFE_TAP = 0.1  # Improved Life Tap: +10% mana per rank (Classic value, not checked in Forever)
 # Talents by spell ID, so the client language does not matter.
-SUPPRESSION, IMPROVED_LIFE_TAP_ID, PANDEMIC = 18174, 18182, 427712
+IMPROVED_LIFE_TAP_ID, PANDEMIC = 18182, 427712
 # Chance of spells to miss enemies 0 to 3 levels above you. Source: Forever's own character pane
 # (Blizzard_UIPanels_Game/Camelot/PaperDollFrameStats.lua, spellMissChances).
 SPELL_MISS = {0: 4.0, 1: 5.0, 2: 6.0, 3: 17.0}
 MIN_MISS = 1.0  # as in Classic: 1% miss always remains
-SUPPRESSION_PER_RANK = 2.0  # Suppression: hit chance for Affliction spells per rank (Classic value)
 BASE_PER_LEVEL = 13  # base damage / spell power coefficient of warlock spells: about 13 per level in Classic
 CRIT_BONUS = 0.5  # spell crits deal 150% damage
 DEFAULT_RATINGS = {"hit": 10.0, "crit": 14.0}  # rating per 1%, measured again from the tooltips of the export
@@ -237,12 +235,12 @@ def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0, gear_crit:
     spell_power = (st.get("spellDamage") or {}).get("shadow") or 0
     pct = (BASE_PER_LEVEL * level + spell_power) / 100
 
-    base_hit = st.get("spellHit") or 0  # GetSpellHitModifier: hit from talents and auras, without gear
+    # GetSpellHitModifier: hit from talents and auras, without gear. Suppression is part of it: in Forever
+    # the talent gives 1% hit per rank to every spell (trait tables, aura 54/55 without a spell mask).
+    base_hit = st.get("spellHit") or 0
     cap = SPELL_MISS[p["target"]] - MIN_MISS
     need = max(0.0, cap - base_hit)
-    suppression = SUPPRESSION_PER_RANK * talents.get(SUPPRESSION, 0)
-    need_aff = max(0.0, need - suppression)
-    hit_steps = [(need_aff, p["aff_share"]), (need, 1 - p["aff_share"])]
+    hit_steps = [(need, 1.0)]
 
     pandemic = talents.get(PANDEMIC, 0)
     crit_share = 0.25 + 0.6 * min(pandemic, 3) / 3  # without Pandemic only Shadow Bolt and the like crit
@@ -255,8 +253,6 @@ def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0, gear_crit:
     else:
         hit_note = tr("cap against +{target} levels {cap:g}%, you have {base:g}%, {need:g}% missing",
                       target=p["target"], cap=cap, base=base_hit, need=need)
-        if suppression:
-            hit_note += tr(" (Affliction spells only {need:g}% thanks to Suppression)", need=need_aff)
         hit_note += tr(", gear gives {gear:g}%", gear=gear_hit)
     crit_note = tr("1% damage = {points:.1f} spell power, {share:.0%} of the damage can crit", points=pct, share=crit_share)
     if pandemic:
@@ -433,6 +429,72 @@ def load_item_export(wow: str, char: dict) -> dict:
     if not best.get("items"):
         best = char.get("itemInfo") or {}
     return best
+
+
+# The combat engine's coverage report: what the model did with every known spell and talent. The engine
+# answers with a status and a reason code (sim/run/run.go, sim/talents); the sentences are here.
+COVERAGE_STATUS = {"used": mark("used"), "sheet": mark("in your stats"), "idle": mark("tried"),
+                   "unmodeled": mark("not modeled"), "none": mark("no influence")}
+COVERAGE_SPELL = {
+    "rotation": mark("cast in the rotation"),
+    "regen": mark("converts health to mana when the rotation runs short"),
+    "buff": mark("taken as always active; its health regeneration feeds Life Tap"),
+    "weaker": mark("tried instead: {value:.1f} {unit}, less than the rotation above"),
+    "damage": mark("deals damage, but the model does not cast it"),
+    "heal": mark("heals, but the model does not cast it"),
+    "absorb": mark("absorbs damage, which the model does not count yet"),
+    "mana": mark("returns mana, which the model does not use yet"),
+    "other": mark("does not change this number"),
+}
+COVERAGE_TALENT = {
+    "mods": mark("changes spells of the rotation"),
+    "rule": mark("applied to the rotation"),
+    "wand": mark("raises the wand damage"),
+    "school": mark("raises the damage of a spell school"),
+    "cost": mark("lowers mana costs"),
+    "regen": mark("mana regeneration continues while casting"),
+    "sheet": mark("already part of the numbers the game shows for your character"),
+    "idle": mark("changes only spells the best rotation does not cast"),
+    "notcast": mark("changes a spell the model does not cast"),
+    "nospell": mark("changes spells you have not learned"),
+    "othermetric": mark("does not change this number"),
+    "utility": mark("range, threat or pushback: no influence on damage or healing"),
+    "situational": mark("depends on the situation (a kill, a proc), not modeled"),
+    "unknown": mark("an effect the model does not know"),
+}
+COVERAGE_ASSUMED = mark("An assumption of the model that has not been measured in the game.")
+
+
+def coverage_out(cov: dict, c: dict, unit: str, spell_label) -> dict | None:
+    """The engine's coverage report with labels and sentences: per spell and per talent a status (English
+    code the window groups by), its label and what the model does with it."""
+    if not cov:
+        return None
+    talent_of = {t.get("spellID"): t for tree in ((c.get("talents") or {}).get("class") or [])
+                 for t in (tree.get("talents") or []) if isinstance(t, dict)}
+
+    def entry(e: dict, texts: dict, label: str) -> dict:
+        text = texts.get(e.get("reason")) or COVERAGE_SPELL.get(e.get("reason")) or COVERAGE_TALENT["unknown"]
+        out = dict(spellId=e.get("spellId"), label=label, status=e.get("status"),
+                   statusLabel=tr(COVERAGE_STATUS.get(e.get("status"), "not modeled")),
+                   text=tr(text, value=e.get("value") or 0, unit=unit))
+        if e.get("unverified"):
+            out.update(unverified=True, note=tr(COVERAGE_ASSUMED) + " " + (e.get("note") or ""))
+        return out
+
+    spells = [entry(e, COVERAGE_SPELL, spell_label(e.get("spellId"), e.get("name"), e.get("rank")))
+              for e in cov.get("spells") or []]
+    talents = []
+    for e in cov.get("talents") or []:
+        t = talent_of.get(e.get("spellId")) or {}
+        name = t.get("name") or e.get("name") or f"#{e.get('spellId')}"
+        rank = f"{e.get('rank') or 0}/{t['maxRank']}" if t.get("maxRank") else str(e.get("rank") or 0)
+        talents.append(entry(e, COVERAGE_TALENT, f"{name} ({rank})"))
+    order = list(COVERAGE_STATUS)
+    for rows in (spells, talents):
+        rows.sort(key=lambda r: order.index(r["status"]) if r["status"] in order else len(order))
+    return dict(spells=spells, talents=talents, candidates=cov.get("candidates") or 0,
+                exactTalents=cov.get("talentValues") == "tables")
 
 
 def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, preview: int = 4, max_price: float = 0,
@@ -660,7 +722,11 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             note = tr("{share:.1f}% of the fight time", share=row.get("sharePct") or 0)
             if row.get("kind") == "lifetap":
                 note = tr("{n:.1f} casts per minute", n=row.get("perMin") or 0) + ", " + note
+            if row.get("leech"):
+                note += ", " + tr("returns {n:.1f} health per second", n=row["leech"])
             label = spell_label(row.get("spellId"), row.get("label") or row.get("kind"), row.get("rank"))
+            if row.get("kind") == "wand":
+                label = tr("Wand")
             scale_rows.append(dict(label=label, weight=round(row.get("value") or 0, 1), note=note))
         fight = eng.bundle["fight"]
         value, metric_name = b.get("value") or 0, b.get("metric")
@@ -684,7 +750,9 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                           ttoomSeconds=b.get("ttoomSeconds"), spellbookSource=eng.spellbook_source,
                           manaSpentPs=b.get("manaSpentPs"), manaBudgetPs=b.get("manaBudgetPs"),
                           fight=fight, metrics=simengine.METRICS.get(class_file) or ["dps"],
-                          spec=simengine.spec_of(c), mc=b.get("mc"))
+                          spec=simengine.spec_of(c), mc=b.get("mc"), selfHealPs=b.get("selfHealPs"),
+                          coverage=coverage_out(eng.coverage, c,
+                                                {"dps": "DPS", "hps": "HPS"}.get(metric_name, "s"), spell_label))
         if eng.downrank:
             d = eng.downrank
             spell = spell_label(d.get("spellId"), d.get("name"), d.get("rank"))
@@ -775,6 +843,21 @@ def main() -> None:
                  label=r["profileLabel"], value=r["setValue"]))
     for row in r["scale"]:
         print(f"   {row['label']:24} {row['weight']:5.2f}  {row['note']}")
+    cov = (r.get("engine") or {}).get("coverage")
+    if cov:
+        print("== " + tr("What the model does with your spells and talents ({n} rotations compared)",
+                         n=cov["candidates"]))
+        if not cov["exactTalents"]:
+            print("   " + tr("The talent tables of the game are not in the cache: talent values are estimates."))
+        for title, rows in ((tr("Spells"), cov["spells"]), (tr("Talents"), cov["talents"])):
+            print(f"   {title}")
+            quiet = [e["label"] for e in rows if e["status"] == "none"]
+            for e in rows:
+                if e["status"] != "none":
+                    flag = " [" + tr("assumption") + "]" if e.get("unverified") else ""
+                    print(f"      {e['statusLabel']:17} {e['label']}: {e['text']}{flag}")
+            if quiet:
+                print(f"      {tr(COVERAGE_STATUS['none']):17} " + ", ".join(quiet))
     print(tr("Prices are the lowest buyout at the scan.") + "\n")
     p = r["package"]
     unit = {"dps": "DPS", "hps": "HPS", "ttoom": "s"}.get((r.get("engine") or {}).get("metric") or "", tr("points"))

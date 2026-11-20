@@ -10,6 +10,7 @@ type CastResult struct {
 	ManaCost    float64
 	ExecuteSec  float64 // time the cast occupies (max of cast time and GCD)
 	DurationSec float64 // periodic effects: duration after modifiers
+	Leech       float64 // health the caster gains from the damage (Drain Life, Siphon Life, Death Coil)
 }
 
 const defaultGCDMs = 1500
@@ -21,7 +22,7 @@ func hitChance(sp *Spell, st *State, tgt Target) float64 {
 		miss = SpellMiss[3]
 	}
 	miss -= st.Hit
-	miss -= st.Mods.HitFlatByBase[sp.BaseID]
+	miss -= st.Mods.flat(OpHit, sp)
 	if miss < MinMiss {
 		miss = MinMiss
 	}
@@ -52,11 +53,38 @@ type CastShape struct {
 	Ticks       float64
 	PeriodSec   float64
 	DurationSec float64
+	// Share of the damage that returns as health (0 = none).
+	DirectLeech float64
+	TickLeech   float64
 }
 
-// Shape computes a spell's cast shape for this state and target.
+// Context is what a spell's numbers depend on beyond the character: the
+// DoTs the rotation keeps on the target (base ids), which some talents
+// count (Soul Siphon). nil means none.
+type Context struct {
+	Dots map[int]bool
+}
+
+// ContextOf reads the context from a rotation.
+func ContextOf(actions []Action) *Context {
+	ctx := &Context{Dots: map[int]bool{}}
+	for _, a := range actions {
+		if a.Kind == "dot" && a.Spell != nil {
+			ctx.Dots[a.Spell.BaseID] = true
+		}
+	}
+	return ctx
+}
+
+// Shape computes a spell's cast shape for this state and target, outside
+// any rotation.
 func Shape(sp *Spell, st *State, tgt Target) CastShape {
-	s := CastShape{IsHeal: sp.IsHeal, CritBonus: SpellCritBonus}
+	return ShapeIn(sp, st, tgt, nil)
+}
+
+// ShapeIn computes a spell's cast shape within a rotation.
+func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
+	s := CastShape{IsHeal: sp.IsHeal, CritBonus: SpellCritBonus * st.Mods.pct(OpCritDamage, sp)}
 
 	// Time: talents may shorten the cast; haste shortens it further. The GCD
 	// is not haste-scaled (Classic rule, unverified for Forever).
@@ -84,19 +112,25 @@ func Shape(sp *Spell, st *State, tgt Target) CastShape {
 
 	// Cost.
 	cost := sp.Cost.Mana + st.Mods.flat(OpCost, sp)
-	cost *= st.Mods.pct(OpCost, sp)
+	cost *= st.Mods.pct(OpCost, sp) * (1 + st.Mods.SchoolCostPct[sp.School]/100)
 	if cost < 0 {
 		cost = 0
 	}
 	s.ManaCost = cost
 
-	// Power and modifiers.
+	// Power and modifiers. The client keeps direct and periodic amounts
+	// apart: SpellModOp 0 changes the direct part, op 22 the periodic one
+	// (Shadow Mastery carries both, each with its own spell mask).
 	power := st.SP[sp.School]
-	dmgPct := (1 + st.Mods.SchoolDamagePct[sp.School]/100) * st.Mods.pct(OpDamage, sp)
-	if sp.IsHeal { // talent spell mods (e.g. Spiritual Healing) hit heals through the same op
+	schoolPct := 1 + st.Mods.SchoolDamagePct[sp.School]/100
+	if sp.IsHeal {
 		power = st.Healing
-		dmgPct = (1 + st.Mods.HealingPct/100) * st.Mods.pct(OpDamage, sp)
+		schoolPct = 1 + st.Mods.HealingPct/100
+	} else if ctx != nil {
+		schoolPct *= st.Mods.dotStackPct(sp, ctx.Dots)
 	}
+	directPct := schoolPct * st.Mods.pct(OpDamage, sp)
+	tickPct := schoolPct * st.Mods.pct(OpPeriodic, sp)
 	s.CritPct = st.Crit[sp.School] + st.Mods.flat(OpCrit, sp)
 	if s.CritPct < 0 {
 		s.CritPct = 0
@@ -107,8 +141,10 @@ func Shape(sp *Spell, st *State, tgt Target) CastShape {
 	}
 
 	if sp.Direct != nil {
-		s.DirectAvg = (sp.Direct.avgBase(st.Level, sp.Levels) + st.Mods.flat(OpDamage, sp) + sp.Direct.Coeff*power) * dmgPct
+		base := st.Mods.points(sp.Direct.avgBase(st.Level, sp.Levels), sp.Direct, sp)
+		s.DirectAvg = (base + st.Mods.flat(OpDamage, sp) + sp.Direct.Coeff*power) * directPct
 		s.DirectVariance = sp.Direct.Variance
+		s.DirectLeech = sp.Direct.Leech
 	}
 	if sp.Periodic != nil && sp.DurationMs > 0 {
 		durMs := float64(sp.DurationMs) + st.Mods.flat(OpDuration, sp)
@@ -118,7 +154,9 @@ func Shape(sp *Spell, st *State, tgt Target) CastShape {
 		if s.PeriodSec > 0 {
 			s.Ticks = s.DurationSec / s.PeriodSec
 		}
-		s.TickValue = (sp.Periodic.avgBase(st.Level, sp.Levels) + sp.Periodic.Coeff*power) * dmgPct
+		base := st.Mods.points(sp.Periodic.avgBase(st.Level, sp.Levels), sp.Periodic, sp)
+		s.TickValue = (base + sp.Periodic.Coeff*power) * tickPct
+		s.TickLeech = sp.Periodic.Leech
 		// DoTs crit only when a talent says so; the crit is weighed into the
 		// tick value (per-tick rolls would barely move the variance).
 		if !sp.IsHeal && st.Mods.dotMayCrit(sp.School) {
@@ -151,11 +189,37 @@ func (s *CastShape) SampleDirect(rng *rand.Rand) float64 {
 	return val * (1 + s.CritPct/100*s.CritBonus) * s.HitChance
 }
 
-// ResolveCast evaluates one cast of a spell against the target.
+// SampleLanded rolls the direct part of a cast that already hit: the damage
+// range and the crit. With rng == nil it is the expectation of a hit.
+func (s *CastShape) SampleLanded(rng *rand.Rand) float64 {
+	if s.DirectAvg == 0 {
+		return 0
+	}
+	val := s.DirectAvg
+	if rng == nil {
+		return val * (1 + s.CritPct/100*s.CritBonus)
+	}
+	if s.DirectVariance > 0 {
+		span := val * s.DirectVariance
+		val = val - span/2 + rng.Float64()*span
+	}
+	if rng.Float64() < s.CritPct/100 {
+		val *= 1 + s.CritBonus
+	}
+	return val
+}
+
+// ResolveCast evaluates one cast of a spell against the target, outside any
+// rotation.
+func ResolveCast(sp *Spell, st *State, tgt Target, rng *rand.Rand) CastResult {
+	return ResolveCastIn(sp, st, tgt, nil, rng)
+}
+
+// ResolveCastIn evaluates one cast of a spell within a rotation.
 // Heals use the healing bonus and never miss; damage rolls the spell hit
 // table. Partial resists are not modeled in Stage 1 (noted in the docs).
-func ResolveCast(sp *Spell, st *State, tgt Target, rng *rand.Rand) CastResult {
-	s := Shape(sp, st, tgt)
+func ResolveCastIn(sp *Spell, st *State, tgt Target, ctx *Context, rng *rand.Rand) CastResult {
+	s := ShapeIn(sp, st, tgt, ctx)
 	r := CastResult{ManaCost: s.ManaCost, ExecuteSec: s.ExecuteSec, DurationSec: s.DurationSec}
 
 	direct := s.SampleDirect(rng)
@@ -179,6 +243,7 @@ func ResolveCast(sp *Spell, st *State, tgt Target, rng *rand.Rand) CastResult {
 		r.Healing = direct + periodic
 	} else {
 		r.Damage = direct + periodic
+		r.Leech = direct*s.DirectLeech + periodic*s.TickLeech
 	}
 	return r
 }

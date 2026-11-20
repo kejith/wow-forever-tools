@@ -98,8 +98,6 @@ TEXT = {
         "{base:g} % ohne Ausrüstung vorhanden, Cap gegen +{target} Stufen ist {cap:g} %: schon erreicht",
     "cap against +{target} levels {cap:g}%, you have {base:g}%, {need:g}% missing":
         "Cap gegen +{target} Stufen {cap:g} %, {base:g} % vorhanden, es fehlen {need:g} %",
-    " (Affliction spells only {need:g}% thanks to Suppression)":
-        " (Gebrechen-Zauber durch Unterdrückung nur {need:g} %)",
     ", gear gives {gear:g}%": ", Ausrüstung bringt {gear:g} %",
     "1% damage = {points:.1f} spell power, {share:.0%} of the damage can crit":
         "1 % Schaden = {points:.1f} Zaubermacht, {share:.0%} des Schadens kann kritisch treffen",
@@ -151,6 +149,51 @@ TEXT = {
     ", spellbook assumed from level and talents": ", Zauberbuch aus Stufe und Talenten angenommen",
     "{share:.1f}% of the fight time": "{share:.1f} % der Kampfzeit",
     "{n:.1f} casts per minute": "{n:.1f} Mal pro Minute",
+    "returns {n:.1f} health per second": "gibt {n:.1f} Leben pro Sekunde zurück",
+    "used": "genutzt",
+    "in your stats": "in deinen Werten",
+    "tried": "geprüft",
+    "not modeled": "nicht modelliert",
+    "no influence": "ohne Einfluss",
+    "cast in the rotation": "wird in der Rotation gewirkt",
+    "converts health to mana when the rotation runs short":
+        "wandelt Leben in Mana um, wenn der Rotation das Mana ausgeht",
+    "taken as always active; its health regeneration feeds Life Tap":
+        "gilt als immer aktiv; die Lebensregeneration kommt Aderlass zugute",
+    "tried instead: {value:.1f} {unit}, less than the rotation above":
+        "stattdessen geprüft: {value:.1f} {unit}, weniger als die Rotation oben",
+    "deals damage, but the model does not cast it": "macht Schaden, aber das Modell wirkt ihn nicht",
+    "heals, but the model does not cast it": "heilt, aber das Modell wirkt ihn nicht",
+    "absorbs damage, which the model does not count yet":
+        "absorbiert Schaden, was das Modell noch nicht mitzählt",
+    "returns mana, which the model does not use yet": "gibt Mana zurück, was das Modell noch nicht nutzt",
+    "does not change this number": "ändert diese Zahl nicht",
+    "changes spells of the rotation": "verändert Zauber der Rotation",
+    "applied to the rotation": "wird auf die Rotation angewendet",
+    "raises the wand damage": "erhöht den Zauberstabschaden",
+    "raises the damage of a spell school": "erhöht den Schaden einer Zauberschule",
+    "lowers mana costs": "senkt Manakosten",
+    "mana regeneration continues while casting": "Manaregeneration läuft beim Zaubern weiter",
+    "already part of the numbers the game shows for your character":
+        "steckt schon in den Werten, die das Spiel für deinen Charakter anzeigt",
+    "changes only spells the best rotation does not cast":
+        "verändert nur Zauber, die die beste Rotation nicht wirkt",
+    "changes a spell the model does not cast": "verändert einen Zauber, den das Modell nicht wirkt",
+    "changes spells you have not learned": "verändert Zauber, die du nicht gelernt hast",
+    "range, threat or pushback: no influence on damage or healing":
+        "Reichweite, Bedrohung oder Zauberunterbrechung: kein Einfluss auf Schaden oder Heilung",
+    "depends on the situation (a kill, a proc), not modeled":
+        "hängt von der Situation ab (ein Kill, ein Auslöser), nicht modelliert",
+    "an effect the model does not know": "ein Effekt, den das Modell nicht kennt",
+    "An assumption of the model that has not been measured in the game.":
+        "Eine Annahme des Modells, die im Spiel noch nicht gemessen wurde.",
+    "What the model does with your spells and talents ({n} rotations compared)":
+        "Was das Modell mit deinen Zaubern und Talenten macht ({n} Rotationen verglichen)",
+    "The talent tables of the game are not in the cache: talent values are estimates.":
+        "Die Talenttabellen des Spiels sind nicht im Cache: Talentwerte sind Schätzungen.",
+    "Spells": "Zauber",
+    "Talents": "Talente",
+    "assumption": "Annahme",
 
     # ---- simengine.py ----
     "The combat engine (simforever) was not found.": "Die Kampf-Engine (simforever) wurde nicht gefunden.",

@@ -30,11 +30,14 @@ func priestInput() Input {
 // Hand-computed golden with a fixed spellbook (Renew + Lesser Heal r1 only):
 //
 //	Lesser Heal: (50 + 0.4*100) * (1 + 5%*0.5) = 92.25 heal per 2.5 s cast
-//	Renew: 5 ticks à (20 + 0.2*100) = 200 over 15 s, share 1.5/15 = 0.1
-//	rotHPS = 200/15 + 0.9*92.25/2.5 = 13.3333 + 33.21 = 46.5433
-//	rotMPS = 30/15 + 0.9*30/2.5 = 12.8
+//	Renew: 5 ticks à (20 + 0.2*100) = 200 over 15 s, 1.5 s to cast
+//	A Renew that runs out during a heal waits 0.9*2.5/2 = 1.125 s on average:
+//	cycle 16.125 s -> 12.4031 hps, 1.86047 mana/s, share 0.093023
+//	rotHPS = 12.4031 + 0.906977*92.25/2.5 = 45.8705
+//	rotMPS = 1.86047 + 0.906977*30/2.5 = 12.7442
 //	regen while casting = 5/5 + (6.5 + 60*0.125) * 15% = 1 + 2.1 = 3.1
-//	budget = 2000/60 + 3.1 = 36.433 -> sustainable, ttoom = 2000/9.7 = 206.19
+//	(Meditation 3/3 = 15 % from the trait tables; the spell row holds rank 1)
+//	budget = 2000/60 + 3.1 = 36.433 -> sustainable, ttoom = 2000/9.6442 = 207.38
 func TestPriestHealerGolden(t *testing.T) {
 	in := priestInput()
 	in.Character.Spellbook = []int{139, 2050}
@@ -45,22 +48,28 @@ func TestPriestHealerGolden(t *testing.T) {
 	if out.Baseline.Metric != "hps" {
 		t.Errorf("default metric = %q", out.Baseline.Metric)
 	}
-	almost(t, "hps", out.Baseline.Value, 46.5433, 0.001)
+	almost(t, "hps", out.Baseline.Value, 45.8705, 0.001)
 	if out.Baseline.TTOOMSec == nil {
 		t.Fatal("ttoom missing")
 	}
-	almost(t, "ttoom", *out.Baseline.TTOOMSec, 206.19, 0.01)
+	almost(t, "ttoom", *out.Baseline.TTOOMSec, 207.38, 0.01)
 }
 
 // With the whole book the engine tries every known heal rank and keeps the
-// best sustained healing: Flash Heal wins although mana clips it
-// (82.33 HPS vs 77.91 with Heal; hand-computed from the fixtures).
+// best sustained healing: Flash Heal wins although mana clips it. Hand-
+// computed from the fixtures:
+//
+//	Flash Heal 143.5 per 1.5 s (95.667 hps, 46.667 mana/s per unit of share);
+//	Renew waits 0.9*1.5/2 = 0.675 s: 12.7592 hps, 1.91388 mana/s, share 0.095694
+//	rotMPS = 1.91388 + 0.904306*46.667 = 44.1148 > budget 36.4333:
+//	Renew stays up, Flash Heal gets (36.4333-1.91388)/46.667 = 0.739704
+//	HPS = 12.7592 + 0.739704*95.667 = 83.524 (Heal: 77.40, sustainable)
 func TestPriestRankChoice(t *testing.T) {
 	out := Run(priestInput())
 	if out.Error != "" {
 		t.Fatal(out.Error)
 	}
-	almost(t, "hps", out.Baseline.Value, 82.334, 0.01)
+	almost(t, "hps", out.Baseline.Value, 83.524, 0.01)
 	found := false
 	for _, row := range out.Baseline.Breakdown {
 		if row.SpellID == 2061 {
@@ -170,7 +179,7 @@ func TestPriestMonteCarloHPS(t *testing.T) {
 	if mc == nil || mc.Mean <= 0 || mc.StdDev <= 0 {
 		t.Fatalf("mc = %+v", mc)
 	}
-	if mc.Mean < 50 || mc.Mean > 120 { // closed form: 82.3
+	if mc.Mean < 50 || mc.Mean > 120 { // closed form: 83.5
 		t.Errorf("hps mean out of range: %g", mc.Mean)
 	}
 }
@@ -211,7 +220,8 @@ func TestPriestTTOOMMetric(t *testing.T) {
 		t.Fatal(out.Error)
 	}
 	// Rank choice stays HPS-driven (Flash Heal), the metric reports its ttoom.
-	almost(t, "ttoom value", out.Baseline.Value, 2000/40.9, 0.05)
+	// 2000 / (44.1148 - 3.1)
+	almost(t, "ttoom value", out.Baseline.Value, 2000/41.0148, 0.05)
 	if out.Results["mp5"].Gain <= 0 {
 		t.Errorf("mp5 gain under ttoom = %g", out.Results["mp5"].Gain)
 	}

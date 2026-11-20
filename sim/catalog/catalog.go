@@ -35,28 +35,44 @@ var ClassID = map[string]int{
 // Aura is one raw APPLY_AURA effect of a class spell, kept for the talent
 // decoder (the engine's Spell only holds the decoded damage/heal parts).
 type Aura struct {
-	Aura  int
-	BP    float64
-	Misc0 int
-	Misc1 int
-	Mask  [4]uint32
+	Index   int // EffectIndex: the key of the talent's per-rank values
+	Aura    int
+	BP      float64
+	Misc0   int
+	Misc1   int
+	Trigger int
+	Mask    [4]uint32
 }
 
 // Catalog is the decoded game data for one class.
 type Catalog struct {
 	ClassID int
 	Spells  map[int]*engine.Spell
-	Auras   map[int][]Aura
-	BaseOf  map[int]int   // spell id -> first rank of its chain
-	Chains  map[int][]int // first rank -> every spell of the chain, lowest rank first
+	// Auras holds the raw aura effects of every spell of the client, not only
+	// the class's: several talents (Meditation, Wand Specialization) are not
+	// in the class's spell family.
+	Auras  map[int][]Aura
+	BaseOf map[int]int   // spell id -> first rank of its chain
+	Chains map[int][]int // first rank -> every spell of the chain, lowest rank first
+	// TalentPoints are the exact values of a talent per rank from the trait
+	// tables: talent spell id -> effect index -> rank -> value. Forever has
+	// one spell per talent, whose SpellEffect row holds a single rank only.
+	TalentPoints map[int]map[int]map[int]float64
+	// HasTraits says whether the trait tables were in the cache.
+	HasTraits bool
 	// skillSpells are the class's spells from SkillLineAbility, with the
 	// level each becomes available (for the assumed spellbook).
 	skillSpells map[int]int
 	// granted marks the skill spells nobody trains (AcquireMethod 3:
 	// talent casts and alternative versions of a rank).
 	granted map[int]bool
-	rankOf  map[int]int // spell id -> rank number (1 = first rank)
+	rankOf  map[int]int    // spell id -> rank number (1 = first rank)
+	names   map[int]string // every spell's name in the client's language
 }
+
+// Name is a spell's name in the client's language ("" without the table),
+// also for spells outside the class's family (some talents).
+func (c *Catalog) Name(spellID int) string { return c.names[spellID] }
 
 // ReferenceLocale is the locale whose spell names group the rank chains
 // (scripts/simengine.py downloads that SpellName table next to the client's).
@@ -74,9 +90,13 @@ const (
 	effHeal         = 10
 	effEnergize     = 30
 
-	auraPeriodicDamage = 3
-	auraPeriodicHeal   = 8
-	auraPeriodicLeech  = 53
+	auraPeriodicDamage   = 3
+	auraPeriodicHeal     = 8
+	auraPeriodicEnergize = 24
+	auraPeriodicLeech    = 53
+	auraSchoolAbsorb     = 69
+
+	attrPassive = 0x40 // SpellMisc.Attributes_0: SPELL_ATTR0_PASSIVE
 )
 
 // Build loads the tables from the cache and decodes the class's spells.
@@ -200,14 +220,16 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 
 	// The class's spells by SpellClassOptions.
 	cat := &Catalog{
-		ClassID:     classID,
-		Spells:      map[int]*engine.Spell{},
-		Auras:       map[int][]Aura{},
-		BaseOf:      map[int]int{},
-		Chains:      map[int][]int{},
-		skillSpells: map[int]int{},
-		granted:     map[int]bool{},
-		rankOf:      map[int]int{},
+		ClassID:      classID,
+		Spells:       map[int]*engine.Spell{},
+		Auras:        map[int][]Aura{},
+		TalentPoints: map[int]map[int]map[int]float64{},
+		BaseOf:       map[int]int{},
+		Chains:       map[int][]int{},
+		skillSpells:  map[int]int{},
+		granted:      map[int]bool{},
+		rankOf:       map[int]int{},
+		names:        nameOf,
 	}
 	for i := 0; i < classOpt.Len(); i++ {
 		r := classOpt.Row(i)
@@ -237,6 +259,7 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		sp.DurationMs = durBase[r.Int("DurationIndex")]
 		sp.School = schoolOf(r.Int("SchoolMask"))
 		sp.Channeled = r.Int("Attributes_1")&(0x4|0x40) != 0 // SPELL_ATTR1_IS_(SELF_)CHANNELLED
+		sp.Passive = r.Int("Attributes_0")&attrPassive != 0
 	}
 	for id, sp := range cat.Spells {
 		if p, ok := powerOf[id]; ok {
@@ -251,47 +274,85 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		}
 	}
 
-	// Effects: decoded damage/heal parts plus raw auras for the talents.
+	// Effects: decoded damage/heal parts of the class's spells, and the raw
+	// auras of every spell for the talents.
 	for i := 0; i < effects.Len(); i++ {
 		r := effects.Row(i)
-		sp := cat.Spells[r.Int("SpellID")]
-		if sp == nil || r.Int("DifficultyID") != 0 {
+		if r.Int("DifficultyID") != 0 {
+			continue
+		}
+		id := r.Int("SpellID")
+		effect, aura := r.Int("Effect"), r.Int("EffectAura")
+		rawAura := func() {
+			cat.Auras[id] = append(cat.Auras[id], Aura{
+				Index:   r.Int("EffectIndex"),
+				Aura:    aura,
+				BP:      r.Float("EffectBasePointsF"),
+				Misc0:   r.Int("EffectMiscValue_0"),
+				Misc1:   r.Int("EffectMiscValue_1"),
+				Trigger: r.Int("EffectTriggerSpell"),
+				Mask: [4]uint32{
+					r.Uint32("EffectSpellClassMask_0"), r.Uint32("EffectSpellClassMask_1"),
+					r.Uint32("EffectSpellClassMask_2"), r.Uint32("EffectSpellClassMask_3"),
+				},
+			})
+		}
+		sp := cat.Spells[id]
+		if sp == nil {
+			if effect == effApplyAura {
+				rawAura()
+			}
 			continue
 		}
 		eff := &engine.Effect{
+			Index:    r.Int("EffectIndex"),
 			BP:       r.Float("EffectBasePointsF"),
 			PerLevel: r.Float("EffectRealPointsPerLevel"),
 			Variance: r.Float("Variance"),
 			Coeff:    r.Float("EffectBonusCoefficient"),
 			PeriodMs: r.Int("EffectAuraPeriod"),
 		}
-		switch r.Int("Effect") {
-		case effSchoolDamage, effHealthLeech:
+		// A leech returns its damage as health, times the effect's
+		// multiplier (1 for Drain Life, Siphon Life and Death Coil).
+		leech := func() {
+			eff.Leech = r.Float("EffectAmplitude")
+			if eff.Leech <= 0 {
+				eff.Leech = 1
+			}
+		}
+		switch effect {
+		case effSchoolDamage:
+			sp.Direct = eff
+		case effHealthLeech:
+			leech()
 			sp.Direct = eff
 		case effHeal:
 			sp.Direct = eff
 			sp.IsHeal = true
+		case effEnergize:
+			sp.GivesMana = true
 		case effApplyAura:
-			switch r.Int("EffectAura") {
-			case auraPeriodicDamage, auraPeriodicLeech:
+			switch aura {
+			case auraPeriodicDamage:
+				sp.Periodic = eff
+			case auraPeriodicLeech:
+				leech()
 				sp.Periodic = eff
 			case auraPeriodicHeal:
 				sp.Periodic = eff
 				sp.IsHeal = true
 			default:
-				cat.Auras[sp.ID] = append(cat.Auras[sp.ID], Aura{
-					Aura:  r.Int("EffectAura"),
-					BP:    eff.BP,
-					Misc0: r.Int("EffectMiscValue_0"),
-					Misc1: r.Int("EffectMiscValue_1"),
-					Mask: [4]uint32{
-						r.Uint32("EffectSpellClassMask_0"), r.Uint32("EffectSpellClassMask_1"),
-						r.Uint32("EffectSpellClassMask_2"), r.Uint32("EffectSpellClassMask_3"),
-					},
-				})
+				if aura == auraSchoolAbsorb {
+					sp.Absorbs = true
+				}
+				if aura == auraPeriodicEnergize {
+					sp.GivesMana = true
+				}
+				rawAura()
 			}
 		}
 	}
+	cat.loadTraits(cacheDir, build, locale)
 
 	// Skill spells and the explicit rank links from SkillLineAbility.
 	supersedes := map[int]int{} // spell id -> the rank below it
@@ -321,6 +382,61 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 	}
 	cat.buildChains(supersedes, chainName)
 	return cat, nil
+}
+
+// loadTraits reads the per-rank talent values. TraitDefinition names the
+// talent's spell, TraitDefinitionEffectPoints the curve of each effect, and
+// CurvePoint the value (Pos_1) at each rank (Pos_0). Without the tables the
+// talents fall back to the single value in SpellEffect (HasTraits false).
+func (c *Catalog) loadTraits(cacheDir, build, locale string) {
+	defs, err1 := db2.Load(cacheDir, "TraitDefinition", build, locale)
+	points, err2 := db2.Load(cacheDir, "TraitDefinitionEffectPoints", build, locale)
+	curves, err3 := db2.Load(cacheDir, "CurvePoint", build, locale)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return
+	}
+	spellOf := map[int]int{} // trait definition -> talent spell
+	for i := 0; i < defs.Len(); i++ {
+		r := defs.Row(i)
+		if id := r.Int("SpellID"); id != 0 {
+			spellOf[r.Int("ID")] = id
+		}
+	}
+	type target struct{ spell, effect int }
+	curveOf := map[int][]target{}
+	for i := 0; i < points.Len(); i++ {
+		r := points.Row(i)
+		spell := spellOf[r.Int("TraitDefinitionID")]
+		if spell == 0 || r.Int("OperationType") != 0 { // 0 = the curve sets the value
+			continue
+		}
+		curveOf[r.Int("CurveID")] = append(curveOf[r.Int("CurveID")], target{spell, r.Int("EffectIndex")})
+	}
+	for i := 0; i < curves.Len(); i++ {
+		r := curves.Row(i)
+		for _, t := range curveOf[r.Int("CurveID")] {
+			byEffect := c.TalentPoints[t.spell]
+			if byEffect == nil {
+				byEffect = map[int]map[int]float64{}
+				c.TalentPoints[t.spell] = byEffect
+			}
+			if byEffect[t.effect] == nil {
+				byEffect[t.effect] = map[int]float64{}
+			}
+			byEffect[t.effect][int(r.Float("Pos_0")+0.5)] = r.Float("Pos_1")
+		}
+	}
+	c.HasTraits = true
+}
+
+// TalentValue is the value of a talent effect at a rank: the trait tables'
+// exact number when they have one (exact true), else the SpellEffect base
+// points the caller passes in.
+func (c *Catalog) TalentValue(spellID, effectIndex, rank int, basePoints float64) (value float64, exact bool) {
+	if v, ok := c.TalentPoints[spellID][effectIndex][rank]; ok {
+		return v, true
+	}
+	return basePoints, false
 }
 
 // buildChains groups the class's spells into rank chains.

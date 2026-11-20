@@ -170,3 +170,57 @@ func TestMissingTableError(t *testing.T) {
 		t.Error("unknown class should error")
 	}
 }
+
+// The per-rank talent values come from the trait tables; a talent without
+// a row falls back to the number the caller has.
+func TestTalentValues(t *testing.T) {
+	cat, err := Build("../testdata", "9.9.9.9", "xxXX", "PRIEST")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cat.HasTraits {
+		t.Fatal("trait tables not loaded")
+	}
+	for rank, want := range map[int]float64{1: 5, 2: 10, 3: 15} {
+		if v, exact := cat.TalentValue(14521, 0, rank, 99); !exact || v != want {
+			t.Errorf("Meditation rank %d = %g (exact %v)", rank, v, exact)
+		}
+	}
+	if v, exact := cat.TalentValue(14521, 0, 4, 99); exact || v != 99 {
+		t.Errorf("a rank the curve does not have = %g (exact %v)", v, exact)
+	}
+	if v, exact := cat.TalentValue(15473, 0, 1, 7); exact || v != 7 {
+		t.Errorf("a talent without a trait row = %g (exact %v)", v, exact)
+	}
+	if cat.Name(14521) != "Meditation" {
+		t.Errorf("name = %q", cat.Name(14521))
+	}
+}
+
+// Leech effects (aura 53) carry how much of the damage returns as health,
+// and the auras of a talent keep their effect index.
+func TestLeechAndAuraIndex(t *testing.T) {
+	cat, err := Build("../testdata", "9.9.9.9", "xxXX", "WARLOCK")
+	if err != nil {
+		t.Fatal(err)
+	}
+	drain := cat.Spells[689]
+	if drain == nil || drain.Periodic == nil || drain.Periodic.Leech != 1 || !drain.Channeled {
+		t.Fatalf("Drain Life = %+v", drain)
+	}
+	if bolt := cat.Spells[695]; bolt.Direct.Leech != 0 {
+		t.Errorf("Shadow Bolt leech = %g", bolt.Direct.Leech)
+	}
+	auras := cat.Auras[7777]
+	if len(auras) != 2 || auras[0].Index != 0 || auras[1].Index != 1 || auras[0].Misc0 != 22 || auras[1].Mask[0] != 1 {
+		t.Errorf("auras = %+v", auras)
+	}
+	// Wrack is known through its talent only.
+	known := cat.AssumedSpellbook(40, map[int]int{1316697: 1})
+	if !known[1316697] || !known[689] {
+		t.Errorf("assumed book = %v", known)
+	}
+	if cat.AssumedSpellbook(40, nil)[1316697] {
+		t.Error("Wrack needs its talent")
+	}
+}
