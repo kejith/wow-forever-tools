@@ -26,8 +26,9 @@ func step(s Situation, kind string, id int) *Step {
 	return nil
 }
 
-// The rotation guide of the golden warlock: four fights, each with the best
-// of the candidate rotations played cast by cast.
+// The rotation guide of the golden warlock: four fights against one enemy
+// and two against several, each with the best of the candidate rotations
+// played cast by cast.
 func TestDamageSituations(t *testing.T) {
 	if out := Run(input()); out.Situations != nil {
 		t.Error("situations without being asked for")
@@ -45,7 +46,7 @@ func TestDamageSituations(t *testing.T) {
 			t.Errorf("%s: %+v", s.Key, s)
 		}
 	}
-	if keys != "quick standard boss endurance " {
+	if keys != "quick standard boss endurance pack crowd " {
 		t.Fatalf("situations: %s", keys)
 	}
 	// The gear rating is untouched by the guide.
@@ -211,7 +212,7 @@ func TestHealSituations(t *testing.T) {
 	// The same priest asked for damage gets the fights instead.
 	in.Metric = "dps"
 	out = Run(in)
-	if len(out.Situations) != 4 || out.Situations[0].Key != "quick" || out.Situations[0].Demand != nil {
+	if len(out.Situations) != 6 || out.Situations[0].Key != "quick" || out.Situations[0].Demand != nil {
 		t.Errorf("damage situations: %+v", out.Situations)
 	}
 }

@@ -19,3 +19,5 @@ ID,OrderIndex,ManaCost,ManaCostPerLevel,PowerType,SpellID
 18,0,60,0,0,1316697
 19,0,100,0,0,17
 20,0,200,0,0,440892
+21,0,600,0,0,1949
+22,0,300,0,0,5740

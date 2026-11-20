@@ -20,7 +20,11 @@ type Action struct {
 	// other spells (Curse of the Elements): it deals nothing itself, and
 	// while it is up the enemy takes TakenPct percent more damage of the
 	// schools in TakenMask (bit = 1 << School).
-	Kind      string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana", "recover", "debuff"
+	//
+	// Kind "burn" is a channel that damages its own caster (Hellfire): the
+	// played fight channels it in front of the filler for as long as the
+	// health allows. The closed form leaves it out.
+	Kind      string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana", "recover", "debuff", "burn"
 	Spell     *Spell
 	TakenPct  float64
 	TakenMask uint32
@@ -131,6 +135,21 @@ type Metrics struct {
 	MC          *MCStats `json:"mc,omitempty"` // set when the Monte-Carlo runs played the rotation
 }
 
+// KeptOn is how many of the fight's enemies a DoT or a debuff is kept on:
+// all of them, unless its cooldown allows fewer casts within its duration
+// (Devouring Plague's cooldown is its duration: one enemy).
+func KeptOn(enemies int, durationSec, cooldownSec float64) int {
+	if cooldownSec > 0 && durationSec > 0 {
+		if most := int(durationSec / cooldownSec); most < enemies {
+			enemies = most
+		}
+	}
+	if enemies < 1 {
+		return 1
+	}
+	return enemies
+}
+
 // healthUseFraction is how much of the health pool the model lets Life Tap
 // consume over a fight (rule of thumb; bandages/healers refill the rest).
 // On top of that Life Tap may spend what the character regenerates (hp5) and
@@ -138,6 +157,10 @@ type Metrics struct {
 // Coil): the model taps early enough that this health is never wasted on a
 // full health bar.
 const healthUseFraction = 0.4
+
+// HealthFloorPct is the share of the health pool a played fight keeps, in
+// percent: Life Tap and Hellfire stop there.
+const HealthFloorPct = (1 - healthUseFraction) * 100
 
 const lifeTapGCDSec = 1.5
 
@@ -162,12 +185,19 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		haste float64 // how much faster it ticks per unit of filler share (a channel like Wrack)
 	}
 	ctx := ContextOf(actions)
+	// Several enemies (damage only): a DoT or a debuff is kept on each of
+	// them, an area spell hits them all with one cast, everything else is
+	// cast at one of them.
+	enemies := 1.0
+	if metric == "dps" {
+		enemies = float64(fight.Enemies())
+	}
 	var parts []part
 	used := 0.0
 	fillerIdx := -1
 	var standby *part // the "recover" spell
 	for _, a := range actions {
-		if a.Kind == "wand" || a.Kind == "mana" || a.Spell == nil {
+		if a.Kind == "wand" || a.Kind == "mana" || a.Kind == "burn" || a.Spell == nil {
 			continue
 		}
 		res := ResolveCastIn(a.Spell, st, tgt, ctx, nil)
@@ -192,11 +222,15 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			if p.cycle <= 0 {
 				continue
 			}
-			p.share = res.ExecuteSec / p.cycle
-			p.dps = res.Damage / p.cycle
+			on := 1.0 // the enemies it is kept on
+			if a.Kind == "dot" || a.Kind == "debuff" {
+				on = float64(KeptOn(int(enemies), p.cycle, res.CooldownSec))
+			}
+			p.share = res.ExecuteSec / p.cycle * on
+			p.dps = res.Damage / p.cycle * on
 			p.hps = res.Healing / p.cycle
-			p.mps = res.ManaCost / p.cycle
-			p.leech = res.Leech / p.cycle
+			p.mps = res.ManaCost / p.cycle * on
+			p.leech = res.Leech / p.cycle * on
 		case "filler", "heal":
 			if fillerIdx >= 0 {
 				continue // one filler is enough for the closed form
@@ -259,12 +293,17 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			fHPS = f.res.Healing / f.res.ExecuteSec
 			fMPS = f.res.ManaCost / f.res.ExecuteSec
 			fLeech = f.res.Leech / f.res.ExecuteSec
+			if f.act.Spell.Area {
+				fDPS *= enemies
+				fLeech *= enemies
+			}
 		}
 		// A channel that makes the DoTs tick faster (Wrack): for the share
-		// of the timeline it is channeled, those DoTs deal that much more.
+		// of the timeline it is channeled, those DoTs deal that much more,
+		// on the one enemy it is channeled at.
 		for i := range parts {
 			if parts[i].act.Kind == "dot" {
-				parts[i].haste = st.Mods.channelHaste(f.act.Spell, parts[i].act.Spell) / 100
+				parts[i].haste = st.Mods.channelHaste(f.act.Spell, parts[i].act.Spell) / 100 / enemies
 			}
 		}
 	}

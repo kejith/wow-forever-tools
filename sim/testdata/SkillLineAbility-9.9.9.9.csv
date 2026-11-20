@@ -18,3 +18,6 @@ ID,SkillLine,Spell,MinSkillLineRank,ClassMask,SupercedesSpell,AcquireMethod
 17,56,17,1,16,0,0
 18,613,1277324,1,16,0,0
 19,355,440892,1,256,0,0
+20,355,1949,1,256,0,0
+21,355,5857,1,256,0,3
+22,355,5740,1,256,0,0

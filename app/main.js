@@ -394,8 +394,8 @@ async function captureHelp(out, wait, selector = '#content th .help', name = 'he
   await win.webContents.executeJavaScript('document.body.click(); document.querySelector(".content").scrollTop = 0');
 }
 
-// The rotations page: the played fight of the first card that has one, opened, and the second guide of a
-// class with two (a priest heals and deals damage).
+// The rotations page: the played fight of the first card that has one, opened, the fights against several
+// enemies, and the second guide of a class with two (a priest heals and deals damage).
 async function captureRotationDetails(out, wait) {
   if (await win.webContents.executeJavaScript('(() => { const el = document.querySelector("details.rot-timeline"); if (!el) return false; el.open = true; el.scrollIntoView(); return true; })()')) {
     await wait(300);
@@ -403,6 +403,7 @@ async function captureRotationDetails(out, wait) {
     fs.writeFileSync(path.join(out, 'rotations-timeline.png'), image.toPNG());
     await win.webContents.executeJavaScript('document.querySelector("details.rot-timeline").open = false; document.querySelector(".content").scrollTop = 0');
   }
+  await captureScrolled(out, wait, '.rot-card[data-key="pack"]', 'rotations-enemies');
   await captureScrolled(out, wait, '.rot-guide + .rot-guide', 'rotations-second');
 }
 

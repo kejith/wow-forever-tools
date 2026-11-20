@@ -266,6 +266,7 @@ json.dump({"engine": "stub", "spellbookSource": "assumed",
                                     "reason": "notneeded"},
                                    {"spellId": 689, "name": "Drain Life", "status": "idle", "reason": "nogain",
                                     "value": 100.0},
+                                   {"spellId": 5740, "name": "Rain of Fire", "status": "idle", "reason": "area"},
                                    {"spellId": 686, "name": "Shadow Bolt", "rank": 3, "status": "used",
                                     "reason": "rotation"}],
                         "talents": [{"spellId": 427712, "name": "Pandemic", "rank": 3, "status": "used",
@@ -369,7 +370,9 @@ def test_compute_with_engine(tmp: str):
     assert cov["candidates"] == 4 and cov["exactTalents"] is True
     assert [(e["label"], e["status"]) for e in cov["spells"]] == [
         ("Shadow Bolt (Rank 3)", "used"), ("Immolate", "idle"), ("Dark Sacrifice", "idle"), ("Drain Life", "idle"),
-        ("Searing Pain (Rank 2)", "unmodeled")]
+        ("Rain of Fire", "idle"), ("Searing Pain (Rank 2)", "unmodeled")]
+    assert cov["spells"][4]["text"] == ("hits every enemy at once: played in the fights against several enemies of "
+                                        "the rotation guide")
     assert cov["spells"][3]["text"] == "tried next to the rotation above: this fight does not need it"
     assert cov["spells"][2]["text"] == "trades health for mana; the mana lasts without it in this fight"
     assert cov["spells"][0]["text"] == "cast in the rotation" and cov["spells"][0]["statusLabel"] == "used"

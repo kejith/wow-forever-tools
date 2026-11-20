@@ -105,6 +105,8 @@ TEXT = {
         "tauscht Leben gegen Mana; in diesem Kampf reicht das Mana auch ohne",
     "trades health for mana; here the health would cost more than the mana brings":
         "tauscht Leben gegen Mana; hier würde das Leben mehr kosten, als das Mana bringt",
+    "hits every enemy at once: played in the fights against several enemies of the rotation guide":
+        "trifft alle Gegner zugleich: wird in den Kämpfen gegen mehrere Gegner im Rotationsleitfaden gespielt",
     "active after your killing blows: {value:.0f}% of the fight with the kills it assumes":
         "aktiv nach deinen Todesstößen: {value:.0f}% des Kampfes bei den angenommenen Kills",
     "needs your killing blows, and this fight assumes none":
@@ -430,6 +432,11 @@ TEXT = {
         "{minutes:.0f} Minuten gegen einen Gegner {delta} Stufen über dir.",
     "Endurance": "Dauerkampf",
     "{minutes:.0f} minutes of fighting without a break.": "{minutes:.0f} Minuten Kampf ohne Pause.",
+    "Several enemies": "Mehrere Gegner",
+    "Many enemies": "Viele Gegner",
+    "{targets} enemies at once that live for {seconds:.0f} seconds; the number is the damage on all of them "
+    "together.":
+        "{targets} Gegner zugleich, die {seconds:.0f} Sekunden leben; die Zahl ist der Schaden auf allen zusammen.",
     "Light damage": "Leichter Schaden",
     "Tank healing": "Tank heilen",
     "Heavy damage": "Schwerer Schaden",
@@ -454,9 +461,30 @@ TEXT = {
     "when mana is missing and the health allows it": "wenn Mana fehlt und das Leben es erlaubt",
     "when the mana is gone (first after {time})": "wenn das Mana leer ist (zuerst nach {time})",
     "fills the rest of the time and costs no mana": "füllt die restliche Zeit und kostet kein Mana",
+    "once the spells above are up, while your health is above {floor:.0f}%: it costs you {health:.0f} health "
+    "per second":
+        "sobald die Zauber darüber laufen, solange dein Leben über {floor:.0f} % liegt: kostet dich "
+        "{health:.0f} Leben pro Sekunde",
+    "once the spells above are up, while your health is above {floor:.0f}%: it hits every enemy and costs you "
+    "{health:.0f} health per second":
+        "sobald die Zauber darüber laufen, solange dein Leben über {floor:.0f} % liegt: trifft alle Gegner und "
+        "kostet dich {health:.0f} Leben pro Sekunde",
+    "cast it on every enemy first: your spells deal {pct:g}% more under it":
+        "zuerst auf jeden Gegner wirken: darunter machen deine Zauber {pct:g} % mehr Schaden",
+    "keep it on every enemy": "auf jedem Gegner halten",
+    "whenever it is ready, on one enemy": "immer wenn bereit, auf einen Gegner",
+    "fills the rest of the time, on one enemy": "füllt die restliche Zeit, auf einen Gegner",
+    "fills the rest of the time and hits every enemy at once":
+        "füllt die restliche Zeit und trifft alle Gegner zugleich",
+    "keep it on one enemy: its cooldown allows no more":
+        "auf einem Gegner halten: die Abklingzeit erlaubt nicht mehr",
+    "keep it on {n:.0f} of the {targets} enemies: its cooldown allows no more":
+        "auf {n:.0f} der {targets} Gegner halten: die Abklingzeit erlaubt nicht mehr",
     "the weaker filler in this fight": "in diesem Kampf der schwächere Füller",
     "costs more casting time than it returns in this fight":
         "kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt",
+    "your health does not pay for enough of it, or the mana is worth more on the other spells":
+        "dein Leben reicht nicht für genug davon, oder das Mana ist bei den anderen Zaubern mehr wert",
     "{n:.0f} s": "{n:.0f} s",
     "{m}:{s:02d} min": "{m}:{s:02d} min",
     "{n:.0f}x before the mana is gone: {mana:.0f} mana for {health:.0f} health, which you heal back":

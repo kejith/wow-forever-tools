@@ -85,6 +85,32 @@ else:
                     "perMin": 3.0, "firstSec": 0, "sharePct": 7.5, "value": 9.0},
                    {"kind": "wand", "casts": 300, "perMin": 30.0, "firstSec": 1.5, "sharePct": 92.5, "value": 21.0}],
          "skipped": [{"kind": "debuff", "spellId": 440892, "name": "Curse of the Elements", "rank": 4, "loss": 2.0}]},
+        {"key": "pack", "fight": {"seconds": 30.0, "targetDelta": 2, "killsPerMinute": 2, "targets": 3},
+         "metric": "dps", "value": 120.0, "oomSeconds": None, "candidates": 48, "endManaPct": 20.0, "endHpPct": 60.0,
+         "steps": [{"kind": "debuff", "spellId": 440892, "name": "Curse of the Elements", "rank": 4, "casts": 3,
+                    "perMin": 6.0, "firstSec": 0, "sharePct": 15.0, "value": 0, "takenPct": 10, "targets": 3},
+                   {"kind": "dot", "spellId": 589, "name": "Shadow Word: Pain", "rank": 3, "casts": 6,
+                    "perMin": 12.0, "firstSec": 4.5, "sharePct": 30.0, "value": 30.0, "targets": 3},
+                   {"kind": "dot", "spellId": 2944, "name": "Devouring Plague", "rank": 1, "casts": 1,
+                    "perMin": 2.0, "firstSec": 9, "sharePct": 5.0, "value": 6.0, "targets": 1},
+                   {"kind": "dot", "spellId": 980, "name": "Bane of Agony", "rank": 1, "casts": 2,
+                    "perMin": 4.0, "firstSec": 10.5, "sharePct": 10.0, "value": 8.0, "targets": 2},
+                   {"kind": "cooldown", "spellId": 8092, "name": "Mind Blast", "rank": 3, "casts": 2,
+                    "perMin": 4.0, "firstSec": 12, "sharePct": 10.0, "value": 12.0},
+                   {"kind": "burn", "spellId": 11683, "name": "Hellfire", "rank": 2, "casts": 1, "perMin": 2.0,
+                    "firstSec": 13.5, "sharePct": 16.7, "value": 40.0, "area": True, "healthPerSec": 145.4,
+                    "floorPct": 60},
+                   {"kind": "filler", "spellId": 11677, "name": "Rain of Fire", "rank": 3, "casts": 1,
+                    "perMin": 2.0, "firstSec": 18.5, "sharePct": 13.3, "value": 24.0, "area": True}],
+         "skipped": [{"kind": "burn", "spellId": 1949, "name": "Hellfire", "rank": 1, "loss": 0}],
+         "timeline": [{"t": 0, "kind": "debuff", "spellId": 440892, "n": 3, "manaPct": 100, "hpPct": 100},
+                      {"t": 13.5, "kind": "burn", "spellId": 11683, "n": 1, "manaPct": 60, "hpPct": 100}]},
+        {"key": "crowd", "fight": {"seconds": 20.0, "targetDelta": 2, "killsPerMinute": 3, "targets": 6},
+         "metric": "dps", "value": 68.0, "oomSeconds": None, "candidates": 48, "endManaPct": 55.0, "endHpPct": 100.0,
+         "steps": [{"kind": "dot", "spellId": 589, "name": "Shadow Word: Pain", "rank": 3, "casts": 7,
+                    "perMin": 21.0, "firstSec": 0, "sharePct": 48.0, "value": 42.0, "targets": 6},
+                   {"kind": "filler", "spellId": 585, "name": "Smite", "rank": 4, "casts": 3, "perMin": 9.0,
+                    "firstSec": 9, "sharePct": 38.0, "value": 17.0}]},
     ]
 json.dump({"engine": "stub", "spellbookSource": "export", "fight": fight,
            "baseline": {"metric": data["metric"], "value": 1.0}, "situations": situations}, sys.stdout)
@@ -216,6 +242,52 @@ def test_damage_fights(tmp: str):
     assert long["verdict"].startswith("No filler spell:") and "40% mana" in long["verdict"]
     assert [(k["label"], k["why"]) for k in long["skipped"]] == [
         ("Curse of the Elements (Rank 4)", "costs more casting time than it returns in this fight")]
+
+
+def test_several_enemies(tmp: str):
+    write_fixture(tmp)
+    damage = by_key(run(tmp)["guides"][1])
+
+    # Three enemies: what is kept up goes on each of them unless a cooldown stands in the way, an area spell
+    # hits them all, everything else one of them.
+    pack = damage["pack"]
+    assert pack["title"] == "Several enemies"
+    assert pack["about"] == ("3 enemies at once that live for 30 seconds; the number is the damage on all of them "
+                             "together.")
+    assert [s["rule"] for s in pack["steps"]] == [
+        "cast it on every enemy first: your spells deal 10% more under it",
+        "keep it on every enemy",
+        "keep it on one enemy: its cooldown allows no more",
+        "keep it on 2 of the 3 enemies: its cooldown allows no more",
+        "whenever it is ready, on one enemy",
+        "once the spells above are up, while your health is above 60%: it hits every enemy and costs you 145 "
+        "health per second",
+        "fills the rest of the time and hits every enemy at once"]
+    burn = pack["steps"][5]
+    assert burn["area"] and burn["healthPerSec"] == 145.4 and not pack["steps"][1]["area"]
+    assert pack["steps"][1]["targets"] == 3
+    assert pack["verdict"] == "The mana lasts for the whole fight. At the end 20% mana and 60% health are left."
+    assert [(k["label"], k["why"]) for k in pack["skipped"]] == [
+        ("Hellfire", "your health does not pay for enough of it, or the mana is worth more on the other spells")]
+    assert [(e["label"], e["n"]) for e in pack["timeline"]] == [
+        ("Curse of the Elements (Rank 4)", 3), ("Hellfire (Rank 2)", 1)]
+
+    crowd = damage["crowd"]
+    assert crowd["title"] == "Many enemies" and crowd["about"].startswith("6 enemies at once that live for 20 seconds")
+    assert [s["rule"] for s in crowd["steps"]] == ["keep it on every enemy", "fills the rest of the time, on one enemy"]
+
+    # One enemy: the rules of the fights above are untouched.
+    assert damage["standard"]["steps"][0]["rule"] == "keep it on the enemy"
+    assert not damage["standard"]["steps"][0]["area"]
+
+    i18n.set_language("de")
+    try:
+        pack = by_key(run(tmp)["guides"][1])["pack"]
+    finally:
+        i18n.set_language("en")
+    assert pack["title"] == "Mehrere Gegner" and pack["about"].startswith("3 Gegner zugleich, die 30 Sekunden leben")
+    assert pack["steps"][1]["rule"] == "auf jedem Gegner halten"
+    assert pack["steps"][5]["rule"].endswith("trifft alle Gegner und kostet dich 145 Leben pro Sekunde")
 
 
 def test_german(tmp: str):

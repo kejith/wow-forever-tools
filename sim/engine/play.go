@@ -14,12 +14,22 @@ import (
 // what is left, and a cast or channel that runs past the end counts for the
 // part inside the fight.
 //
+// Against several enemies a DoT or a debuff is kept on each of them (the
+// first DoT on every enemy, then the second), an area spell hits them all
+// with one cast, and every other spell is cast at the first enemy. A channel
+// that damages its caster (Hellfire) goes in front of the filler for as many
+// ticks as the health above the floor pays for.
+//
 // With a random source every cast rolls (hit, damage range, crit): that is
 // one Monte-Carlo fight. Without one every cast is worth its expectation:
 // the one fight an average of many would look like, which is what the
 // rotation guide shows as a timeline.
 
 const wandSwingSec = 1.5 // swing cadence used when no speed is exported
+
+// minBurnShare is the least part of a channel that costs health (Hellfire)
+// worth paying its mana for.
+const minBurnShare = 1.0 / 3
 
 // Event is one action of a played fight.
 type Event struct {
@@ -79,8 +89,10 @@ type player struct {
 	fight  Fight
 	metric string
 
+	enemies         int
 	dots, cooldowns []slot
 	filler, recover *slot
+	burn            *slot     // a channel that costs health (Hellfire)
 	channelFactor   []float64 // how much faster each DoT ticks while the filler is channeled (Wrack)
 	leecher         *slot     // what is cast for health when a conversion is blocked
 
@@ -101,7 +113,10 @@ func newPlayer(st *State, fight Fight, actions []Action, metric string) *player 
 	}
 	tgt := NewTarget(st.Level, fight.TargetDelta)
 	ctx := ContextOf(actions)
-	p := &player{st: st, fight: fight, metric: metric}
+	p := &player{st: st, fight: fight, metric: metric, enemies: 1}
+	if metric == "dps" {
+		p.enemies = fight.Enemies()
+	}
 	for _, a := range actions {
 		if a.Kind == "wand" || a.Kind == "mana" || a.Spell == nil {
 			continue
@@ -130,6 +145,11 @@ func newPlayer(st *State, fight Fight, actions []Action, metric string) *player 
 			if p.recover == nil {
 				r := s
 				p.recover = &r
+			}
+		case "burn":
+			if p.burn == nil && s.shape.Ticks > 0 && s.shape.SelfTick > 0 && p.enemies > 1 {
+				b := s
+				p.burn = &b
 			}
 		}
 	}
@@ -221,9 +241,15 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 	oom = fight.Seconds
 	wentOOM := false
 	lastCast := 0.0
-	dotEnd := make([]float64, len(dots))
-	dotRem := make([]float64, len(dots)) // seconds (at normal speed) until the next tick
-	dotOn := make([]float64, len(dots))  // 1 once applied; without dice the chance that it landed
+	// Per DoT one entry per enemy.
+	dotEnd := make([][]float64, len(dots))
+	dotRem := make([][]float64, len(dots)) // seconds (at normal speed) until the next tick
+	dotOn := make([][]float64, len(dots))  // 1 once applied; without dice the chance that it landed
+	dotReady := make([]float64, len(dots)) // when the DoT's own cooldown ends
+	for d := range dots {
+		n := KeptOn(p.enemies, dots[d].shape.DurationSec, dots[d].shape.CooldownSec)
+		dotEnd[d], dotRem[d], dotOn[d] = make([]float64, n), make([]float64, n), make([]float64, n)
+	}
 	cdReady := make([]float64, len(cooldowns))
 	convReady := 0.0
 	convLeft := 0.0 // seconds a conversion over time (Dark Sacrifice) still pays out
@@ -262,20 +288,26 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 	advance := func(dur float64, hasted bool) {
 		from, to := t, t+dur
 		for d := range dots {
-			end := math.Min(to, math.Min(dotEnd[d], fight.Seconds))
-			if end <= from || dots[d].shape.PeriodSec <= 0 {
+			sh := &dots[d].shape
+			if sh.PeriodSec <= 0 {
 				continue
 			}
-			progress := end - from
-			if hasted {
-				progress *= p.channelFactor[d]
+			for k := range dotEnd[d] {
+				end := math.Min(to, math.Min(dotEnd[d][k], fight.Seconds))
+				if end <= from {
+					continue
+				}
+				progress := end - from
+				if hasted && k == 0 { // the channel is on the first enemy
+					progress *= p.channelFactor[d]
+				}
+				for progress >= dotRem[d][k]-1e-9 {
+					progress -= dotRem[d][k]
+					gain(dots[d].act.Spell, sh.TickValue*dotOn[d][k], sh.TickLeech)
+					dotRem[d][k] = sh.PeriodSec
+				}
+				dotRem[d][k] -= progress
 			}
-			for progress >= dotRem[d]-1e-9 {
-				progress -= dotRem[d]
-				gain(dots[d].act.Spell, dots[d].shape.TickValue*dotOn[d], dots[d].shape.TickLeech)
-				dotRem[d] = dots[d].shape.PeriodSec
-			}
-			dotRem[d] -= progress
 		}
 		if convLeft > 0 { // a conversion over time: health for mana, second by second
 			d := math.Min(convLeft, math.Min(to, fight.Seconds)-from)
@@ -327,13 +359,51 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 		sh := &s.shape
 		note(s.act.Kind, s.act.Spell)
 		part := inFight(sh)
-		gain(s.act.Spell, sh.SampleDirect(rng)*part, sh.DirectLeech)
-		if sh.Ticks > 0 { // a channel: its ticks land within the cast
-			if w := lands(rng, sh.HitChance); w > 0 {
-				gain(s.act.Spell, sh.Ticks*sh.TickValue*w*part, sh.TickLeech)
+		hits := 1
+		if sh.Area {
+			hits = p.enemies
+		}
+		for e := 0; e < hits; e++ {
+			gain(s.act.Spell, sh.SampleDirect(rng)*part, sh.DirectLeech)
+			if sh.Ticks > 0 { // a channel: its ticks land within the cast
+				if w := lands(rng, sh.HitChance); w > 0 {
+					gain(s.act.Spell, sh.Ticks*sh.TickValue*w*part, sh.TickLeech)
+				}
 			}
 		}
 		spend(sh.ManaCost, sh.ExecuteSec, s == filler && s.act.Spell.Channeled)
+	}
+	// burnTicks is how many ticks of the channel that costs health are worth
+	// starting now: what the health above the floor pays for and the fight
+	// has time for. A channel pays its mana in full at the start, so less
+	// than a third of it is not started.
+	burnTicks := func() float64 {
+		sh := &p.burn.shape
+		ticks := math.Min(sh.Ticks, math.Floor((health-p.healthFloor)/sh.SelfTick))
+		ticks = math.Min(ticks, math.Ceil((fight.Seconds-t)/sh.PeriodSec))
+		if ticks < math.Ceil(sh.Ticks*minBurnShare) {
+			return 0
+		}
+		return ticks
+	}
+	// channelBurn channels it for that many ticks: every tick hits every
+	// enemy and the caster.
+	channelBurn := func(ticks float64) {
+		s := p.burn
+		sh := &s.shape
+		note("burn", s.act.Spell)
+		dur := ticks * sh.PeriodSec
+		done := ticks // ticks before the fight ends
+		if t+dur > fight.Seconds {
+			done = ticks * (fight.Seconds - t) / dur
+		}
+		for e := 0; e < p.enemies; e++ {
+			if w := lands(rng, sh.HitChance); w > 0 {
+				gain(s.act.Spell, done*sh.TickValue*w, sh.TickLeech)
+			}
+		}
+		health -= done * sh.SelfTick
+		spend(sh.ManaCost, math.Max(dur, sh.GCDSec), false)
 	}
 
 	for t < fight.Seconds {
@@ -362,18 +432,23 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 				continue
 			}
 		}
-		for d := range dots { // keep every DoT/HoT up
+		for d := range dots { // keep every DoT/HoT up, on every enemy
 			sh := &dots[d].shape
-			if t >= dotEnd[d] && mana >= sh.ManaCost {
+			for k := range dotEnd[d] {
+				if t < dotEnd[d][k] || mana < sh.ManaCost || (len(dotEnd[d]) > 1 && t < dotReady[d]) {
+					continue
+				}
 				note(dots[d].act.Kind, dots[d].act.Spell)
+				dotReady[d] = t + sh.CooldownSec
 				if w := lands(rng, sh.HitChance); w > 0 {
 					gain(dots[d].act.Spell, sh.SampleLanded(rng)*w*inFight(sh), sh.DirectLeech) // the direct part of Immolate, Holy Fire
-					dotEnd[d] = t + sh.DurationSec
-					dotRem[d] = sh.PeriodSec
-					dotOn[d] = w
+					dotEnd[d][k], dotRem[d][k], dotOn[d][k] = t+sh.DurationSec, sh.PeriodSec, w
 				}
 				spend(sh.ManaCost, sh.ExecuteSec, false)
 				acted = true
+				break
+			}
+			if acted {
 				break
 			}
 		}
@@ -393,6 +468,12 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 		}
 		if acted {
 			continue
+		}
+		if p.burn != nil && mana >= p.burn.shape.ManaCost {
+			if ticks := burnTicks(); ticks > 0 {
+				channelBurn(ticks)
+				continue
+			}
 		}
 		// Ahead of need a damage dealer converts when the health bar is full,
 		// so that no leech is wasted on it. With a spell standing by that

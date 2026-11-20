@@ -289,6 +289,10 @@ func Run(in Input) Output {
 		return out
 	}
 
+	if in.Character.ClassFile == "WARLOCK" {
+		warlock.Prepare(cat) // the area spells, which the tables split in two
+	}
+
 	ranks := map[int]int{}
 	for id, rank := range in.Character.Talents {
 		var n int
@@ -520,6 +524,13 @@ func Run(in Input) Output {
 			unused[a.Spell.ID] = "notneeded"
 		default:
 			unused[a.Spell.ID] = "notworth"
+		}
+	}
+	if in.Character.ClassFile == "WARLOCK" { // spells for several enemies: the rotation guide plays them
+		for _, sp := range warlock.AreaSpells(cat, known, in.Character.Level) {
+			if _, ok := tried[sp.ID]; !ok {
+				unused[sp.ID] = "area"
+			}
 		}
 	}
 	out.Coverage = coverage(cat, known, in.Character.Level, metric, actions, tried, support, unused, ranks, talentInfos,

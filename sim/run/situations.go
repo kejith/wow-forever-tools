@@ -28,7 +28,8 @@ type Step struct {
 	SharePct float64 `json:"sharePct"` // share of the fight time spent casting it
 	Value    float64 `json:"value"`    // damage or healing per second it did
 	// A healer's plan: healing of one cast, the mana per second it costs, and
-	// on how many targets a HoT or a shield is kept.
+	// on how many targets a HoT or a shield is kept. In a fight against
+	// several enemies Targets is on how many of them a DoT or debuff is kept.
 	PerCast float64 `json:"perCast,omitempty"`
 	ManaPS  float64 `json:"manaPerSec,omitempty"`
 	Targets float64 `json:"targets,omitempty"`
@@ -38,6 +39,12 @@ type Step struct {
 	HealthCost float64 `json:"healthCost,omitempty"`
 	// A debuff: how much more damage the enemy takes under it, in percent.
 	TakenPct float64 `json:"takenPct,omitempty"`
+	// Area: one cast works on every enemy of the fight.
+	Area bool `json:"area,omitempty"`
+	// A channel that damages its caster (Hellfire): the health a second of
+	// it costs, and the share of the health the model keeps (percent).
+	HealthPerSec float64 `json:"healthPerSec,omitempty"`
+	FloorPct     float64 `json:"floorPct,omitempty"`
 }
 
 // Skipped is a spell the character knows that the best rotation of a
@@ -115,6 +122,8 @@ func damageFights(standard engine.Fight) []struct {
 		{"standard", engine.Fight{Seconds: standard.Seconds, TargetDelta: standard.TargetDelta, KillsPerMinute: -1}},
 		{"boss", f(180, 3)},
 		{"endurance", f(600, standard.TargetDelta)},
+		{"pack", engine.Fight{Seconds: 30, TargetDelta: standard.TargetDelta, KillsPerMinute: -1, Targets: 3}},
+		{"crowd", engine.Fight{Seconds: 20, TargetDelta: standard.TargetDelta, KillsPerMinute: -1, Targets: 6}},
 	}
 }
 
@@ -131,10 +140,10 @@ func resolveKills(fight engine.Fight, metric string) engine.Fight {
 	return fight
 }
 
-func choices(classFile string, cat *catalog.Catalog, known map[int]bool, level int) engine.Choices {
+func choices(classFile string, cat *catalog.Catalog, known map[int]bool, level, enemies int) engine.Choices {
 	switch classFile {
 	case "WARLOCK":
-		return warlock.Choices(cat, known, level)
+		return warlock.Choices(cat, known, level, enemies)
 	case "PRIEST":
 		return priest.Choices(cat, known, level)
 	}
@@ -143,14 +152,16 @@ func choices(classFile string, cat *catalog.Catalog, known map[int]bool, level i
 
 // damageSituations plays every candidate rotation in every fight and keeps
 // the best one of each.
-func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool, st *engine.State, standard engine.Fight, tapSpell *engine.Spell) []Situation {
-	rots := choices(classFile, cat, known, st.Level).Rotations()
-	if len(rots) == 0 {
-		return nil
-	}
+func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool, st *engine.State, standard engine.Fight,
+	tapSpell *engine.Spell) []Situation {
 	var out []Situation
 	for _, df := range damageFights(standard) {
 		fight := resolveKills(df.fight, "dps")
+		// Against several enemies the class may have more to cast.
+		rots := choices(classFile, cat, known, st.Level, fight.Enemies()).Rotations()
+		if len(rots) == 0 {
+			return nil
+		}
 		scores := make([]float64, len(rots))
 		best := 0
 		for i, r := range rots {
@@ -162,6 +173,28 @@ func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool
 		pb := engine.Play(st, fight, rots[best], "dps")
 		s := Situation{Key: df.key, Fight: fight, Metric: "dps", Value: pb.Value, OOMSec: pb.OOMSec, Candidates: len(rots)}
 		s.Steps = steps(cat, rots[best], pb, fight, tapSpell)
+		tgt := engine.NewTarget(st.Level, fight.TargetDelta)
+		for i := range s.Steps {
+			step := &s.Steps[i]
+			sp := cat.Spells[step.SpellID]
+			if sp == nil {
+				continue
+			}
+			sh := engine.Shape(sp, st, tgt)
+			if step.Kind == "burn" && sh.PeriodSec > 0 {
+				step.HealthPerSec, step.FloorPct = sh.SelfTick/sh.PeriodSec, engine.HealthFloorPct
+			}
+			if fight.Enemies() == 1 {
+				continue
+			}
+			step.Area = sp.Area
+			switch step.Kind { // on how many of the enemies it is kept
+			case "dot":
+				step.Targets = float64(engine.KeptOn(fight.Enemies(), sh.DurationSec, sh.CooldownSec))
+			case "debuff":
+				step.Targets = float64(engine.KeptOn(fight.Enemies(), engine.DebuffSec(sp, st), sh.CooldownSec))
+			}
+		}
 		s.Timeline, s.More = timeline(pb, st)
 		if n := len(pb.Events); n > 0 {
 			// The state before the last action is the closest the record has.
@@ -275,7 +308,7 @@ func steps(cat *catalog.Catalog, actions []engine.Action, pb engine.Playback, fi
 			}
 		}
 	}
-	byKind("debuff", "dot", "hot", "cooldown", "filler", "heal")
+	byKind("debuff", "dot", "hot", "cooldown", "burn", "filler", "heal")
 	add("lifetap", tapSpell, 0)
 	byKind("mana", "recover")
 	add("wand", nil, 0)

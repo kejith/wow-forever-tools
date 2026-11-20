@@ -32,7 +32,90 @@ const (
 	SearingPain     = 5676
 	SoulFire        = 6353 // one-minute cooldown; costs a Soul Shard, which the model does not count
 	DrainSoul       = 1120
+	// Area spells: offered only in a fight against several enemies.
+	Hellfire   = 1949
+	RainOfFire = 5740
 )
+
+// Auras of the area channels: one that casts another spell every period
+// (Hellfire casts "Hellfire Effect" on the enemies), and the dummy that
+// keeps the time of Rain of Fire's pulses.
+const (
+	auraPeriodicTrigger = 23
+	auraPeriodicDummy   = 226
+)
+
+// Prepare completes the class's area spells. The tables describe each of
+// them in two spells, the one that is channeled and the one that deals the
+// damage, and the engine wants one.
+//
+// Hellfire: the channel casts "Hellfire Effect" on the enemies every second
+// (aura 23) and carries the same damage for the caster as its own periodic
+// effect; the tooltip shows one number for both.
+//
+// Rain of Fire: the channel makes an area trigger and keeps a dummy aura
+// that pulses every two seconds; nothing links it to the damage spell of
+// the same name. That one is found by name, class mask and spell level,
+// which the two share in every rank. Checked on the tooltips of ranks 1-3
+// at level 51: 220, 426 and 660 over 8 seconds are four pulses of it.
+func Prepare(cat *catalog.Catalog) {
+	for _, id := range cat.Chains[Hellfire] {
+		sp := cat.Spells[id]
+		if sp == nil || sp.Periodic == nil || sp.SelfTick != nil {
+			continue
+		}
+		for _, a := range cat.Auras[id] {
+			pulse := cat.Spells[a.Trigger]
+			if a.Aura != auraPeriodicTrigger || pulse == nil || pulse.Direct == nil {
+				continue
+			}
+			tick := *pulse.Direct
+			tick.PeriodMs, tick.Crits = sp.Periodic.PeriodMs, true
+			sp.SelfTick, sp.Periodic, sp.Area = sp.Periodic, &tick, true
+			break
+		}
+	}
+	for _, id := range cat.Chains[RainOfFire] {
+		sp := cat.Spells[id]
+		if sp == nil || sp.Direct != nil || sp.Periodic != nil || sp.DurationMs <= 0 || cat.Name(id) == "" {
+			continue
+		}
+		period := 0
+		for _, a := range cat.Auras[id] {
+			if raw := cat.RawEffects[id][a.Index]; a.Aura == auraPeriodicDummy && raw != nil {
+				period = raw.PeriodMs
+			}
+		}
+		var pulse *engine.Spell
+		for otherID, other := range cat.Spells {
+			if otherID == id || other.Direct == nil || other.ClassMask != sp.ClassMask ||
+				other.Levels.Spell != sp.Levels.Spell || cat.Name(otherID) != cat.Name(id) {
+				continue
+			}
+			if pulse == nil || otherID < pulse.ID {
+				pulse = other
+			}
+		}
+		if pulse == nil || period <= 0 {
+			continue
+		}
+		tick := *pulse.Direct
+		tick.PeriodMs, tick.Crits = period, true
+		sp.Periodic, sp.Area = &tick, true
+	}
+}
+
+// AreaSpells are the best known ranks of the spells that are only offered
+// against several enemies.
+func AreaSpells(cat *catalog.Catalog, known map[int]bool, level int) []*engine.Spell {
+	var out []*engine.Spell
+	for _, base := range []int{RainOfFire, Hellfire} {
+		if sp := cat.BestRank(base, known, level); sp != nil && sp.Area {
+			out = append(out, sp)
+		}
+	}
+	return out
+}
 
 // auraDamageTakenPct is the aura of a debuff that raises the damage its
 // target takes: percent in the base points, school mask in the first misc
@@ -148,11 +231,21 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 // Choices is everything a rotation can be built from, for the rotation
 // guide: every DoT is optional there, because a short fight does not pay
 // for all of them, and Drain Life can stand by for the moments when the
-// health is too low for Life Tap.
-func Choices(cat *catalog.Catalog, known map[int]bool, level int) engine.Choices {
+// health is too low for Life Tap. Against several enemies the area spells
+// join: Rain of Fire as one more filler, Hellfire in front of the filler
+// for as long as the health pays for it.
+func Choices(cat *catalog.Catalog, known map[int]bool, level, enemies int) engine.Choices {
 	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
 	c := engine.Choices{Tail: []engine.Action{{Kind: "wand"}}, Recover: best(DrainLife)}
 	c.Optional = optional(cat, best, CurseOfAgony, Corruption, SiphonLife, Immolate, DeathCoil, SoulFire)
+	if enemies > 1 {
+		if sp := best(RainOfFire); sp != nil && sp.Area && sp.Periodic != nil {
+			c.Fillers = append(c.Fillers, sp)
+		}
+		if sp := best(Hellfire); sp != nil && sp.SelfTick != nil {
+			c.Optional = append(c.Optional, engine.Action{Kind: "burn", Spell: sp})
+		}
+	}
 	for _, base := range fillerBases {
 		if sp := best(base); sp != nil {
 			c.Fillers = append(c.Fillers, sp)

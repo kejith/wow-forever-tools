@@ -447,6 +447,7 @@ COVERAGE_SPELL = {
     "mana": mark("returns mana, which the model does not use yet"),
     "notneeded": mark("trades health for mana; the mana lasts without it in this fight"),
     "notworth": mark("trades health for mana; here the health would cost more than the mana brings"),
+    "area": mark("hits every enemy at once: played in the fights against several enemies of the rotation guide"),
     "other": mark("does not change this number"),
 }
 COVERAGE_TALENT = {

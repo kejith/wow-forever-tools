@@ -60,7 +60,7 @@ function card(s, healer) {
       : `<span class="badge warn">${esc(t('Mana lasts {time}', { time: clock(s.oomSeconds) }))}</span>`;
   const skipped = s.skipped.map((k) => `<div class="small muted">${esc(t('Left out'))}: <span class="rot-name">${esc(k.label)}</span>
       <span class="warn-text">−${num(k.loss, 1)} ${esc(s.unit)}</span>${k.why ? ` · ${esc(k.why)}` : ''}</div>`).join('');
-  return `<div class="card rot-card">
+  return `<div class="card rot-card" data-key="${esc(s.key)}">
       <div class="rot-head"><h3>${esc(s.title)} ${mana}</h3><div class="big">${num(s.value, 1)} <span class="small muted">${esc(s.unit)}</span></div></div>
       <div class="small muted">${esc(s.about)}</div>
       <p class="rot-verdict">${esc(s.verdict)}</p>

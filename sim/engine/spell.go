@@ -29,6 +29,11 @@ type Spell struct {
 	// Energize is mana the spell returns to the caster per tick over its
 	// duration (Dark Sacrifice).
 	Energize *Effect
+	// Area: the spell hits every enemy of the fight (Rain of Fire, Hellfire).
+	Area bool
+	// SelfTick is the damage a channel deals to its own caster per tick
+	// (Hellfire): spell power raises it like the damage on the enemies.
+	SelfTick *Effect
 }
 
 // Heals reports whether the spell counts for the healer metrics: a heal or
@@ -57,6 +62,10 @@ type Effect struct {
 	PeriodMs int     // periodic effects only
 	Index    int     // EffectIndex (talents may change one effect's points)
 	Leech    float64 // share of the damage the caster gains as health (0 = none)
+	// Crits: every tick is a spell hit of its own (the pulses of Rain of
+	// Fire and Hellfire are direct damage spells), so it crits like one,
+	// whatever the talents say about DoTs.
+	Crits bool
 }
 
 // avgBase is the level-scaled midpoint of an effect's base value.

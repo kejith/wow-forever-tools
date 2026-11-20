@@ -63,6 +63,10 @@ type CastShape struct {
 	// Share of the damage that returns as health (0 = none).
 	DirectLeech float64
 	TickLeech   float64
+	// Area: every enemy of the fight takes the spell's damage.
+	Area bool
+	// SelfTick is the health each tick of the channel costs the caster.
+	SelfTick float64
 }
 
 // Context is what a spell's numbers depend on beyond the character: the
@@ -146,7 +150,7 @@ func CooldownSec(sp *Spell, st *State) float64 {
 
 // ShapeIn computes a spell's cast shape within a rotation.
 func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
-	s := CastShape{IsHeal: sp.IsHeal, CritBonus: SpellCritBonus * st.Mods.pct(OpCritDamage, sp)}
+	s := CastShape{IsHeal: sp.IsHeal, CritBonus: SpellCritBonus * st.Mods.pct(OpCritDamage, sp), Area: sp.Area}
 
 	// Time: talents may shorten the cast; haste shortens it further. The GCD
 	// is not haste-scaled (Classic rule, unverified for Forever).
@@ -238,9 +242,15 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 		s.TickLeech = sp.Periodic.Leech
 		// DoTs crit only when a talent says so; the crit is weighed into the
 		// tick value (per-tick rolls would barely move the variance).
-		if !sp.IsHeal && st.Mods.dotMayCrit(sp.School) {
+		if !sp.IsHeal && (sp.Periodic.Crits || st.Mods.dotMayCrit(sp.School)) {
 			s.TickValue *= 1 + s.CritPct/100*s.CritBonus
 		}
+	}
+	if sp.SelfTick != nil {
+		// What the channel does to its caster: the tooltip shows the same
+		// number as for the enemies, so spell power counts; talents that
+		// raise the damage are taken as not raising this.
+		s.SelfTick = sp.SelfTick.avgBase(st.Level, sp.Levels) + sp.SelfTick.Coeff*power
 	}
 	return s
 }

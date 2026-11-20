@@ -165,6 +165,25 @@ type Fight struct {
 	// is what buffs like Spirit Tap need. Negative means automatic (run.go:
 	// one kill per fight for a damage dealer, none for a healer).
 	KillsPerMinute float64 `json:"killsPerMinute"`
+	// Targets is how many enemies the fight has at once (0 or 1: one). A
+	// damage rotation keeps its DoTs and debuffs on each of them, casts its
+	// other spells at one, and its area spells hit them all. All of them
+	// live for the whole fight; the metric is the damage on all together.
+	Targets int `json:"targets,omitempty"`
+}
+
+// MaxTargets caps the enemies of a fight.
+const MaxTargets = 10
+
+// Enemies is the number of enemies the fight has at once.
+func (f Fight) Enemies() int {
+	switch {
+	case f.Targets < 1:
+		return 1
+	case f.Targets > MaxTargets:
+		return MaxTargets
+	}
+	return f.Targets
 }
 
 // magicSchools are all schools that spell power and spell crit apply to.

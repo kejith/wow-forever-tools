@@ -46,6 +46,8 @@ GUIDE_NOTES = {
                  "regeneration back, the rest of the pause regenerates in full.")],
 }
 SAME_DEMAND = mark("One target needs {value:.0f} healing per second: {pct:.0f}% of the most you can heal.")
+SEVERAL = mark("{targets} enemies at once that live for {seconds:.0f} seconds; the number is the damage on all of "
+               "them together.")
 SITUATIONS = {
     "quick": (mark("Quick kill"), mark("An enemy that dies in {seconds:.0f} seconds.")),
     "standard": (mark("Normal fight"),
@@ -53,6 +55,8 @@ SITUATIONS = {
                       "rated for.")),
     "boss": (mark("Boss"), mark("{minutes:.0f} minutes against an enemy {delta} levels above you.")),
     "endurance": (mark("Endurance"), mark("{minutes:.0f} minutes of fighting without a break.")),
+    "pack": (mark("Several enemies"), SEVERAL),
+    "crowd": (mark("Many enemies"), SEVERAL),
     "light": (mark("Light damage"), SAME_DEMAND),
     "steady": (mark("Tank healing"), SAME_DEMAND),
     "heavy": (mark("Heavy damage"), SAME_DEMAND),
@@ -72,7 +76,22 @@ RULES = {
     "lifetap": mark("as soon as the health bar is full and the mana has room for it, and when the mana is gone"),
     "mana": mark("when mana is missing and the health allows it"),
     "wand": mark("when the mana is gone (first after {time})"),
+    "burn": mark("once the spells above are up, while your health is above {floor:.0f}%: it costs you {health:.0f} "
+                 "health per second"),
 }
+# The same lines in a fight against several enemies.
+RULES_SEVERAL = {
+    "debuff": mark("cast it on every enemy first: your spells deal {pct:g}% more under it"),
+    "dot": mark("keep it on every enemy"),
+    "cooldown": mark("whenever it is ready, on one enemy"),
+    "filler": mark("fills the rest of the time, on one enemy"),
+    "burn": mark("once the spells above are up, while your health is above {floor:.0f}%: it hits every enemy and "
+                 "costs you {health:.0f} health per second"),
+}
+AREA_FILLER = mark("fills the rest of the time and hits every enemy at once")
+# A spell with a cooldown as long as it lasts cannot be on every enemy.
+KEPT_ON_ONE = mark("keep it on one enemy: its cooldown allows no more")
+KEPT_ON_SOME = mark("keep it on {n:.0f} of the {targets} enemies: its cooldown allows no more")
 # Life Tap next to a spell that stands by to return health: no reason to wait for a full health bar.
 TAP_WITH_STANDBY = mark("as soon as the health allows it and the mana has room for it, and when the mana is gone")
 # A rotation without a filler spell: the wand takes its place.
@@ -82,6 +101,7 @@ SKIPPED = {
     "filler": mark("the weaker filler in this fight"),
     "dot": mark("costs more casting time than it returns in this fight"),
     "cooldown": mark("costs more casting time than it returns in this fight"),
+    "burn": mark("your health does not pay for enough of it, or the mana is worth more on the other spells"),
 }
 
 
@@ -132,6 +152,22 @@ def heal_rule(step: dict, steps: list, demand: dict) -> str:
     return tr("the default heal")
 
 
+def damage_rule(step: dict, enemies: int) -> str:
+    """What a line of a damage rotation says to do."""
+    kind = step.get("kind")
+    values = dict(time=clock(step.get("firstSec") or 0), pct=step.get("takenPct") or 0,
+                  floor=step.get("floorPct") or 0, health=step.get("healthPerSec") or 0)
+    if enemies > 1:
+        kept = step.get("targets") or 0
+        if kind in ("dot", "debuff") and 0 < kept < enemies:
+            return tr(KEPT_ON_ONE) if kept < 1.5 else tr(KEPT_ON_SOME, n=kept, targets=enemies)
+        if kind == "filler" and step.get("area"):
+            return tr(AREA_FILLER)
+        if kind in RULES_SEVERAL:
+            return tr(RULES_SEVERAL[kind], **values)
+    return tr(RULES[kind], **values) if kind in RULES else ""
+
+
 def damage_verdict(s: dict, steps: list) -> str:
     """How the mana holds in a played fight: the phases a player notices."""
     by_kind = {st["kind"]: st for st in steps}
@@ -164,7 +200,8 @@ def situation_out(s: dict, label, unit: str) -> dict:
     seconds = fight.get("seconds") or 0
     about = tr(about, seconds=seconds, minutes=seconds / 60, delta=fight.get("targetDelta") or 0,
                value=(demand or {}).get("value") or 0, pct=(demand or {}).get("pct") or 0,
-               targets=(demand or {}).get("targets") or 1) if about else ""
+               targets=(demand or fight).get("targets") or 1) if about else ""
+    enemies = 1 if demand else fight.get("targets") or 1
     names = {("wand", 0): tr("Wand")}
     steps = []
     raw_steps = s.get("steps") or []
@@ -182,13 +219,13 @@ def situation_out(s: dict, label, unit: str) -> dict:
         elif kind == "lifetap" and has_standby:
             rule = tr(TAP_WITH_STANDBY)
         else:
-            rule = (tr(RULES[kind], time=clock(st.get("firstSec") or 0), pct=st.get("takenPct") or 0)
-                    if kind in RULES else "")
+            rule = damage_rule(st, enemies)
         steps.append({"kind": kind, "spellId": st.get("spellId"), "label": text, "rule": rule,
                       "casts": st.get("casts") or 0, "perMin": round(st.get("perMin") or 0, 2),
                       "firstSec": st.get("firstSec") or 0, "sharePct": round(st.get("sharePct") or 0, 1),
                       "value": round(st.get("value") or 0, 1), "perCast": round(st.get("perCast") or 0, 1),
-                      "manaPerSec": round(st.get("manaPerSec") or 0, 2), "targets": round(st.get("targets") or 0, 2)})
+                      "manaPerSec": round(st.get("manaPerSec") or 0, 2), "targets": round(st.get("targets") or 0, 2),
+                      "area": bool(st.get("area")), "healthPerSec": round(st.get("healthPerSec") or 0, 1)})
     skipped = [{"kind": k.get("kind"), "spellId": k.get("spellId"),
                 "label": label(k.get("spellId"), k.get("name"), k.get("rank")), "loss": round(k.get("loss") or 0, 1),
                 "why": tr(SKIPPED[k["kind"]]) if k.get("kind") in SKIPPED else ""} for k in s.get("skipped") or []]
