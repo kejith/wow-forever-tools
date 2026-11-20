@@ -18,12 +18,13 @@ export const state = {
   upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain' },
   recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false },
   consumables: { top: 5, onlyAvailable: false, allBuffs: false },
+  prices: { query: '', item: null, cls: -1, sort: 'name', recent: false },
   gph: { open: null, notice: null, more: {} },
 };
 
 // What the user chose survives a restart: the open page, the character and the options of the pages.
 const VIEW_KEY = 'wow-forever-tools:view';
-const VIEW = ['writs', 'upgrades', 'recipes', 'consumables'];
+const VIEW = ['writs', 'upgrades', 'recipes', 'consumables', 'prices'];
 
 export function saveView() {
   try {

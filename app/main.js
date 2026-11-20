@@ -311,7 +311,7 @@ async function runCapture(dir) {
 
 async function capturePages(out, required) {
   fs.mkdirSync(out, { recursive: true });
-  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'consumables', 'goldperhour'];
+  const pages = ['connection', 'character', 'writs', 'upgrades', 'recipes', 'consumables', 'pricehistory', 'goldperhour'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const report = { language, version: app.getVersion(), packaged: app.isPackaged, uv: null, pages: {} };
   // The Connection page shows the lists for the game. They arrive after the page; wait for them like for
@@ -339,6 +339,7 @@ async function capturePages(out, required) {
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
     if (page === 'recipes') await captureHelp(out, wait);
+    if (page === 'pricehistory') await captureHelp(out, wait, '.ph-chart .hit:last-of-type', 'pricehistory-day');
     if (page === 'consumables') await captureScrolled(out, wait, '#c-buffs', 'consumables-buffs');
     if (page === 'goldperhour') {
       // Open the first finished session, then shoot settings and history.
@@ -370,12 +371,13 @@ async function captureScrolled(out, wait, selector, name) {
   await win.webContents.executeJavaScript('document.querySelector(".content").scrollTop = 0');
 }
 
-// One explanation behind a "?": the first one of a table header on the page.
-async function captureHelp(out, wait) {
-  if (!await win.webContents.executeJavaScript('window.__showHelp("#content th .help")')) return;
+// One explanation behind a "?" (by default the first one of a table header on the page), or the popover of
+// any other element with data-help.
+async function captureHelp(out, wait, selector = '#content th .help', name = 'help') {
+  if (!await win.webContents.executeJavaScript(`window.__showHelp(${JSON.stringify(selector)})`)) return;
   await wait(300);
   const image = await win.webContents.capturePage();
-  fs.writeFileSync(path.join(out, 'help.png'), image.toPNG());
+  fs.writeFileSync(path.join(out, `${name}.png`), image.toPNG());
   await win.webContents.executeJavaScript('document.body.click(); document.querySelector(".content").scrollTop = 0');
 }
 

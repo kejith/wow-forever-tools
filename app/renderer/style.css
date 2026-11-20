@@ -361,3 +361,37 @@ tr.detail > td { background: #18140f; }
 
 .learn { margin-top: 4px; }
 td.where { min-width: 210px; }
+
+/* Price history */
+input[type=search] { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; width: 260px; }
+.ph-layout { display: grid; gap: 16px; grid-template-columns: minmax(250px, 330px) minmax(0, 1fr); align-items: start; }
+@media (max-width: 1000px) { .ph-layout { grid-template-columns: 1fr; } }
+.ph-list { position: sticky; top: 0; max-height: calc(100vh - 210px); overflow: auto; padding: 10px 8px; }
+.ph-list #ph-count { padding: 0 6px 6px; }
+.ph-row { display: flex; gap: 8px; align-items: center; width: 100%; padding: 4px 6px; border: 0; border-radius: 6px; background: none; text-align: left; cursor: pointer; }
+.ph-row:hover { background: var(--panel-2); }
+.ph-row.active { background: #e8b64c22; box-shadow: inset 2px 0 0 var(--gold); }
+.ph-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-price { flex: none; font-size: 12px; }
+.ph-none { padding: 6px; margin: 0; }
+.ph-head { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+.ph-head .icon { width: 36px; height: 36px; border-radius: 4px; }
+.ph-head h3 { margin: 0 0 2px; }
+.ph-stats { gap: 14px 34px; align-items: flex-start; margin-bottom: 16px; }
+.ph-stats .big { font-size: 18px; }
+.ph-chart { position: relative; padding: 0 0 20px 78px; }
+.ph-chart svg { display: block; width: 100%; height: 240px; overflow: visible; }
+.ph-chart .grid { stroke: var(--line); stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.ph-chart .offers { fill: #7fa7e0; opacity: .35; }
+.ph-chart .band { fill: var(--gold); opacity: .3; }
+.ph-chart .low { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.ph-chart .dot { stroke: var(--gold); stroke-width: 6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.ph-chart .hit { fill: transparent; }
+.ph-chart .hit:hover { fill: #ffffff10; }
+.ph-y { position: absolute; left: 0; top: 0; width: 70px; height: 240px; }
+.ph-y > span { position: absolute; right: 0; transform: translateY(-50%); white-space: nowrap; }
+.ph-x { position: absolute; left: 78px; right: 0; bottom: 0; height: 16px; }
+.ph-x > span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.legend .key.ph-low { background: var(--gold); }
+.legend .key.ph-band { background: #e8b64c55; height: 8px; }
+.legend .key.ph-offers { background: #7fa7e059; height: 8px; }

@@ -9,6 +9,7 @@ import { renderUpgrades } from './pages/upgrades.js';
 import { renderRecipes } from './pages/recipes.js';
 import { renderConsumables } from './pages/consumables.js';
 import { renderGoldPerHour } from './pages/goldperhour.js';
+import { renderPriceHistory } from './pages/pricehistory.js';
 
 Object.assign(pages, {
   connection: { title: mark('Connection'), render: renderConnection },
@@ -17,6 +18,7 @@ Object.assign(pages, {
   upgrades: { title: mark('AH upgrades'), render: renderUpgrades },
   recipes: { title: mark('Professions and recipes'), render: renderRecipes },
   consumables: { title: mark('Consumables for your level'), render: renderConsumables },
+  pricehistory: { title: mark('Price history'), render: renderPriceHistory },
   goldperhour: { title: mark('Gold per hour'), render: renderGoldPerHour },
 });
 

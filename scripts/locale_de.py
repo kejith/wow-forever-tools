@@ -35,6 +35,7 @@ TEXT = {
     "Flowering herbs": "Blühende Kräuter",
     "No price data found in Auctionator.lua.": "Keine Preisdaten in Auctionator.lua gefunden.",
     "Auctionator.lua not found under {wow}": "Auctionator.lua nicht gefunden unter {wow}",
+    "{n} items, {unnamed} without a name, last scan day {date}": "{n} Items, {unnamed} ohne Namen, letzter Scantag {date}",
     "measured: coin pouch opened {n}x, {low} to {high}": "gemessen: {n}x Münzbeutel geöffnet, {low} bis {high}",
     "measured: handed in {n}x": "gemessen: {n}x abgegeben",
     "you own the writ": "Verfügung im Besitz",
