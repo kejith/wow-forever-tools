@@ -131,8 +131,36 @@ func TestUnsupportedClassAndMethod(t *testing.T) {
 		t.Error("mage should not be modeled yet")
 	}
 	in = input()
-	in.Method = "montecarlo"
+	in.Method = "bogus"
 	if out := Run(in); out.Error == "" {
-		t.Error("montecarlo is a Stage-2 seam")
+		t.Error("an unknown method must refuse")
+	}
+}
+
+// The Monte-Carlo method: the baseline carries the distribution, only the
+// biggest gains are replayed (the rest keep the closed-form delta).
+func TestMonteCarloRun(t *testing.T) {
+	in := input()
+	in.Method = "montecarlo"
+	in.Iterations = 400
+	in.MCTop = 1
+	in.Evaluations = []Evaluation{
+		{Key: "sp", Delta: map[string]float64{"sp": 10}},
+		{Key: "tiny", Delta: map[string]float64{"spi": 1}},
+	}
+	out := Run(in)
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	mc := out.Baseline.MC
+	if mc == nil || mc.Iterations != 400 || mc.StdDev <= 0 {
+		t.Fatalf("baseline mc = %+v", mc)
+	}
+	almost(t, "baseline value is the mc mean", out.Baseline.Value, mc.Mean, 1e-9)
+	if !out.Results["sp"].MC || out.Results["sp"].Gain <= 0 {
+		t.Errorf("sp not refined: %+v", out.Results["sp"])
+	}
+	if out.Results["tiny"].MC {
+		t.Error("only the top gains are refined")
 	}
 }

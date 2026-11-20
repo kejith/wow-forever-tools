@@ -6,6 +6,8 @@ package run
 
 import (
 	"fmt"
+	"math"
+	"sort"
 
 	"github.com/kejith/wow-forever-tools/sim/catalog"
 	"github.com/kejith/wow-forever-tools/sim/classes/priest"
@@ -15,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -28,8 +30,10 @@ type Input struct {
 	Evaluations []Evaluation `json:"evaluations"`
 	Fight       engine.Fight `json:"fight"`
 	Metric      string       `json:"metric"`
-	Method      string       `json:"method"` // "expectation" (default); "montecarlo" is the Stage-2 seam
+	Method      string       `json:"method"` // "expectation" (default) or "montecarlo"
 	Iterations  int          `json:"iterations"`
+	Seed        int64        `json:"seed"`  // Monte-Carlo: 0 means 1; every evaluation shares it (common random numbers)
+	MCTop       int          `json:"mcTop"` // Monte-Carlo: refine this many evaluations with the biggest gains (default 16)
 }
 
 // Character is the snapshot-derived character.
@@ -69,11 +73,13 @@ type Evaluation struct {
 	Delta map[string]float64 `json:"delta"`
 }
 
-// Result is the metric change of one evaluation.
+// Result is the metric change of one evaluation. MC marks gains that were
+// refined by the Monte-Carlo runs (the rest keep the closed-form delta).
 type Result struct {
 	Value   float64 `json:"value"`
 	Gain    float64 `json:"gain"`
 	GainPct float64 `json:"gainPct"`
+	MC      bool    `json:"mc,omitempty"`
 }
 
 // Output is the engine's answer. Errors are reported in the payload (exit
@@ -143,8 +149,8 @@ func Run(in Input) Output {
 		out.Error = fmt.Sprintf("class %s is not modeled yet", in.Character.ClassFile)
 		return out
 	}
-	if in.Method == "montecarlo" {
-		out.Error = "method montecarlo is not implemented yet (Stage 2)"
+	if in.Method != "" && in.Method != "expectation" && in.Method != "montecarlo" {
+		out.Error = fmt.Sprintf("unknown method %q", in.Method)
 		return out
 	}
 
@@ -224,6 +230,48 @@ func Run(in Input) Output {
 			r.GainPct = r.Gain / baseline.Value * 100
 		}
 		out.Results[ev.Key] = r
+	}
+
+	// Monte-Carlo: play the rotation for the baseline and refine the
+	// evaluations with the biggest closed-form gains; the rest keep their
+	// deterministic delta. Every run shares the seed, so the difference
+	// between two gear states comes from the gear, not the dice.
+	if in.Method == "montecarlo" {
+		seed := in.Seed
+		if seed == 0 {
+			seed = 1
+		}
+		mc := engine.RunMC(st, in.Fight, actions, metric, in.Iterations, seed)
+		baseline.MC = &mc
+		baseline.Value = mc.Mean
+		top := in.MCTop
+		if top <= 0 {
+			top = 16
+		}
+		keys := make([]string, 0, len(out.Results))
+		for k := range out.Results {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			gi, gj := math.Abs(out.Results[keys[i]].Gain), math.Abs(out.Results[keys[j]].Gain)
+			if gi != gj {
+				return gi > gj
+			}
+			return keys[i] < keys[j]
+		})
+		deltas := make(map[string]map[string]float64, len(in.Evaluations))
+		for _, ev := range in.Evaluations {
+			deltas[ev.Key] = ev.Delta
+		}
+		for i := 0; i < len(keys) && i < top; i++ {
+			key := keys[i]
+			m := engine.RunMC(st.ApplyDelta(deltas[key]), in.Fight, actions, metric, in.Iterations, seed)
+			r := Result{Value: m.Mean, Gain: m.Mean - mc.Mean, MC: true}
+			if mc.Mean != 0 {
+				r.GainPct = r.Gain / mc.Mean * 100
+			}
+			out.Results[key] = r
+		}
 	}
 	return out
 }

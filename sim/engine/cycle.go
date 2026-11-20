@@ -33,6 +33,7 @@ type Metrics struct {
 	ManaSpentPS  float64  `json:"manaSpentPs"`  // of the unconstrained rotation
 	ManaBudgetPS float64  `json:"manaBudgetPs"` // pool over the fight + regeneration
 	Breakdown    []Row    `json:"breakdown"`
+	MC           *MCStats `json:"mc,omitempty"` // set when the Monte-Carlo runs played the rotation
 }
 
 // healthUseFraction is how much of the health pool the model lets Life Tap

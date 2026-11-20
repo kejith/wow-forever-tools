@@ -23,8 +23,8 @@ export async function renderUpgrades() {
       <label id="u-metric" style="display:none"></label>`;
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Budget (gold)'))}<input type="number" id="u-max" class="wide" min="0" step="0.5" value="${esc(o.maxPrice)}" placeholder="${esc(t('your own gold'))}"></label>
-      <label><span class="label">${esc(t('Rating'))} ${help(esc(t('The combat model simulates your rotation (DPS over the fight); when it cannot run, the weight scale answers instead. The weight scale rates stats with fixed weights.')))}</span>
-        <select id="u-engine">${selectOption('auto', t('Combat model (DPS)'), o.engine)}${selectOption('off', t('Weight scale'), o.engine)}</select></label>
+      <label><span class="label">${esc(t('Rating'))} ${help(esc(t('The combat model simulates your rotation over the fight; when it cannot run, the weight scale answers instead. Monte-Carlo plays the rotation with real rolls: slower, adds the spread and replays the biggest gains. The weight scale rates stats with fixed weights.')))}</span>
+        <select id="u-engine">${selectOption('auto', t('Combat model'), o.engine)}${selectOption('mc', t('Combat model (Monte-Carlo)'), o.engine)}${selectOption('off', t('Weight scale'), o.engine)}</select></label>
       <label>${esc(t('Scale'))}<select id="u-profile">${selectOption('', t('automatic'), o.profile)}${selectOption('leveling', t('Leveling'), o.profile)}${selectOption('dungeon', t('Dungeon/raid'), o.profile)}</select></label>${fightControls}
       <label>${esc(t('Sorting'))}<select id="u-sort">${selectOption('gain', t('biggest gain'), o.sort)}${selectOption('price', t('points per gold'), o.sort)}</select></label>
       <label><span class="label">${esc(t('Preview (levels)'))} ${help(esc(t('Also lists items you can only equip within this many levels. They are marked “from level …” and never part of the shopping list.')))}</span>
@@ -43,7 +43,8 @@ export async function renderUpgrades() {
   const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}`;
   const d = await cached(key, () => api.bridge('upgrades', {
     char: state.char, maxPrice: o.maxPrice ? Number(o.maxPrice) : 0, preview: o.preview, top: o.top,
-    profile: o.profile, sort: o.sort, engine: o.engine, fightSeconds: Number(o.fight) || 60,
+    profile: o.profile, sort: o.sort, engine: o.engine === 'mc' ? 'auto' : o.engine,
+    method: o.engine === 'mc' ? 'montecarlo' : '', fightSeconds: Number(o.fight) || 60,
     targetDelta: o.target === '' ? -1 : Number(o.target), metric: o.metric,
   }));
   const body = $('#u-body');
@@ -121,7 +122,8 @@ export async function renderUpgrades() {
       <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng
     ? t('The metric of the simulated fight with the gear you wear now. Every gain below is the change of this number.')
     : t('Everything you wear, rated as one set in points of the scale. Hit counts only up to the cap, so the value of an item depends on the rest of the gear.')))}</h2>
-        <div class="big">${num(d.setValue)}</div></div>
+        <div class="big">${num(d.setValue)}</div>${eng?.mc
+    ? `<div class="small muted">${esc(t('spread ±{sd}, worst tenth {p10}', { sd: num(eng.mc.stdDev, 1), p10: num(eng.mc.p10, 1) }))}</div>` : ''}</div>
       <div><h2>${esc(t('AH scan'))}</h2><div class="big">${esc(d.scanDate)}</div></div>
       <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.')))}</h2>
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>

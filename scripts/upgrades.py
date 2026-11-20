@@ -437,7 +437,8 @@ def load_item_export(wow: str, char: dict) -> dict:
 
 def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, preview: int = 4, max_price: float = 0,
             top: int = 3, prices: dict | None = None, profile: str = "", sort: str = "gain",
-            engine: str = "off", fight_seconds: float = 60.0, target_delta: int = -1, metric: str = "") -> dict:
+            engine: str = "off", fight_seconds: float = 60.0, target_delta: int = -1, metric: str = "",
+            method: str = "", iterations: int = 0) -> dict:
     """Upgrade candidates per slot and the best purchase for the budget, as plain data (copper prices).
 
     With engine "on" (must work) or "auto" (falls back to the weight scale) the gains come from the combat
@@ -484,7 +485,8 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                 life_tap = {"healthPerCast": number(m.group(1)), "manaPerCast": number(m.group(2))}
             fight = {"seconds": fight_seconds,
                      "targetDelta": target_delta if 0 <= target_delta <= 3 else PROFILES[scale["profile"]]["target"]}
-            eng = simengine.start(c, totals.get("mp5", 0), totals.get("hp5", 0), fight, metric, life_tap)
+            eng = simengine.start(c, totals.get("mp5", 0), totals.get("hp5", 0), fight, metric, life_tap,
+                                  method=method, iterations=iterations)
         except LookupError:
             if engine == "on":
                 raise
@@ -663,13 +665,17 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                               dps=value, target=fight["targetDelta"], seconds=fight["seconds"])
         if metric_name != "ttoom" and b.get("ttoomSeconds") is not None:
             weights_text += tr(", mana for {ttoom:.0f}s", ttoom=b["ttoomSeconds"])
+        if b.get("mc"):
+            weights_text += tr(" · Monte-Carlo over {n} fights: spread ±{sd:.1f}, worst tenth {p10:.1f}",
+                               n=b["mc"].get("iterations") or 0, sd=b["mc"].get("stdDev") or 0,
+                               p10=b["mc"].get("p10") or 0)
         if eng.spellbook_source == "assumed":
             weights_text += tr(", spellbook assumed from level and talents")
         engine_out = dict(version=eng.version, metric=b.get("metric"), value=b.get("value"),
                           ttoomSeconds=b.get("ttoomSeconds"), spellbookSource=eng.spellbook_source,
                           manaSpentPs=b.get("manaSpentPs"), manaBudgetPs=b.get("manaBudgetPs"),
                           fight=fight, metrics=simengine.METRICS.get(class_file) or ["dps"],
-                          spec=simengine.spec_of(c))
+                          spec=simengine.spec_of(c), mc=b.get("mc"))
 
     review.sort(key=lambda r: r["price"])
     return dict(
@@ -700,6 +706,10 @@ def main() -> None:
                     help="enemy levels above you for the combat model (default: from the profile)")
     ap.add_argument("--metric", choices=["", "dps", "hps", "ttoom"], default="",
                     help="metric of the combat model (default: per class and spec)")
+    ap.add_argument("--method", choices=["", "expectation", "montecarlo"], default="",
+                    help="montecarlo plays the rotation with real rolls: the summary gains a spread, "
+                         "the biggest gains are replayed")
+    ap.add_argument("--iterations", type=int, default=0, help="montecarlo: simulated fights (default 10000)")
     ap.add_argument("--json", action="store_true", help="print the result as JSON (for the app)")
     i18n.add_argument(ap)
     a = ap.parse_args()
@@ -707,7 +717,8 @@ def main() -> None:
 
     try:
         r = compute(a.wow, a.char, a.level, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort,
-                    engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta, metric=a.metric)
+                    engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta, metric=a.metric,
+                    method=a.method, iterations=a.iterations)
     except (FileNotFoundError, LookupError) as e:
         sys.exit(str(e))
     sys.stdout.reconfigure(encoding="utf-8")

@@ -149,7 +149,7 @@ class Engine:
 
 
 def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
-          life_tap: dict, binary: str | None = None) -> Engine:
+          life_tap: dict, binary: str | None = None, method: str = "", iterations: int = 0) -> Engine:
     """Builds the bundle from a WoWMCP snapshot and returns a ready Engine.
 
     `life_tap` is {"healthPerCast", "manaPerCast"}, parsed from the spell text
@@ -207,6 +207,6 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
             },
             "talents": talents, "spellbook": spellbook,
         },
-        "fight": fight, "metric": metric,
+        "fight": fight, "metric": metric, "method": method, "iterations": iterations,
     }
     return Engine(binary, bundle)
