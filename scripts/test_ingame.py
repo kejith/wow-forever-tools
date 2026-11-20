@@ -120,6 +120,24 @@ def test_upgrade_list():
     assert sections(one)["Best package for the budget"]["note"] == "+12.5 DPS for {m:90000}"
     assert tips[9001][0] == "Upgrade for Chest: +12.5 DPS, no. 1 in the AH scan ({m:90000})"
 
+    # Gear the account already has: where it is instead of a price, never on the shopping list, and the
+    # rank in the AH scan counts only what the auction house has.
+    owned = {"id": 9005, "name": "Bank Robe", "quality": 2, "slotName": "Chest", "gain": 20.0, "price": 0,
+             "source": "bank", "owner": None, "where": "in your bank"}
+    with_owned = dict(UPGRADES, package={"gain": 32.5, "cost": 90000, "items": [owned] + UPGRADES["package"]["items"]},
+                      slots=[dict(UPGRADES["slots"][0], candidates=[owned] + UPGRADES["slots"][0]["candidates"])])
+    tips = {}
+    one = g.upgrade_list(with_owned, tips)
+    package = sections(one)["Best package for the budget"]
+    assert package["rows"][0] == {"id": 9005, "name": "Bank Robe", "q": 2, "info": "Chest +20.0 · in your bank"}
+    assert package["rows"][1]["shop"]
+    assert sections(one)["Chest"]["rows"][0]["info"] == "+20.0 · in your bank"
+    assert tips[9005] == ["You own this upgrade for Chest: +20.0 points (in your bank)",
+                          "Part of the best package for your budget"]
+    assert "no. 1 in the AH scan" in tips[9001][0]
+    one = g.upgrade_list(dict(with_owned, engine={"metric": "hps", "value": 50.0}), tips := {})
+    assert tips[9005][0] == "You own this upgrade for Chest: +20.0 HPS (in your bank)"
+
     # A healer's note says HPS and carries the downrank recommendation.
     one = g.upgrade_list(dict(UPGRADES, engine={"metric": "hps", "value": 50.0,
                                                 "downrank": {"spell": "Heal (Rank 1)"}}), {})

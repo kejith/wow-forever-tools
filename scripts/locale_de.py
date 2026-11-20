@@ -105,6 +105,15 @@ TEXT = {
         "tauscht Leben gegen Mana; in diesem Kampf reicht das Mana auch ohne",
     "trades health for mana; here the health would cost more than the mana brings":
         "tauscht Leben gegen Mana; hier würde das Leben mehr kosten, als das Mana bringt",
+    "in your bags": "in deinen Taschen",
+    "in your bank": "auf deiner Bank",
+    "in {name}'s bags": "in den Taschen von {name}",
+    "in {name}'s bank": "auf der Bank von {name}",
+    "owned": "vorhanden",
+    "{n} items you own are only known by name ({names}): open the bank once with WoWMCP 1.12 or newer, then "
+    "/reload.":
+        "{n} Gegenstände, die du besitzt, sind nur dem Namen nach bekannt ({names}): öffne die Bank einmal mit "
+        "WoWMCP 1.12 oder neuer, dann /reload.",
     "hits every enemy at once: played in the fights against several enemies of the rotation guide":
         "trifft alle Gegner zugleich: wird in den Kämpfen gegen mehrere Gegner im Rotationsleitfaden gespielt",
     "active after your killing blows: {value:.0f}% of the fight with the kills it assumes":
@@ -362,6 +371,12 @@ TEXT = {
     "Budget {m} · combat model: {hps} HPS now": "Budget {m} · Kampfmodell: {hps} HPS jetzt",
     "Upgrade for {slot}: {gain} points, no. {rank} in the AH scan ({m})":
         "Upgrade für {slot}: {gain} Punkte, Nr. {rank} im AH-Scan ({m})",
+    "You own this upgrade for {slot}: {gain} DPS ({where})":
+        "Dieses Upgrade für {slot} hast du schon: {gain} DPS ({where})",
+    "You own this upgrade for {slot}: {gain} HPS ({where})":
+        "Dieses Upgrade für {slot} hast du schon: {gain} HPS ({where})",
+    "You own this upgrade for {slot}: {gain} points ({where})":
+        "Dieses Upgrade für {slot} hast du schon: {gain} Punkte ({where})",
     "Part of the best package for your budget": "Teil des besten Pakets für dein Budget",
     "from level {level}": "ab Stufe {level}",
     "now: {name}": "jetzt: {name}",

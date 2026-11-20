@@ -9,7 +9,7 @@ const slotTerms = (engine, unit) => terms([
     : t('Change of the gear value when you swap the item in, in points of the scale.')],
   [t('vs. item'), engine ? t('The gain relative to the {unit} the replaced item contributes.', { unit })
     : t('The gain relative to the points of the item it replaces.')],
-  [t('Price'), t('Lowest buyout at the last scan, not a live offer.')],
+  [t('Price'), t('Lowest buyout at the last scan, not a live offer. Gear you already have costs nothing: the row says where it is (your bags, your bank, or unbound on another character).')],
   [engine ? t('{unit}/gold', { unit }) : t('Points/gold'), t('Gain per gold spent.')],
 ], t('Auctionator cannot tell items with random stats (“of Shadow Wrath”) apart, so they are missing here.'));
 
@@ -81,7 +81,9 @@ export async function renderUpgrades() {
   const maxGain = Math.max(1, ...d.slots.flatMap((s) => s.candidates.map((c) => c.gain)));
   const signed = (n) => `${n < 0 ? '−' : '+'}${num(Math.abs(n), 1)}`;
   const pctOf = (c) => (c.gainPct === null ? esc(t('new')) : `${c.gainPct < 0 ? '−' : '+'}${percent(Math.abs(c.gainPct))}`);
-  const perGold = (c) => num(c.perGold, 1);
+  // Gear the account already has: where it is instead of a price.
+  const price = (c) => (c.price ? money(c.price) : `<span class="badge ok">${esc(c.where || t('owned'))}</span>`);
+  const perGold = (c) => (c.price ? num(c.perGold, 1) : '–');
   const itemCell = (c, compare) => `<span class="item">${itemIcon(c.id, c.quality)}<span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span></span>
           ${c.isNew ? `<span class="badge new">${esc(t('NEW in Forever'))}</span>` : ''}
           ${c.soon ? `<span class="badge warn">${esc(t('from level {n}', { n: c.reqLevel }))}</span>` : ''}
@@ -93,7 +95,7 @@ export async function renderUpgrades() {
     const rows = s.candidates.map((c) => `<tr>
         <td><div class="gain"><b>${signed(c.gain)}</b><div class="bar"><span style="width:${Math.round((c.gain / maxGain) * 100)}%"></span></div></div></td>
         <td class="num muted">${pctOf(c)}</td>
-        <td class="num">${money(c.price)}</td>
+        <td class="num">${price(c)}</td>
         <td class="num muted">${perGold(c)}</td>
         <td>${itemCell(c, cur?.tip)}</td></tr>`).join('');
     return `<div class="card section slot-card">
@@ -105,17 +107,18 @@ export async function renderUpgrades() {
   }).join('');
   const pk = d.package;
   const packageHtml = pk.items.length ? `<div class="section"><h2 class="heading">${t('Shopping list: best package for {money}', { money: money(d.budget) })}
-      ${help(esc(t('Best combination across all slots that fits the budget (rings as a pair, main hand + off hand against two-hand, no items above your level). Sorted by gain per gold: buy from top to bottom and stop where it gets too expensive for you.')))}</h2><div class="card">
+      ${help(esc(t('Best combination across all slots that fits the budget (rings as a pair, main hand + off hand against two-hand, no items above your level). Sorted by gain per gold: buy from top to bottom and stop where it gets too expensive for you. Gear you already have comes first and costs nothing.')))}</h2><div class="card">
       <div class="row" style="gap:36px;align-items:flex-start;margin-bottom:10px">
         <div><h2>${esc(t('Gain'))}</h2><div class="big good">${signed(pk.gain)}${pk.gainPct === null ? ''
           : ` <span class="small muted">(${esc(eng ? t('+{pct} {unit}', { pct: percent(pk.gainPct), unit }) : t('+{pct} gear value', { pct: percent(pk.gainPct) }))})</span>`}</div></div>
         <div><h2>${esc(t('Cost'))}</h2><div class="big">${money(pk.cost)}</div></div>
-        <div><h2>${esc(t('Purchases'))}</h2><div class="big">${pk.items.length}</div></div><span class="spacer"></span></div>
+        <div><h2>${esc(t('Purchases'))}</h2><div class="big">${pk.items.filter((c) => c.price).length}</div></div>
+        ${pk.items.some((c) => !c.price) ? `<div><h2>${esc(t('Already yours'))}</h2><div class="big">${pk.items.filter((c) => !c.price).length}</div></div>` : ''}<span class="spacer"></span></div>
       <table><thead><tr>${th([t('Slot')], [t('Gain'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')], [t('replaces')],
         [t('up to here'), 'num', esc(t('Cost and gain in total if you buy from the top down to this row.'))])}</tr></thead><tbody>
       ${pk.items.map((c) => `<tr><td class="muted">${esc(c.slotName)}</td>
         <td class="num"><b class="${c.gain < 0 ? '' : 'good'}">${signed(c.gain)}</b></td>
-        <td class="num">${money(c.price)}</td><td class="num muted">${perGold(c)}</td>
+        <td class="num">${price(c)}</td><td class="num muted">${perGold(c)}</td>
         <td>${itemCell(c, c.compareTip)}</td><td class="small muted">${esc(c.replaces.join(' + ') || '–')}</td>
         <td class="num small">${money(c.cumCost)}<div class="muted">${signed(c.cumGain)}</div></td></tr>`).join('')}</tbody></table>
       </div></div>` : '';
@@ -126,7 +129,7 @@ export async function renderUpgrades() {
         <td class="small muted">${esc(r.note)}</td></tr>`).join('')}</tbody></table></details>`;
   const review = d.review.length ? `<div class="section"><h2>${esc(t('With a special effect – judge for yourself'))}</h2><div class="card"><table>
       <thead><tr>${th([t('Slot')], [t('Price'), 'num'], [t('Item')], [t('Effect')])}</tr></thead><tbody>
-      ${d.review.map((r) => `<tr><td class="muted">${esc(r.slot)}</td><td class="num">${money(r.price)}</td>
+      ${d.review.map((r) => `<tr><td class="muted">${esc(r.slot)}</td><td class="num">${price(r)}</td>
         <td><span class="item">${itemIcon(r.id, r.quality)}<span class="${quality(r.quality)}"${tipAttr(r.tip)}>${esc(r.name)}</span></span> ${r.isNew ? `<span class="badge new">${esc(t('NEW'))}</span>` : ''}</td>
         <td class="small">${esc(r.effects.join(' / '))}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   const healRanks = eng?.healOptions?.length ? `<details class="scale"><summary>${esc(t('Heal ranks: what each rank sustains — the model heals with the top row'))}</summary>
@@ -159,6 +162,9 @@ export async function renderUpgrades() {
     { used: covCount('used'), open: covCount('unmodeled'), n: cov.candidates }))}</summary>
       ${cov.exactTalents ? '' : `<div class="notice" style="margin-top:8px">${esc(t('The talent tables of the game could not be loaded: talent values are estimates.'))}</div>`}
       <h3>${esc(t('Spells'))}</h3>${covRows(cov.spells)}<h3>${esc(t('Talents'))}</h3>${covRows(cov.talents)}${tipCheck}</details>` : '';
+  // Owned gear an older addon exported by name only cannot be rated.
+  const unknown = d.owned?.unknown || [];
+  const unknownNote = unknown.length ? `<div class="notice" style="margin-top:10px"${hintAttr(unknown.map((u) => `${u.name} (${u.where})`).join(', '))}>${esc(t('{n} items you own are only known by name and cannot be rated: open the bank once with WoWMCP 1.12 or newer, then /reload.', { n: unknown.length }))}</div>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(t('Budget'))}</h2><div class="big">${money(d.budget)}</div></div>
       <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng
@@ -170,7 +176,7 @@ export async function renderUpgrades() {
       <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.')))}</h2>
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>
       <span class="spacer"></span></div>
-      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${healRanks}${coverage}</div>
+      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${unknownNote}${healRanks}${coverage}</div>
     ${packageHtml}
     ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
 }

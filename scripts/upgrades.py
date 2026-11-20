@@ -431,6 +431,76 @@ def load_item_export(wow: str, char: dict) -> dict:
     return best
 
 
+# Gear the account already has. Bags and bank of the character itself, and what lies unbound in the bags and
+# banks of the other characters of the realm (bind on equip: it can be sent over). Since addon 1.12 such an
+# item carries its stats and tooltip; an older snapshot has only the name, and then the item export helps if
+# it knows the same item (same ID and name: a random suffix changes the name and the stats).
+OWNED_CLASS = ("classID", "subclassID", "equipLoc")
+OWNED_FILL = ("stats", "tooltip", "tipColors", "reqLevel", "quality")
+
+
+def carried(char: dict):
+    """(source, item) for everything in a character's bags ("bags") and bank ("bank")."""
+    def records(x):
+        return [r for r in (x.values() if isinstance(x, dict) else x or []) if isinstance(r, dict)]
+
+    for bag in records(char.get("bags")):
+        for it in records(bag.get("items")):
+            yield "bags", it
+    for bag in records((char.get("bank") or {}).get("containers")):
+        for it in records(bag.get("items")):
+            yield "bank", it
+
+
+def owned_gear(own_file: str, char: dict, export: dict) -> tuple[list[dict], list[dict]]:
+    """Armor and weapons the character could put on without buying them: (items with what they do, items the
+    snapshots only name). An entry is {id, it, source ("bags"/"bank"), owner (another character's name or
+    None)}; the same item is listed once, the character's own copy first."""
+    found, unknown, seen = [], [], set()
+
+    def take(c: dict, owner: str | None) -> None:
+        for source, it in carried(c):
+            if not it.get("id") or (owner and it.get("bound")):
+                continue
+            iid = int(it["id"])
+            known = export.get(iid) or {}
+            rec = dict(it)
+            for k in OWNED_CLASS:
+                if rec.get(k) is None:
+                    rec[k] = known.get(k)
+            if rec.get("equipLoc") not in SLOT_OF or (iid, rec.get("name")) in seen:
+                continue
+            seen.add((iid, rec.get("name")))
+            if known.get("name") == rec.get("name"):
+                for k in OWNED_FILL:
+                    if rec.get(k) is None:
+                        rec[k] = known.get(k)
+            entry = dict(id=iid, it=rec, source=source, owner=owner)
+            if rec.get("classID") is None or not (rec.get("stats") or rec.get("tooltip")):
+                unknown.append(entry)
+            else:
+                found.append(entry)
+
+    take(char, None)
+    realm = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(own_file))))
+    for path in sorted(glob.glob(os.path.join(realm, "*", "SavedVariables", "WoWMCP.lua"))):
+        if os.path.abspath(path) == os.path.abspath(own_file):
+            continue
+        other = load_char(path) or {}
+        name = (other.get("character") or {}).get("name") or os.path.basename(os.path.dirname(os.path.dirname(path)))
+        take(other, name)
+    return found, unknown
+
+
+def where_text(source: str, owner: str | None) -> str:
+    """Where an owned item is, as a sentence part."""
+    if source == "bags":
+        return tr("in {name}'s bags", name=owner) if owner else tr("in your bags")
+    if source == "bank":
+        return tr("in {name}'s bank", name=owner) if owner else tr("in your bank")
+    return ""
+
+
 # The combat engine's coverage report: what the model did with every known spell and talent. The engine
 # answers with a status and a reason code (sim/run/run.go, sim/talents); the sentences are here.
 COVERAGE_STATUS = {"used": mark("used"), "sheet": mark("in your stats"), "idle": mark("tried"),
@@ -594,28 +664,22 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         return {k: swap(list(rm), list(adds)) for k, adds, rm in evals}
 
     pool, review = [], []
-    for iid, it in items.items():
+
+    def consider(iid: int, it: dict, price: int, source: str = "ah", owner: str | None = None) -> bool:
+        """Adds an item the character can wear to the pool of candidates."""
         slots = SLOT_OF.get(it.get("equipLoc") or "")
         req = it.get("reqLevel") or 0
-        if not slots or req > level + preview or (it.get("quality") or 0) < 2:
-            continue
+        if not slots or req > level + preview:
+            return False
         if it.get("classID") == 2 and it.get("subclassID") not in USABLE_WEAPONS:
-            continue
+            return False
         if it.get("classID") == 4 and it.get("subclassID") not in (0, 1):
-            continue
+            return False
         tip = it.get("tooltip") or []
         if any(t.startswith(CLASSES_PREFIX) and not any(n in t for n in class_names) for t in tip):
-            continue
+            return False
         if not meets_skill_requirements(tip, skills):
-            continue
-        e = prices.get(str(iid))
-        if not isinstance(e, dict) or not e.get("m"):
-            continue
-        if not any(int(d) >= last - 3 for d in (e.get("a") or {})):
-            continue
-        price = e["m"]
-        if price > budget:
-            continue
+            return False
         n = norm_value(it, slots == [18])
         if slots == [16, 17]:
             slot, variants = 16, [[16, 17]]
@@ -626,7 +690,20 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         else:
             slot, variants = slots[0], [slots[0:1]]
         pool.append(dict(id=iid, it=it, price=price, slot=slot, variants=variants, norm=n,
-                         extra=special_effects(tip), soon=req > level))
+                         extra=special_effects(tip), soon=req > level, source=source, owner=owner))
+        return True
+
+    # What the account already has costs nothing; the auction house is not asked for the same item again.
+    owned, owned_unknown = owned_gear(files[0], c, items)
+    have = {o["id"] for o in owned if consider(o["id"], o["it"], 0, o["source"], o["owner"])}
+    for iid, it in items.items():
+        e = prices.get(str(iid))
+        if iid in have or (it.get("quality") or 0) < 2 or not isinstance(e, dict) or not e.get("m"):
+            continue
+        if not any(int(d) >= last - 3 for d in (e.get("a") or {})):
+            continue
+        if e["m"] <= budget:
+            consider(iid, it, e["m"])
 
     # One batch values everything: each candidate's swap (both slots for rings and trinkets), its add-only
     # points (used to pick the pair candidates below), and what the current item of every slot is worth.
@@ -645,7 +722,9 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         old = old_of(x["remove"])
         return dict(id=x["id"], name=it.get("name"), quality=it.get("quality"), reqLevel=it.get("reqLevel") or 0,
                     price=x["price"], gain=round(gain, 1), gainPct=round(gain / old * 100) if old > 0.5 else None,
-                    perGold=round(gain / (x["price"] / 10000), 1), stats=short(it.get("stats")),
+                    perGold=round(gain / (x["price"] / 10000), 1) if x["price"] else None,
+                    source=x["source"], owner=x["owner"], where=where_text(x["source"], x["owner"]),
+                    stats=short(it.get("stats")),
                     isNew=x["id"] >= NEW_ID, soon=x["soon"], effects=x["extra"], twoHand=len(x["remove"]) == 2,
                     tip=tooltip(it))
 
@@ -658,7 +737,9 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             review.append(dict(slot=slot_name(x["slot"]), **item_out(x)))
 
     rows = [x for x in pool if x["gain"] > 0.5 and not (x["extra"] and x["gain"] < 5)]
-    order = (lambda x: (-x["gain"] / x["price"], -x["gain"])) if sort == "price" else (lambda x: (-x["gain"], x["price"]))
+    # By gain per gold, what is owned comes first: it costs nothing.
+    order = ((lambda x: (x["price"] > 0, -x["gain"] / max(x["price"], 1), -x["gain"])) if sort == "price"
+             else (lambda x: (-x["gain"], x["price"])))
     slots_out = []
     for slot in sorted({x["slot"] for x in rows}):
         cur = equipped.get(slot)
@@ -720,7 +801,8 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         package_items.append(dict(slot=x["slot"], slotName=slot_name(x["slot"]), replaces=replaced,
                                   compareTip=tooltip(old, slot_name(old["slot"])) if old else None,
                                   **item_out(dict(x, remove=remove), step)))
-    package_items.sort(key=lambda p: -p["perGold"])  # best value first: stop anywhere down the list
+    # What is owned first, then the best value: stop anywhere down the list.
+    package_items.sort(key=lambda p: (p["price"] > 0, -(p["perGold"] or p["gain"])))
     cum_cost = cum_gain = 0
     for p in package_items:
         cum_cost, cum_gain = cum_cost + p["price"], cum_gain + p["gain"]
@@ -821,7 +903,10 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         level=level, budget=budget, character=os.path.basename(os.path.dirname(os.path.dirname(files[0]))),
         weights=weights_text, profile=scale["profile"], profileLabel=scale["label"], scale=scale_rows,
         setValue=round(base_value, 1), sort=sort, engine=engine_out, package=package, slots=slots_out,
-        review=review[:15])
+        review=review[:15],
+        owned=dict(count=len(have),
+                   unknown=[dict(id=o["id"], name=o["it"].get("name"), source=o["source"], owner=o["owner"],
+                                 where=where_text(o["source"], o["owner"])) for o in owned_unknown]))
 
 
 def main() -> None:
@@ -872,7 +957,10 @@ def main() -> None:
         flag = " " + tr("[NEW in Forever]") if c["isNew"] else ""
         soon = " " + tr("(from level {level})", level=c["reqLevel"]) if c["soon"] else ""
         both = " " + tr("[two-handed]") if c["twoHand"] else ""
-        return (f"{c['gain']:+6.1f} {pct}  {money(c['price']):>9}  {c['perGold']:6.1f}/g  {c['name']}{flag}{soon}{both}"
+        cost = (f"{money(c['price']):>9}  {c['perGold']:6.1f}/g" if c["price"]
+                else f"{tr('owned'):>9}  {'':8}")
+        where = f" ({c['where']})" if c["where"] else ""
+        return (f"{c['gain']:+6.1f} {pct}  {cost}  {c['name']}{where}{flag}{soon}{both}"
                 f"  [{c['stats']}]  id {c['id']}")
 
     when = datetime.datetime.fromtimestamp(r["exportUpdated"] or 0)
@@ -916,7 +1004,13 @@ def main() -> None:
         print("   " + check["text"])
         for o in check["off"]:
             print(f"      {o['label']}: {o['model']} | {o['text'][:160]}")
-    print(tr("Prices are the lowest buyout at the scan.") + "\n")
+    print(tr("Prices are the lowest buyout at the scan."))
+    unknown = r["owned"]["unknown"]
+    if unknown:
+        print(tr("{n} items you own are only known by name ({names}): open the bank once with WoWMCP 1.12 or "
+                 "newer, then /reload.", n=len(unknown),
+                 names=", ".join(f"{u['name']} {u['where']}" for u in unknown[:6]) + (", ..." if len(unknown) > 6 else "")))
+    print()
     p = r["package"]
     unit = {"dps": "DPS", "hps": "HPS", "ttoom": "s"}.get((r.get("engine") or {}).get("metric") or "", tr("points"))
     if p["items"]:

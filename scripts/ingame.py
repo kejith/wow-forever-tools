@@ -106,17 +106,24 @@ def add_tip(tips: dict, item_id, line: str) -> None:
 
 # ---------- Lists ----------
 
+def owned(item: dict) -> str:
+    """Where an item the account already has lies, as the end of a row's info; nothing for an AH item."""
+    return " · " + clean(item["where"]) if item.get("where") else ""
+
+
 def upgrade_list(r: dict, tips: dict) -> dict | None:
     """AH upgrades: the package for the budget (the shopping list), then the candidates per slot.
-    With the combat engine the gains are DPS, with the weight scale points; the texts say which."""
+    With the combat engine the gains are DPS, with the weight scale points; the texts say which.
+    Gear the account already has is in both with where it is instead of a price, and is not shopped for."""
     eng = r.get("engine")
     healer = bool(eng) and eng.get("metric") == "hps"
     sections = []
     package = r.get("package") or {}
     bought = {it["id"] for it in package.get("items") or []}
     if bought:
-        rows = [row(it["id"], it["name"], it.get("quality"), info=f"{clean(it.get('slotName'))} {dec(it['gain'], True)}",
-                    price=it["price"], shop=True) for it in package["items"]]
+        rows = [row(it["id"], it["name"], it.get("quality"),
+                    info=f"{clean(it.get('slotName'))} {dec(it['gain'], True)}" + owned(it),
+                    price=it["price"], shop=bool(it["price"])) for it in package["items"]]
         gain, m = dec(package.get("gain") or 0, True), coin(package.get("cost"))
         if healer:
             note = tr("{gain} HPS for {m}", gain=gain, m=m)
@@ -126,12 +133,23 @@ def upgrade_list(r: dict, tips: dict) -> dict | None:
             note = tr("{gain} points for {m}", gain=gain, m=m)
         sections.append(section(tr("Best package for the budget"), note, rows))
     for s in r.get("slots") or []:
-        rows = []
-        for rank, c in enumerate(s.get("candidates") or [], 1):
+        rows, rank = [], 0
+        for c in s.get("candidates") or []:
             later = " · " + tr("from level {level}", level=c["reqLevel"]) if c.get("soon") else ""
-            rows.append(row(c["id"], c["name"], c.get("quality"), info=dec(c["gain"], True) + later, price=c["price"]))
+            rows.append(row(c["id"], c["name"], c.get("quality"), info=dec(c["gain"], True) + later + owned(c),
+                            price=c["price"]))
             slot, gain, m = clean(s.get("slotName")), dec(c["gain"], True), coin(c["price"])
-            if healer:
+            rank += 1 if c["price"] else 0  # the rank among what the auction house has
+            if not c["price"]:
+                where = clean(c.get("where"))
+                if healer:
+                    tip = tr("You own this upgrade for {slot}: {gain} HPS ({where})", slot=slot, gain=gain, where=where)
+                elif eng:
+                    tip = tr("You own this upgrade for {slot}: {gain} DPS ({where})", slot=slot, gain=gain, where=where)
+                else:
+                    tip = tr("You own this upgrade for {slot}: {gain} points ({where})", slot=slot, gain=gain,
+                             where=where)
+            elif healer:
                 tip = tr("Upgrade for {slot}: {gain} HPS, no. {rank} in the AH scan ({m})",
                          slot=slot, gain=gain, rank=rank, m=m)
             elif eng:

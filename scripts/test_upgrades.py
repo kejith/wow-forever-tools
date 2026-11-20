@@ -228,6 +228,81 @@ def test_compute_weapons_and_package(tmp: str):
     assert r["package"]["gain"] == 10
 
 
+def test_owned_gear(tmp: str):
+    """Gear in the bags and the bank, and unbound gear of another character, are candidates that cost nothing."""
+    prices = write_fixture(tmp)
+    realm = os.path.join(tmp, "WTF", "Account", "TEST", "93")
+    path = os.path.join(realm, "Tester - Realm", "SavedVariables", "WoWMCP.lua")
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    carried = (
+        # Addon 1.12: gear in the bags has its stats and tooltip.
+        'bags = { { id = 0, items = { '
+        '{ id = 201, name = "Bag Hood", quality = 2, equipLoc = "INVTYPE_HEAD", classID = 4, subclassID = 1, '
+        'bind = 2, stats = { ITEM_MOD_SPELL_POWER_SHORT = 9 }, tooltip = { "Binds when equipped" } }, '
+        '{ id = 400, name = "Potion", equipLoc = "INVTYPE_NON_EQUIP_IGNORE", classID = 0, subclassID = 1 }, '
+        '{ id = 106, name = "Axe", equipLoc = "INVTYPE_2HWEAPON", bound = true } } } }, '
+        # A bank scanned by an older addon has names only: the item export knows Ring D, but neither the
+        # ring with a random suffix nor the robe.
+        'bank = { updated = 5, containers = { { id = -1, items = { '
+        '{ id = 105, name = "Ring D", equipLoc = "INVTYPE_FINGER", bound = true }, '
+        '{ id = 104, name = "Ring C of the Owl", equipLoc = "INVTYPE_FINGER" }, '
+        '{ id = 300, name = "Mystery Robe", equipLoc = "INVTYPE_ROBE" } } } } }, ')
+    assert "equipment = {" in text
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text.replace("equipment = {", carried + "equipment = {", 1))
+    alt = os.path.join(realm, "Alt - Realm", "SavedVariables")
+    os.makedirs(alt)
+    with open(os.path.join(alt, "WoWMCP.lua"), "w", encoding="utf-8") as f:
+        f.write('WoWMCP_Char = { character = { name = "Alt", class = "Mage", classFile = "MAGE", level = 20 }, '
+                'bags = { { id = 0, items = { '
+                '{ id = 202, name = "Alt Wand", quality = 2, equipLoc = "INVTYPE_RANGEDRIGHT", classID = 2, '
+                'subclassID = 19, bind = 2, stats = { ITEM_MOD_DAMAGE_PER_SECOND_SHORT = 30 }, tooltip = { "Wand" } }, '
+                '{ id = 203, name = "Alt Hood", quality = 2, equipLoc = "INVTYPE_HEAD", classID = 4, subclassID = 1, '
+                'bind = 2, bound = true, stats = { ITEM_MOD_SPELL_POWER_SHORT = 50 }, tooltip = { "Soulbound" } } } } }, '
+                'equipment = { { slot = 1, id = 204, name = "Worn Hood", equipLoc = "INVTYPE_HEAD", '
+                'stats = { ITEM_MOD_SPELL_POWER_SHORT = 70 } } } }\n')
+
+    r = u.compute(tmp, "Tester", prices=prices, top=5)
+    by_slot = {s["slot"]: {c["name"]: c for c in s["candidates"]} for s in r["slots"]}
+    hood = by_slot[1]["Bag Hood"]
+    assert (hood["gain"], hood["price"], hood["perGold"], hood["source"], hood["owner"]) == (9, 0, None, "bags", None)
+    assert hood["where"] == "in your bags" and by_slot[1]["Warlock Hood"]["source"] == "ah"
+    assert by_slot[1]["Warlock Hood"]["where"] == "" and set(by_slot[1]) == {"Bag Hood", "Warlock Hood"}
+    # The ring in the bank is the one the export knows: it is not offered from the auction house again.
+    ring = by_slot[11]["Ring D"]
+    assert (ring["price"], ring["source"], ring["where"]) == (0, "bank", "in your bank")
+    assert by_slot[11]["Ring C"]["price"] == 10000
+    # What another character has unbound can be sent over; what is bound to it or worn by it cannot.
+    wand = by_slot[18]["Alt Wand"]
+    assert (wand["owner"], wand["source"], wand["where"], wand["price"]) == ("Alt", "bags", "in Alt's bags", 0)
+    assert wand["gain"] == 6  # 10 more wand DPS at 0.6
+    assert r["owned"]["count"] == 3
+    assert [(x["name"], x["where"]) for x in r["owned"]["unknown"]] == [
+        ("Ring C of the Owl", "in your bank"), ("Mystery Robe", "in your bank")]
+
+    # The package: what is owned comes first and costs nothing, the rest is bought on top of it.
+    items = r["package"]["items"]
+    assert [p["name"] for p in items[:3]] == ["Ring D", "Bag Hood", "Alt Wand"]
+    assert {p["name"] for p in items[3:]} == {"Dagger", "Orb", "Ring C"}
+    assert r["package"]["cost"] == 30000 and r["package"]["gain"] == 15 + 12 + 9 + 6
+    assert items[2]["cumCost"] == 0 and items[-1]["cumCost"] == 30000
+
+    # Without a budget for anything the owned gear is still the package; by price it leads its slot.
+    r = u.compute(tmp, "Tester", prices={k: dict(v, m=10 ** 9) for k, v in prices.items()}, top=5, sort="price")
+    assert {p["name"] for p in r["package"]["items"]} == {"Ring D", "Bag Hood", "Alt Wand"} and r["package"]["cost"] == 0
+    r = u.compute(tmp, "Tester", prices=prices, top=5, sort="price")
+    assert [c["name"] for s in r["slots"] if s["slot"] == 1 for c in s["candidates"]] == ["Bag Hood", "Warlock Hood"]
+
+    i18n.set_language("de")
+    try:
+        r = u.compute(tmp, "Tester", prices=prices, top=5)
+    finally:
+        i18n.set_language("en")
+    where = {c["name"]: c["where"] for s in r["slots"] for c in s["candidates"]}
+    assert where["Ring D"] == "auf deiner Bank" and where["Alt Wand"] == "in den Taschen von Alt"
+
+
 STUB_ENGINE = '''
 import json, sys
 data = json.load(sys.stdin)
