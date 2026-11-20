@@ -258,13 +258,16 @@ def situation_out(s: dict, label, unit: str) -> dict:
 
 
 def character(wow: str, char: str, fight_seconds: float = 60.0, target_delta: int = -1,
-              kills_per_minute: float = -1):
+              kills_per_minute: float = -1, prepare=None):
     """The character's snapshot, the fight as asked for and a function that starts the engine for a metric.
-    Shared with healing.py."""
+    Shared with healing.py and combatlog.py; `prepare` may change the snapshot before the engine sees it
+    (the combat log's spell power instead of the sheet's)."""
     files = writs.find_chars(wow, char)
     if not files:
         raise FileNotFoundError(tr("No WoWMCP.lua found for this character."))
     c = upgrades.load_char(files[0])
+    if prepare:
+        prepare(c)
     ch = c.get("character") or {}
     class_file = ch.get("classFile") or ""
     if not simengine.supported(class_file):

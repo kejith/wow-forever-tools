@@ -614,6 +614,7 @@ TEXT = {
         "Gegner. Schalte sie im Spiel ein (System > Netzwerk > Erweiterte Kampfaufzeichnung).",
     "No numbers of the combat model: {err}": "Keine Zahlen des Kampfmodells: {err}",
     "Spell power in the log: {low} to {high}.": "Zaubermacht im Log: {low} bis {high}.",
+    "The model's numbers are at {power}, the log's median.": "Die Zahlen des Modells gelten für {power}, den Median des Logs.",
     "The log has no fight {n}.": "Das Log hat keinen Kampf {n}.",
     "... and {n} more casts": "... und {n} weitere Zauber",
     "Casts": "Gewirkt",
@@ -640,6 +641,7 @@ TEXT = {
     "{n:,} mana, {count}x ({each:.0f} each)": "{n:,} Mana, {count}x (je {each:.0f})",
     "{n:,} healing, {over:,} overhealing": "{n:,} Heilung, {over:,} Überheilung",
     "{n:,} damage to yourself": "{n:,} Schaden an dir selbst",
+    "Buffs on you, of the time fighting: {list}": "Buffs auf dir, Anteil der Kampfzeit: {list}",
     "Casts on enemies that missed, by the enemy's level above yours:":
         "Zauber auf Gegner, die verfehlt haben, nach der Stufe des Gegners über deiner:",
     "  {delta:+d}: {misses} of {casts} ({pct:.1f}%)": "  {delta:+d}: {misses} von {casts} ({pct:.1f} %)",

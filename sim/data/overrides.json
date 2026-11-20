@@ -15,7 +15,7 @@
       "kind": "dot_crit",
       "schools": ["shadow"],
       "generic": true,
-      "source": "Talent text: 'Increases the critical strike damage bonus of your Corruption, Bane of Agony, Bane of Doom, Drain Soul, Drain Life, Siphon Life, and Wrack spells by $m1%' (33/67/100, decoded from the spell). The player confirmed in the game on 2026-11-20 that these periodic spells crit with the talent. The base crit bonus of 50% is the Classic value and not measured."
+      "source": "Talent text: 'Increases the critical strike damage bonus of your Corruption, Bane of Agony, Bane of Doom, Drain Soul, Drain Life, Siphon Life, and Wrack spells by $m1%' (33/67/100, decoded from the spell). The player confirmed in the game on 2026-11-20 that these periodic spells crit with the talent. The combat log of the same day has the multipliers: a crit of these spells is 2.00 times the amount with 3/3, a Death Coil crit 1.50 times, so the base crit bonus is 50%."
     },
     {
       "name": "Wrack",
@@ -33,7 +33,7 @@
       "affectsBases": [689, 1120, 1316697],
       "countsBases": [172, 980, 18265],
       "max": 3,
-      "source": "Talent text: 'Increases the damage done or health drained by your Drain Life, Drain Soul, and Wrack spells by $s1% per each of your Corruption, Siphon Life, and Bane of Agony effects active on the target' (4/8/12). The model counts the DoTs the rotation keeps up."
+      "source": "Talent text: 'Increases the damage done or health drained by your Drain Life, Drain Soul, and Wrack spells by $s1% per each of your Corruption, Siphon Life, and Bane of Agony effects active on the target' (4/8/12). The model counts the DoTs the rotation keeps up. The combat log of 2026-11-20 shows it adding up: Wrack ticks for 1.24 times its amount with two of them on the target and 1.36 times with three, Drain Life the same."
     },
     {
       "name": "Soul Harvest",

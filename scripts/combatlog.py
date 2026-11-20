@@ -52,6 +52,7 @@ NOBODY = "0000000000000000"
 NOT_A_MISS = {"ABSORB", "IMMUNE", "EVADE", "REFLECT", "DEFLECT"}  # the cast was not missed or resisted
 STALE = 300.0  # a debuff the log never saw end is forgotten after this many seconds
 MAX_TIMELINE = 80
+MAX_BUFFS = 20  # buffs the CLI names
 
 
 def find_logs(wow: str) -> list[str]:
@@ -109,6 +110,7 @@ def collect(path: str) -> dict:
     chars: dict[str, dict] = {}  # player GUID -> {name, events}
     deaths: dict[str, list] = {}
     levels: dict[str, int] = {}
+    encounters: list[dict] = []  # boss fights as the game marks them
     current = None  # the character the pets belong to: the one seen last
     for t, row in read(path):
         if not row:
@@ -121,6 +123,12 @@ def collect(path: str) -> dict:
             head = dict(zip(row[::2], row[1::2]))
             info.update(version=int(num(head.get("COMBAT_LOG_VERSION"))),
                         advanced=head.get("ADVANCED_LOG_ENABLED") == "1", build=head.get("BUILD_VERSION") or "")
+            continue
+        if ev == "ENCOUNTER_START" and len(row) > 2:
+            encounters.append({"name": row[2], "start": t, "end": None, "kill": False})
+            continue
+        if ev == "ENCOUNTER_END" and encounters and encounters[-1]["end"] is None:
+            encounters[-1].update(end=t, kill=len(row) > 5 and row[5] == "1")
             continue
         if len(row) < 9:
             continue
@@ -183,6 +191,9 @@ def collect(path: str) -> dict:
                     e.update(mana=num(block[11]), manaMax=num(block[12]), cost=num(block[13]))
         elif ev == "SPELL_CAST_START" and src == me:
             e["kind"] = "start"
+        elif dst == me and len(row) > 12 and row[12] == "BUFF" and (ev in AURA_ON or ev == "SPELL_AURA_REMOVED"):
+            # A buff on the character, whoever cast it: it explains spell power and regeneration.
+            e.update(kind="buff+" if ev in AURA_ON else "buff-", own=src == me)
         elif ev in AURA_ON and mine_src and not pet and dst != me and len(row) > 12 and row[12] == "DEBUFF":
             e["kind"] = "aura+"
         elif ev == "SPELL_AURA_REMOVED" and mine_src and not pet and dst != me and len(row) > 12 and row[12] == "DEBUFF":
@@ -190,7 +201,7 @@ def collect(path: str) -> dict:
         else:
             continue
         current["events"].append(e)
-    return {"info": info, "chars": chars, "deaths": deaths, "levels": levels}
+    return {"info": info, "chars": chars, "deaths": deaths, "levels": levels, "encounters": encounters}
 
 
 def fights_of(events: list, gap: float = GAP) -> list[tuple[float, float]]:
@@ -263,6 +274,31 @@ def add(rows: dict, e: dict) -> dict:
     return r
 
 
+def merge(rows: dict) -> None:
+    """The game books some effects on a second spell of the same name: Life Tap's mana, the pulses of Hellfire
+    and Rain of Fire. The row that was cast takes the rows of that name that never were."""
+    names: dict = {}
+    for key, r in rows.items():
+        names.setdefault((r["name"], r["pet"]), []).append(key)
+    for keys in names.values():
+        cast = [k for k in keys if rows[k]["casts"]]
+        rest = [k for k in keys if not rows[k]["casts"]]
+        if len(cast) != 1 or not rest:
+            continue
+        into = rows[cast[0]]
+        for k in rest:
+            for field, v in rows.pop(k).items():
+                if field in ("spellId", "name", "school", "pet", "_last"):
+                    continue
+                if field == "misses":
+                    for how, n in v.items():
+                        into[field][how] = into[field].get(how, 0) + n
+                elif field in ("_plain", "_crit"):
+                    into[field] = [a + b for a, b in zip(into[field], v)]
+                else:
+                    into[field] = into[field] + v  # numbers add up, lists join
+
+
 def covered(spans: list[tuple[float, float]]) -> float:
     """Seconds covered by at least one of the spans."""
     total, end = 0.0, float("-inf")
@@ -306,6 +342,8 @@ def finish(r: dict, seconds: float, model: dict | None = None) -> dict:
             m["hit"] = round(((model.get("directMin") or 0) + (model.get("directMax") or 0)) / 2, 1)
         if model.get("periodic") and model.get("ticks"):
             m["tick"] = round(model["periodic"] / model["ticks"], 1)
+        if out["avgHit"] and not out["avgTick"] and "hit" not in m and "tick" in m:
+            m["hit"] = m.pop("tick")  # an area channel: the log has every pulse as a hit of its own
         for mine, theirs in (("avgHit", "hit"), ("avgTick", "tick")):
             if out[mine] and m.get(theirs):
                 m[theirs + "DiffPct"] = round((out[mine] / m[theirs] - 1) * 100, 1)
@@ -325,9 +363,19 @@ def snapshot_of(wow: str, char: str) -> dict:
     return upgrades.load_char(files[0]) if files else {}
 
 
-def model_numbers(wow: str, char: str) -> dict:
-    """What the combat model says one cast of each known spell rank does (as a tooltip shows it)."""
-    c, _, start = rotations.character(wow, char)
+def model_numbers(wow: str, char: str, spell_power: float = 0) -> dict:
+    """What the combat model says one cast of each known spell rank does (as a tooltip shows it), at the
+    spell power given: the log's, which moves with the buffs, instead of the snapshot's. The log has one
+    number for it, which is the snapshot's highest school."""
+
+    def at_power(c: dict) -> None:
+        schools = ((c.get("character") or {}).get("stats") or {}).get("spellDamage") or {}
+        if spell_power and schools:
+            delta = spell_power - max(schools.values())
+            for k in schools:
+                schools[k] += delta
+
+    c, _, start = rotations.character(wow, char, prepare=at_power)
     ch = c.get("character") or {}
     eng = start(simengine.default_metric(ch.get("classFile") or "", simengine.spec_of(c)))
     eng.batch([])
@@ -351,16 +399,11 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
     spans = fights_of(events, gap)
 
     snapshot = snapshot_of(wow, me["name"])
-    numbers, model_error = {}, ""
-    if model:
-        try:
-            numbers = model_numbers(wow, me["name"])
-        except (FileNotFoundError, LookupError) as e:
-            model_error = str(e)
     label = rotations.labeler(snapshot)
 
     rows: dict = {}
     fights, auras, i = [], {}, 0
+    buffs, buff_rows = {}, {}  # the buffs up right now, and per buff when it was up during the fights
     level, power = (snapshot.get("character") or {}).get("level") or 0, []
     by_delta: dict = {}  # casts on enemies and how many missed, by the enemy's level above the character
     for start, end in spans:
@@ -375,8 +418,16 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
                 on = auras.pop((e["spell"], e["dst"]), None)
                 if on is not None and e["t"] > start:
                     add(rows, dict(on, kind=""))["_cover"].append((max(on["t"], start), e["t"]))
+            elif e["kind"] == "buff+":
+                buffs.setdefault(e["spell"], e)
+            elif e["kind"] == "buff-":
+                on = buffs.pop(e["spell"], None)
+                if on is not None and e["t"] > start:
+                    buff_rows.setdefault(on["spell"], dict(on, cover=[]))["cover"].append((max(on["t"], start), e["t"]))
             if e["t"] >= start:
                 mine.append(e)
+        for on in buffs.values():
+            buff_rows.setdefault(on["spell"], dict(on, cover=[]))["cover"].append((max(on["t"], start), end))
         for key, on in list(auras.items()):  # still up when the fight ends
             if on["t"] < start - STALE:
                 del auras[key]
@@ -387,7 +438,7 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
         mana, hp, casts, taken = [], [], [], 0.0
         for e in mine:
             k = e["kind"]
-            if k in ("aura+", "aura-", "start"):
+            if k in ("aura+", "aura-", "buff+", "buff-", "start"):
                 continue
             if k == "taken":
                 taken += e["amount"]
@@ -418,7 +469,10 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
         if not damage and not any(r["healing"] for r in f_rows.values()):
             continue
         deltas = [log["levels"][g] - level for g in enemies if g in log["levels"] and level]
+        merge(f_rows)
+        boss = next((x for x in log["encounters"] if x["start"] <= end and (x["end"] or x["start"]) >= start), None)
         fights.append({
+            "encounter": boss["name"] if boss else "",
             "n": len(fights) + 1, "start": clock_of(start), "seconds": round(seconds, 1),
             "enemies": len(enemies), "targets": sorted(set(enemies.values())),
             "levelDelta": max(deltas) if deltas else None,
@@ -438,6 +492,13 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
         })
 
     active = sum(f["seconds"] for f in fights)
+    numbers, model_error, model_power = {}, "", round(statistics.median(power)) if power else 0
+    if model:
+        try:
+            numbers = model_numbers(wow, me["name"], model_power)
+        except (FileNotFoundError, LookupError) as e:
+            model_error = str(e)
+    merge(rows)
     total = sum(f["damage"] for f in fights)
     spell_hit = ((snapshot.get("character") or {}).get("stats") or {}).get("spellHit") or 0
     hit = [{"levelDelta": d, "casts": v["casts"], "misses": v["misses"],
@@ -469,11 +530,17 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
         "name": me["name"], "level": level or None, "others": [c["name"] for c in chars[1:]],
         "spellPower": {"low": round(min(power)), "high": round(max(power))} if power else None,
         "sheetSpellDamage": stats.get("spellDamage") or None,
+        "modelSpellPower": model_power if numbers and model_power else None,
         "total": {"fights": len(fights), "seconds": round(active, 1), "damage": round(total),
                   "dps": round(total / active, 1) if active else 0.0,
                   "healing": sum(f["healing"] for f in fights),
                   "kills": sum(f["kills"] for f in fights)},
         "spells": spells, "hit": hit, "fights": fights,
+        # Buffs the log saw start (one that was up before the log began is not in it).
+        "buffs": sorted(({"spellId": b["spell"], "name": b["name"], "own": b["own"],
+                          "uptimePct": round(covered(b["cover"]) / active * 100, 1)}
+                         for b in buff_rows.values() if active and covered(b["cover"]) > 0),
+                        key=lambda b: (-b["uptimePct"], b["name"])),
         "model": bool(numbers), "modelError": model_error,
     }
 
@@ -513,7 +580,10 @@ def main() -> None:
     if r["modelError"]:
         print(tr("No numbers of the combat model: {err}", err=r["modelError"]))
     if r["spellPower"]:
-        print(tr("Spell power in the log: {low} to {high}.", **r["spellPower"]))
+        line = tr("Spell power in the log: {low} to {high}.", **r["spellPower"])
+        if r["modelSpellPower"]:
+            line += " " + tr("The model's numbers are at {power}, the log's median.", power=r["modelSpellPower"])
+        print(line)
 
     if a.fight:
         f = next((x for x in r["fights"] if x["n"] == a.fight), None)
@@ -557,6 +627,9 @@ def main() -> None:
             extra.append(tr("{n:,} damage to yourself", n=s["selfDamage"]))
         if extra:
             print(f"  {s['label']}: " + ", ".join(extra))
+    if r["buffs"]:
+        print(tr("Buffs on you, of the time fighting: {list}",
+                 list=", ".join(f"{b['name']} {b['uptimePct']:.0f}%" for b in r["buffs"][:MAX_BUFFS])))
     if r["hit"]:
         print(tr("Casts on enemies that missed, by the enemy's level above yours:"))
         for h in r["hit"]:
@@ -579,7 +652,7 @@ def fight_line(f: dict) -> str:
         line += tr("  mana {a}% > {b}%", a=f["manaStartPct"], b=f["manaEndPct"])
     if f["levelDelta"] is not None:
         line += tr("  level {delta:+d}", delta=f["levelDelta"])
-    return line + f"  {targets}"
+    return line + f"  {targets}" + (f"  [{f['encounter']}]" if f["encounter"] else "")
 
 
 if __name__ == "__main__":

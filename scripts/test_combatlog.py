@@ -32,12 +32,18 @@ NOBODY = ("0000000000000000", None, "0x80000000")
 BOLT = (686, "Shadow Bolt", "0x20")
 CORRUPTION = (172, "Corruption", "0x20")
 LIFE_TAP = (1454, "Life Tap", "0x20")
+LIFE_TAP_MANA = (31818, "Life Tap", "0x20")  # the game books the mana on a second spell of the same name
 DRAIN = (689, "Drain Life", "0x20")
+ARMOR = (706, "Demon Armor", "0x20")
+TRANCE = (17941, "Shadow Trance", "0x20")
+MARK = (1126, "Mark of the Wild", "0x8")
 
 STUB_ENGINE = '''
 import json, sys
 data = json.load(sys.stdin)
 assert data["metric"] == "dps" and data["character"]["classFile"] == "WARLOCK"
+# The log's spell power (110), not the sheet's 100 for shadow; fire keeps its distance to it.
+assert data["character"]["stats"]["spellDamage"] == {"shadow": 110, "fire": 90}, data["character"]["stats"]
 print(json.dumps({"engine": "stub", "spellbookSource": "export", "fight": data["fight"],
                   "baseline": {"metric": "dps", "value": 50.0, "breakdown": []},
                   "spells": [{"spellId": 686, "name": "Shadow Bolt", "directMin": 80, "directMax": 100},
@@ -79,15 +85,16 @@ class Log:
         self.add(t, "SPELL_CAST_START", src, NOBODY, spell)
 
     def cast(self, t, spell, dst, mana, cost, hp=700, src=ME) -> None:
-        self.add(t, "SPELL_CAST_SUCCESS", src, dst, spell, self.block(src, (hp, 700), (mana, 1000, cost), 39))
+        self.add(t, "SPELL_CAST_SUCCESS", src, dst, spell,
+                 self.block(src, (hp, 700), (mana, 1000, cost), 39, power=110))
 
     def damage(self, t, spell, dst, amount, base, level, resisted=0, crit=False, periodic=False, src=ME) -> None:
         event = "SWING_DAMAGE" if spell is None else "SPELL_PERIODIC_DAMAGE" if periodic else "SPELL_DAMAGE"
         self.add(t, event, src, dst, spell, self.block(dst, level=level) + ",%d,%d,-1,32,%d,0,0,%s,nil,nil,ST" % (
             amount, base, resisted, "1" if crit else "nil"))
 
-    def aura(self, t, event, spell, dst, src=ME) -> None:
-        self.add(t, event, src, dst, spell, ",DEBUFF")
+    def aura(self, t, event, spell, dst, src=ME, kind="DEBUFF") -> None:
+        self.add(t, event, src, dst, spell, "," + kind)
 
     def write(self, wow: str, name: str = "WoWCombatLog-112026_100000.txt") -> str:
         os.makedirs(os.path.join(wow, "Logs"), exist_ok=True)
@@ -110,35 +117,45 @@ def sample(advanced: bool = True) -> Log:
       108.5  the dummy hits back for 50
       109.0  the pet hits for 20
       110.0  Corruption ends, the dummy dies
+    Buffs: Demon Armor from 50.0 on and never off; Shadow Trance from 105.0 to 108.0; the bystander's Mark of
+    the Wild on the warlock from 199.0 on, and one on the bystander, which is not the warlock's business.
+    The game marks fight 1 as the boss fight "Dummy Boss" (99.0 to 110.5).
     A bystander fights something else at 150 s.
     Fight 2 against a dummy of level 30: a Shadow Bolt started at 198.0 lands at 200.0 for 110 (100 before),
     and a Drain Life tick at 199.5 heals 50, of which 10 are too much.
     """
     log = Log(advanced)
+    log.aura(50.0, "SPELL_AURA_APPLIED", ARMOR, ME, kind="BUFF")
     log.start(98.0, BOLT)
+    log.lines.append(log.stamp(99.0) + 'ENCOUNTER_START,7,"Dummy Boss",1,5,1')
     log.cast(100.0, BOLT, DUMMY, 900, 100)
     log.damage(100.0, BOLT, DUMMY, 165, 100, 29, crit=True)
     log.cast(100.5, CORRUPTION, DUMMY, 800, 100)
     log.aura(100.5, "SPELL_AURA_APPLIED", CORRUPTION, DUMMY)
     log.damage(103.5, CORRUPTION, DUMMY, 44, 40, 29, periodic=True)
     log.start(104.0, BOLT)
+    log.aura(105.0, "SPELL_AURA_APPLIED", TRANCE, ME, kind="BUFF")
     log.cast(106.0, BOLT, DUMMY, 700, 100)
     log.add(106.0, "SPELL_MISSED", ME, DUMMY, BOLT, ",RESIST,nil")
     log.damage(106.5, CORRUPTION, DUMMY, 44, 40, 29, periodic=True)
     log.cast(107.0, BOLT, DUMMY, 600, 100)
     log.damage(107.0, BOLT, DUMMY, 80, 100, 29, resisted=30)
+    log.aura(108.0, "SPELL_AURA_REMOVED", TRANCE, ME, kind="BUFF")
     log.cast(108.0, LIFE_TAP, NOBODY, 500, 0, hp=420)
-    log.add(108.0, "SPELL_ENERGIZE", ME, ME, LIFE_TAP, log.block(ME) + ",120,0,0,1000")
+    log.add(108.0, "SPELL_ENERGIZE", ME, ME, LIFE_TAP_MANA, log.block(ME) + ",120,0,0,1000")
     log.damage(108.5, None, ME, 50, 60, 39, src=DUMMY)
     log.damage(109.0, None, DUMMY, 20, 25, 29, src=PET)
     log.damage(109.5, CORRUPTION, DUMMY, 88, 40, 29, crit=True, periodic=True)
     log.aura(110.0, "SPELL_AURA_REMOVED", CORRUPTION, DUMMY)
     log.add(110.0, "UNIT_DIED", NOBODY, DUMMY, None, ",0")
     log.add(110.0, "PARTY_KILL", ME, DUMMY, None, ",0")
+    log.lines.append(log.stamp(110.5) + 'ENCOUNTER_END,7,"Dummy Boss",1,5,1,11500')
     log.add(120.0, "ENVIRONMENTAL_DAMAGE", NOBODY, ME, None, ",Falling" + log.block(ME) + ",30,30,0,1,0,0,0,nil,nil,nil")
     log.cast(150.0, BOLT, DUMMY2, 900, 100, src=OTHER)
     log.damage(150.0, BOLT, DUMMY2, 500, 500, 30, src=OTHER)
     log.start(198.0, BOLT)
+    log.aura(199.0, "SPELL_AURA_APPLIED", MARK, ME, src=OTHER, kind="BUFF")
+    log.aura(199.0, "SPELL_AURA_APPLIED", MARK, OTHER, src=OTHER, kind="BUFF")
     log.add(199.5, "SPELL_PERIODIC_HEAL", ME, ME, DRAIN, log.block(ME) + ",50,50,10,0,nil")
     log.cast(200.0, BOLT, DUMMY2, 1000, 100)
     log.damage(200.0, BOLT, DUMMY2, 110, 100, 30)
@@ -151,7 +168,7 @@ def write_char(wow: str, name: str = "Tester", class_file: str = "WARLOCK") -> N
     with open(os.path.join(char_dir, "WoWMCP.lua"), "w", encoding="utf-8") as f:
         f.write('WoWMCP_Char = { character = { name = "%s", class = "Hexenmeister", classFile = "%s", level = 27, '
                 'stats = { powerMax = 1000, healthMax = 700, spirit = 50, spellHit = 2, '
-                'spellCrit = { shadow = 7.5 }, spellDamage = { shadow = 100 } } }, '
+                'spellCrit = { shadow = 7.5 }, spellDamage = { shadow = 100, fire = 80 } } }, '
                 'spellbook = { updated = 1, count = 2, spells = { '
                 '[686] = { name = "Schattenblitz", rank = "Rang 1" }, [172] = { name = "Verderbnis", rank = "Rang 1" } } }, '
                 'talents = { class = {} }, client = { version = "9.9.9", build = 9, locale = "deDE" }, '
@@ -194,13 +211,15 @@ def test_fights() -> None:
             r = combatlog.compute(tmp, "Tester")
     assert (r["name"], r["level"], r["version"], r["advanced"], r["build"]) == ("Tester", 27, 22, True, "9.9.9"), r
     assert r["started"] == "10:00:00" and r["others"] == [] and r["model"] and not r["modelError"], r
-    assert r["spellPower"] == {"low": 100, "high": 100} and r["sheetSpellDamage"] == {"shadow": 100}, r
+    assert r["spellPower"] == {"low": 110, "high": 110} and r["sheetSpellDamage"] == {"shadow": 100, "fire": 80}, r
+    assert r["modelSpellPower"] == 110, r  # the stub checks that the engine was asked at this spell power
 
     # Fight 1 runs from the opener at 98.0 to the last tick at 109.5; the bystander's fight is not one.
     assert len(r["fights"]) == 2, r["fights"]
     one, two = r["fights"]
     assert (one["n"], one["start"], one["seconds"], one["enemies"]) == (1, "10:01:38", 11.5, 1), one
     assert one["targets"] == ["Training Dummy"] and one["levelDelta"] == 2 and one["kills"] == 1, one
+    assert (one["encounter"], r["fights"][1]["encounter"]) == ("Dummy Boss", ""), r["fights"]
     # 165 + 80 from the bolts, 44 + 44 + 88 from Corruption, 20 from the pet.
     assert one["damage"] == 441 and one["taken"] == 50, one
     near("dps of fight 1", one["dps"], 441 / 11.5)
@@ -245,12 +264,21 @@ def test_fights() -> None:
     near("uptime", dot["uptimePct"], 9 / 13.5 * 100)
     assert dot["model"] == {"tick": 40.0, "tickDiffPct": 0.0} and dot["avgHit"] is None, dot
 
+    # Life Tap's mana is booked on the spell that was cast; the row of the second spell is gone.
+    assert not [x for x in r["spells"] if x["spellId"] == 31818], r["spells"]
+    assert [x["mana"] for x in one["spells"] if x["spellId"] == 1454] == [120], one["spells"]
     tap = spell(r, 1454)
     assert (tap["casts"], tap["mana"], tap["energizes"], tap["damage"], tap["label"]) == (1, 120, 1, 0, "Life Tap"), tap
     drain = spell(r, 689)
     assert (drain["healing"], drain["overheal"], drain["heals"]) == (40, 10, 1), drain
     pet = spell(r, 0, "Grimpaw")
     assert (pet["name"], pet["hits"], pet["damage"], pet.get("model")) == ("Melee", 1, 20, None), pet
+
+    # Buffs, of the 13.5 s of fighting: Demon Armor all of it, Shadow Trance 3 s, the bystander's mark 1 s.
+    assert r["buffs"] == [
+        {"spellId": 706, "name": "Demon Armor", "own": True, "uptimePct": 100.0},
+        {"spellId": 17941, "name": "Shadow Trance", "own": True, "uptimePct": 22.2},
+        {"spellId": 1126, "name": "Mark of the Wild", "own": False, "uptimePct": 7.4}], r["buffs"]
 
     # Casts on enemies by their level: four on the dummy two levels above (one resisted), one on the other.
     # The model: 6 % and 17 % miss less the sheet's 2 % hit.
@@ -317,9 +345,11 @@ def test_without_advanced_logging() -> None:
 
 def test_cli_both_languages() -> None:
     for lang, words in (("en", ("2 fights", "Shadow Bolt (Rang 1)", "Melee (Grimpaw)", "120 mana, 1x (120 each)",
-                                "the model expects 4%", "Fights (--fight N")),
+                                "the model expects 4%", "Fights (--fight N",
+                                "Buffs on you, of the time fighting: Demon Armor 100%, Shadow Trance 22%", "[Dummy Boss]")),
                         ("de", ("2 Kämpfe", "Shadow Bolt (Rang 1)", "Nahkampf (Grimpaw)", "120 Mana, 1x (je 120)",
-                                "das Modell erwartet 4 %", "Kämpfe (--fight N"))):
+                                "das Modell erwartet 4 %", "Kämpfe (--fight N",
+                                "Buffs auf dir, Anteil der Kampfzeit: Demon Armor 100%, Shadow Trance 22%", "[Dummy Boss]"))):
         with tempfile.TemporaryDirectory() as tmp:
             sample().write(tmp)
             write_char(tmp)
