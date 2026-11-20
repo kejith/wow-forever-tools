@@ -151,7 +151,7 @@ func TestSheetAndUnknownAuras(t *testing.T) {
 // The hand-written rules take their number from the trait tables where the
 // cache has them and from perRank otherwise.
 func TestRules(t *testing.T) {
-	mods, infos := decode(t, map[int]int{18182: 2, 427712: 1, 1316697: 1, 17804: 2, 437032: 1, 14524: 2})
+	mods, infos := decode(t, map[int]int{18182: 2, 427712: 1, 1316697: 1, 17804: 2, 437032: 1, 14524: 2, 15257: 1})
 	if mods.LifeTapPct != 20 {
 		t.Errorf("life tap = %g", mods.LifeTapPct)
 	}
@@ -161,8 +161,12 @@ func TestRules(t *testing.T) {
 	if mods.DotCritSchools&(1<<uint(engine.Shadow)) == 0 {
 		t.Error("pandemic missing")
 	}
-	if info := infos[427712]; !info.Unverified || info.Note == "" || info.Status != StatusUsed {
-		t.Errorf("pandemic info = %+v", info)
+	if info := infos[427712]; info.Unverified || info.Note == "" || info.Status != StatusUsed {
+		t.Errorf("pandemic info = %+v", info) // confirmed in the game: not an assumption
+	}
+	// A rule that is an assumption says so (Shadow Weaving: five stacks).
+	if info := infos[15257]; !info.Unverified || info.Note == "" || mods.SchoolDamagePct[engine.Shadow] != 10 {
+		t.Errorf("shadow weaving info = %+v, shadow damage %g", info, mods.SchoolDamagePct[engine.Shadow])
 	}
 
 	if len(mods.ChannelHastes) != 1 {
@@ -172,7 +176,7 @@ func TestRules(t *testing.T) {
 	if ch.Channel != 1316697 || ch.Pct != 50 || !ch.Affects[172] || !ch.Affects[980] {
 		t.Errorf("wrack = %+v", ch)
 	}
-	if info := infos[1316697]; !info.Unverified || !info.Bases[1316697] {
+	if info := infos[1316697]; info.Unverified || !info.Bases[1316697] {
 		t.Errorf("wrack info = %+v", info)
 	}
 

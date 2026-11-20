@@ -101,7 +101,7 @@ TEXT = {
     ", gear gives {gear:g}%": ", Ausrüstung bringt {gear:g} %",
     "1% damage = {points:.1f} spell power, {share:.0%} of the damage can crit":
         "1 % Schaden = {points:.1f} Zaubermacht, {share:.0%} des Schadens kann kritisch treffen",
-    " (assumption: Pandemic lets DoTs crit)": " (Annahme: Pandemie lässt DoTs kritisch treffen)",
+    " (with Pandemic your DoTs crit)": " (mit Pandemie treffen deine DoTs kritisch)",
     "health, and mana through Life Tap (fixed value)": "Leben, über Aderlass auch Mana (fester Wert)",
     "15 mana and some crit (fixed value)": "15 Mana und etwas Krit (fester Wert)",
     "{mana:g} mana = {manaValue:.2f}, {crit:.4f}% crit ({source}) = {critValue:.2f}. "

@@ -50,6 +50,20 @@ func talentEntry(t *testing.T, cov *Coverage, id int) CoverageEntry {
 	return CoverageEntry{}
 }
 
+// A rule that is an assumption is flagged where it is applied (Shadow
+// Weaving: five stacks, and the rotation casts shadow spells).
+func TestCoverageFlagsAssumptions(t *testing.T) {
+	in := coverageInput()
+	in.Character.Talents["15257"] = 1
+	out := Run(in)
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	if e := talentEntry(t, out.Coverage, 15257); !e.Unverified || e.Note == "" || e.Status != talents.StatusUsed {
+		t.Errorf("shadow weaving: %+v", e)
+	}
+}
+
 // Every known spell and every talent gets a verdict: cast, tried and
 // weaker, on the sheet, not modeled, or without influence.
 func TestCoverage(t *testing.T) {
@@ -129,8 +143,8 @@ func TestCoverage(t *testing.T) {
 	if wrack.Status != wrackSpell.Status || wrack.Reason != wrackSpell.Reason {
 		t.Errorf("wrack talent %+v vs spell %+v", wrack, wrackSpell)
 	}
-	if !wrack.Unverified || wrack.Note == "" {
-		t.Errorf("the wrack assumption must be flagged: %+v", wrack)
+	if wrack.Unverified || wrack.Note == "" {
+		t.Errorf("wrack is confirmed in the game and keeps its note: %+v", wrack)
 	}
 	// A talent that changes spells is used when the rotation casts one of
 	// them, idle when only a losing candidate did.

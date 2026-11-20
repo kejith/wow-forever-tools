@@ -15,8 +15,7 @@
       "kind": "dot_crit",
       "schools": ["shadow"],
       "generic": true,
-      "unverified": true,
-      "source": "Talent text: 'Increases the critical strike damage bonus of your Corruption, Bane of Agony, Bane of Doom, Drain Soul, Drain Life, Siphon Life, and Wrack spells by $m1%' (33/67/100, decoded from the spell). Assumed: these periodic spells can crit once the talent is taken (not measured), and the base crit bonus of spells is 50%."
+      "source": "Talent text: 'Increases the critical strike damage bonus of your Corruption, Bane of Agony, Bane of Doom, Drain Soul, Drain Life, Siphon Life, and Wrack spells by $m1%' (33/67/100, decoded from the spell). The player confirmed in the game on 2026-11-20 that these periodic spells crit with the talent. The base crit bonus of 50% is the Classic value and not measured."
     },
     {
       "name": "Wrack",
@@ -24,8 +23,7 @@
       "kind": "channel_dot_haste",
       "effect": 1,
       "affectsBases": [172, 980, 18265],
-      "unverified": true,
-      "source": "Spell text: 'While channeling, your Siphon Life, Corruption, and Bane of Agony effects on the target deal their periodic damage $s2% faster' (100). Assumed: the DoTs tick twice as fast and keep their duration, so the faster ticks are extra damage (and extra Siphon Life healing). If the game shortens the DoTs instead, Wrack is worth less than modeled."
+      "source": "Spell text: 'While channeling, your Siphon Life, Corruption, and Bane of Agony effects on the target deal their periodic damage $s2% faster' (100). The player confirmed in the game on 2026-11-20 that the DoTs keep their duration while Wrack is channeled, so the faster ticks are extra damage (and extra Siphon Life healing)."
     },
     {
       "name": "Soul Siphon",

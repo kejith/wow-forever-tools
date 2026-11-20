@@ -79,8 +79,8 @@ type DotStack struct {
 }
 
 // ChannelHaste makes the caster's DoTs tick faster while a spell is
-// channeled (Wrack). The model keeps the DoT's duration, so the faster
-// ticks are extra damage; see the note in sim/data/overrides.json.
+// channeled (Wrack). The DoT keeps its duration (confirmed in the game), so
+// the faster ticks are extra damage; see the note in sim/data/overrides.json.
 type ChannelHaste struct {
 	Channel int          // base id of the channeled spell
 	Pct     float64      // how much faster the DoTs tick

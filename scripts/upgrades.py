@@ -256,7 +256,7 @@ def build_scale(char: dict, profile: str = "", gear_hit: float = 0.0, gear_crit:
         hit_note += tr(", gear gives {gear:g}%", gear=gear_hit)
     crit_note = tr("1% damage = {points:.1f} spell power, {share:.0%} of the damage can crit", points=pct, share=crit_share)
     if pandemic:
-        crit_note += tr(" (assumption: Pandemic lets DoTs crit)")
+        crit_note += tr(" (with Pandemic your DoTs crit)")
 
     # Intellect and stamina: what one point gives at this level, valued against the mana pool.
     stamina_note = tr("health, and mana through Life Tap (fixed value)")
