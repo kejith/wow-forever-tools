@@ -641,6 +641,14 @@ TEXT = {
     "{n:,} mana, {count}x ({each:.0f} each)": "{n:,} Mana, {count}x (je {each:.0f})",
     "{n:,} healing, {over:,} overhealing": "{n:,} Heilung, {over:,} Überheilung",
     "{n:,} damage to yourself": "{n:,} Schaden an dir selbst",
+    "{avg:.1f} of {ticks} ticks per channel; channels {casts}, ran out {full}":
+        "{avg:.1f} von {ticks} Ticks pro Kanalisierung; Kanalisierungen {casts}, zu Ende gelaufen {full}",
+    "target died {n}": "Ziel gestorben {n}",
+    "next cast before the end {n} ({lost} ticks short, {clipped}x only the last one)":
+        "nächster Zauber vor dem Ende {n} ({lost} Ticks weniger, {clipped}x nur der letzte)",
+    "stopped early with no cast after {n} ({lost} ticks short)":
+        "vorzeitig abgebrochen ohne folgenden Zauber {n} ({lost} Ticks weniger)",
+    "missed {n}": "verfehlt {n}",
     "Buffs on you, of the time fighting: {list}": "Buffs auf dir, Anteil der Kampfzeit: {list}",
     "Casts on enemies that missed, by the enemy's level above yours:":
         "Zauber auf Gegner, die verfehlt haben, nach der Stufe des Gegners über deiner:",

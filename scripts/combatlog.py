@@ -53,6 +53,8 @@ NOT_A_MISS = {"ABSORB", "IMMUNE", "EVADE", "REFLECT", "DEFLECT"}  # the cast was
 STALE = 300.0  # a debuff the log never saw end is forgotten after this many seconds
 MAX_TIMELINE = 80
 MAX_BUFFS = 20  # buffs the CLI names
+SLACK = 0.5  # seconds a channel's last tick may be late
+PULSE = 0.3  # hits of an area channel at most this far apart are one tick
 
 
 def find_logs(wow: str) -> list[str]:
@@ -352,6 +354,75 @@ def finish(r: dict, seconds: float, model: dict | None = None) -> dict:
     return out
 
 
+def channels(events: list, spans: list, deaths: dict, numbers: dict) -> dict:
+    """How the channels ended, per spell the model calls channeled (it also says how many ticks one has and
+    how long it lasts): ran out, the target died, the next cast came before the end (`clipped`: and only the
+    last tick is missing, the cast came a moment too early), or it stopped early with nothing after it
+    (moving, an interrupt, the end of the fight). A tick is a hit of the spell's name
+    on the channel's target; a channel without a target (Hellfire, Rain of Fire) hits several enemies at
+    once, and what lands together is one tick."""
+    known = {i: n for i, n in numbers.items() if n.get("channeled") and n.get("ticks") and n.get("castSec")}
+    own = [e for e in events if not e["pet"]] if known else []
+    out: dict = {}
+    s = 0
+    for i, e in enumerate(own):
+        if e["kind"] != "cast" or e["spell"] not in known:
+            continue
+        while s < len(spans) and spans[s][1] < e["t"]:
+            s += 1
+        if s == len(spans) or spans[s][0] > e["t"]:
+            continue  # not in a fight
+        ticks, dur = int(round(known[e["spell"]]["ticks"])), known[e["spell"]]["castSec"]
+        single = e["hostile"]
+        following, seen, missed = None, [], False
+        for j in range(i + 1, len(own)):
+            x = own[j]
+            if x["t"] > e["t"] + dur + SLACK:
+                break
+            k = x["kind"]
+            if k in ("cast", "start"):
+                if following is None and x["t"] > e["t"]:
+                    following = x["t"]
+                if k == "cast" and x["name"] == e["name"]:
+                    break  # the next channel of the same spell: what follows are its ticks
+            elif x["name"] == e["name"] and k in ("damage", "self", "miss") and (not single or x["dst"] == e["dst"]):
+                if k == "miss" and not x["periodic"]:
+                    missed = missed or single
+                elif x["t"] > e["t"] + 0.05:
+                    seen.append(x["t"])
+        got, last = 0, float("-inf")
+        for t in sorted(seen):
+            if t - last > PULSE:
+                got += 1
+            last = t
+        got = min(got, ticks)
+        c = out.setdefault(e["spell"], {"casts": 0, "ticks": ticks, "sum": 0, "full": 0, "died": 0, "cut": 0,
+                                        "short": 0, "missed": 0, "clipped": 0,
+                                        "lost": {"died": 0, "cut": 0, "short": 0}})
+        if missed and not got:
+            c["missed"] += 1
+            continue
+        c["casts"] += 1
+        c["sum"] += got
+        if got >= ticks:
+            c["full"] += 1
+            continue
+        if single and any(e["t"] <= d <= e["t"] + dur + SLACK and (following is None or d <= following + 0.1)
+                          for d in deaths.get(e["dst"], [])):
+            how = "died"
+        elif following is not None and following < e["t"] + dur - 0.05:
+            how = "cut"
+        else:
+            how = "short"
+        c[how] += 1
+        c["lost"][how] += ticks - got
+        if how == "cut" and got == ticks - 1:
+            c["clipped"] += 1
+    for c in out.values():
+        c["avgTicks"] = round(c.pop("sum") / c["casts"], 2) if c["casts"] else None
+    return out
+
+
 def clock_of(t: float) -> str:
     s = int(t % 86400)
     return f"{s // 3600:02d}:{s // 60 % 60:02d}:{s % 60:02d}"
@@ -499,6 +570,7 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
         except (FileNotFoundError, LookupError) as e:
             model_error = str(e)
     merge(rows)
+    ended = channels(events, spans, log["deaths"], numbers)
     total = sum(f["damage"] for f in fights)
     spell_hit = ((snapshot.get("character") or {}).get("stats") or {}).get("spellHit") or 0
     hit = [{"levelDelta": d, "casts": v["casts"], "misses": v["misses"],
@@ -518,6 +590,8 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", file: str = "", gap: f
             SCHOOLS.get(out["school"], ""))
         if crit is not None and not out["pet"]:
             out["sheetCritPct"] = round(crit, 1)
+        if not out["pet"] and out["spellId"] in ended:
+            out["channel"] = ended[out["spellId"]]
         spells.append(out)
     spells.sort(key=lambda x: -(x["damage"] + x["healing"]))
 
@@ -627,6 +701,25 @@ def main() -> None:
             extra.append(tr("{n:,} damage to yourself", n=s["selfDamage"]))
         if extra:
             print(f"  {s['label']}: " + ", ".join(extra))
+    for s in r["spells"]:
+        c = s.get("channel")
+        if not c:
+            continue
+        parts = []
+        if c["casts"]:
+            parts.append(tr("{avg:.1f} of {ticks} ticks per channel; channels {casts}, ran out {full}",
+                            avg=c["avgTicks"], ticks=c["ticks"], casts=c["casts"], full=c["full"]))
+        if c["died"]:
+            parts.append(tr("target died {n}", n=c["died"]))
+        if c["cut"]:
+            parts.append(tr("next cast before the end {n} ({lost} ticks short, {clipped}x only the last one)",
+                            n=c["cut"], lost=c["lost"]["cut"], clipped=c["clipped"]))
+        if c["short"]:
+            parts.append(tr("stopped early with no cast after {n} ({lost} ticks short)",
+                            n=c["short"], lost=c["lost"]["short"]))
+        if c["missed"]:
+            parts.append(tr("missed {n}", n=c["missed"]))
+        print(f"  {s['label']}: " + ", ".join(parts))
     if r["buffs"]:
         print(tr("Buffs on you, of the time fighting: {list}",
                  list=", ".join(f"{b['name']} {b['uptimePct']:.0f}%" for b in r["buffs"][:MAX_BUFFS])))

@@ -7,8 +7,8 @@ uv run scripts/test_combatlog.py
 
 The log is written here line by line in the game's format (version 22, with and without advanced logging),
 with made-up units: a warlock, its pet, two training dummies and a bystander whose lines must not count. The
-combat engine is a stub that answers with two spell ranks. Every expected number is worked out by hand in
-the comments.
+combat engine is a stub that answers with a few spell ranks, two of them channels. Every expected number is
+worked out by hand in the comments.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ ME = ("Player-1-00000001", "Tester-Realm", "0x511")
 PET = ("Pet-0-1-1-1-417-0100000001", "Grimpaw", "0x1111")
 DUMMY = ("Creature-0-1-1-1-100-0000000001", "Training Dummy", "0xa48")
 DUMMY2 = ("Creature-0-1-1-1-100-0000000002", "Training Dummy", "0xa48")
+DUMMY3 = ("Creature-0-1-1-1-100-0000000003", "Training Dummy", "0xa48")
 OTHER = ("Player-1-00000002", "Bystander-Realm", "0x518")
 NOBODY = ("0000000000000000", None, "0x80000000")
 BOLT = (686, "Shadow Bolt", "0x20")
@@ -37,6 +38,8 @@ DRAIN = (689, "Drain Life", "0x20")
 ARMOR = (706, "Demon Armor", "0x20")
 TRANCE = (17941, "Shadow Trance", "0x20")
 MARK = (1126, "Mark of the Wild", "0x8")
+RAIN = (5740, "Rain of Fire", "0x4")
+RAIN_HIT = (1282380, "Rain of Fire", "0x4")  # the pulses are a second spell of the same name
 
 STUB_ENGINE = '''
 import json, sys
@@ -47,7 +50,11 @@ assert data["character"]["stats"]["spellDamage"] == {"shadow": 110, "fire": 90},
 print(json.dumps({"engine": "stub", "spellbookSource": "export", "fight": data["fight"],
                   "baseline": {"metric": "dps", "value": 50.0, "breakdown": []},
                   "spells": [{"spellId": 686, "name": "Shadow Bolt", "directMin": 80, "directMax": 100},
-                             {"spellId": 172, "name": "Corruption", "periodic": 120, "ticks": 3}]}))
+                             {"spellId": 172, "name": "Corruption", "periodic": 120, "ticks": 3},
+                             {"spellId": 689, "name": "Drain Life", "periodic": 100, "ticks": 5, "castSec": 5,
+                              "channeled": True},
+                             {"spellId": 5740, "name": "Rain of Fire", "periodic": 160, "ticks": 4, "castSec": 8,
+                              "channeled": True}]}))
 '''
 
 
@@ -287,6 +294,91 @@ def test_fights() -> None:
         {"levelDelta": 3, "casts": 1, "misses": 0, "missPct": 0.0, "modelMissPct": 15}], r["hit"]
 
 
+def channel_log() -> Log:
+    """One fight of channels. Drain Life has five ticks a second apart, Rain of Fire four pulses 2 s apart.
+
+      300.0  Drain Life on the dummy, ticks 301 to 305: it ran out
+      305.5  Drain Life, ticks 306.5 to 308.5, then a Shadow Bolt at 309.0: two ticks short
+      310.0  Drain Life, ticks 311 to 314, cast again at 314.6: only the last tick is missing
+      314.6  Drain Life, ticks 315.6 and 316.6, the dummy dies at 317.0: three ticks short
+      318.0  Drain Life on the second dummy, a tick at 319, then nothing until 325: four ticks short
+      325.0  Drain Life, resisted in full
+      326.0  Rain of Fire, pulses at 328 and 330 on two dummies (one of them 0.1 s late), a Shadow Bolt at
+             331.0: two of its four pulses
+    """
+    log = Log()
+    tick = lambda t, dst: log.damage(t, DRAIN, dst, 20, 20, 29, periodic=True)  # noqa: E731
+    log.cast(300.0, DRAIN, DUMMY, 900, 50)
+    for t in (301, 302, 303, 304, 305):
+        tick(t, DUMMY)
+    log.cast(305.5, DRAIN, DUMMY, 850, 50)
+    for t in (306.5, 307.5, 308.5):
+        tick(t, DUMMY)
+    log.cast(309.0, BOLT, DUMMY, 800, 100)
+    log.damage(309.0, BOLT, DUMMY, 100, 100, 29)
+    log.cast(310.0, DRAIN, DUMMY, 700, 50)
+    for t in (311, 312, 313, 314):
+        tick(t, DUMMY)
+    log.cast(314.6, DRAIN, DUMMY, 650, 50)
+    for t in (315.6, 316.6):
+        tick(t, DUMMY)
+    log.add(317.0, "UNIT_DIED", NOBODY, DUMMY, None, ",0")
+    log.cast(318.0, DRAIN, DUMMY2, 600, 50)
+    tick(319, DUMMY2)
+    log.cast(325.0, DRAIN, DUMMY2, 550, 50)
+    log.add(325.0, "SPELL_MISSED", ME, DUMMY2, DRAIN, ",RESIST,nil")
+    log.cast(326.0, RAIN, NOBODY, 500, 200)
+    for t in (328.0, 330.0):
+        log.damage(t, RAIN_HIT, DUMMY2, 40, 40, 29)
+        log.damage(t + 0.1, RAIN_HIT, DUMMY3, 40, 40, 29)
+    log.cast(331.0, BOLT, DUMMY2, 300, 100)
+    log.damage(331.0, BOLT, DUMMY2, 100, 100, 29)
+    return log
+
+
+def test_channels() -> None:
+    i18n.set_language("en")
+    with tempfile.TemporaryDirectory() as tmp:
+        channel_log().write(tmp)
+        write_char(tmp)
+        with stub_engine(tmp):
+            r = combatlog.compute(tmp, "Tester")
+            texts = {}
+            for lang in ("en", "de"):
+                out, argv, real = io.StringIO(), sys.argv, sys.stdout
+                sys.argv = ["combatlog.py", "--wow", tmp, "--char", "Tester", "--lang", lang]
+                try:
+                    sys.stdout = Console(out)
+                    combatlog.main()
+                finally:
+                    sys.stdout, sys.argv = real, argv
+                texts[lang] = out.getvalue()
+        plain = combatlog.compute(tmp, "Tester", model=False)
+    assert len(r["fights"]) == 1 and r["fights"][0]["seconds"] == 31.0, r["fights"]
+    # Five channels with 5 + 3 + 4 + 2 + 1 = 15 ticks; the resisted cast is none.
+    drain = spell(r, 689)
+    assert drain["casts"] == 6 and drain["ticks"] == 15, drain
+    assert drain["channel"] == {"casts": 5, "ticks": 5, "avgTicks": 3.0, "full": 1, "died": 1, "cut": 2, "short": 1,
+                                "missed": 1, "clipped": 1, "lost": {"died": 3, "cut": 3, "short": 4}}, drain["channel"]
+    # The rain's pulses are booked on its second spell; two hits that land together are one pulse.
+    rain = spell(r, 5740)
+    assert rain["hits"] == 4 and rain["channel"] == {
+        "casts": 1, "ticks": 4, "avgTicks": 2.0, "full": 0, "died": 0, "cut": 1, "short": 0, "missed": 0,
+        "clipped": 0, "lost": {"died": 0, "cut": 2, "short": 0}}, rain
+    # A spell that is no channel has no such numbers, and without the model nobody knows what a channel is.
+    assert "channel" not in spell(r, 686) and not [s for s in plain["spells"] if "channel" in s], r["spells"]
+    for lang, words in (("en", ("Drain Life: 3.0 of 5 ticks per channel; channels 5, ran out 1, target died 1, "
+                                "next cast before the end 2 (3 ticks short, 1x only the last one), stopped early "
+                                "with no cast after 1 (4 ticks short), missed 1",
+                                "Rain of Fire: 2.0 of 4 ticks per channel; channels 1, ran out 0, next cast")),
+                        ("de", ("Drain Life: 3.0 von 5 Ticks pro Kanalisierung; Kanalisierungen 5, zu Ende gelaufen 1, "
+                                "Ziel gestorben 1, nächster Zauber vor dem Ende 2 (3 Ticks weniger, 1x nur der "
+                                "letzte), vorzeitig abgebrochen ohne folgenden Zauber 1 (4 Ticks weniger), "
+                                "verfehlt 1",))):
+        for w in words:
+            assert w in texts[lang], f"{lang}: {w!r} not in:\n{texts[lang]}"
+
+
 def test_gap_and_choice() -> None:
     i18n.set_language("en")
     with tempfile.TemporaryDirectory() as tmp:
@@ -384,7 +476,7 @@ class Console(io.TextIOBase):
 
 
 def main() -> None:
-    tests = [test_fights, test_gap_and_choice, test_without_advanced_logging, test_cli_both_languages]
+    tests = [test_fights, test_channels, test_gap_and_choice, test_without_advanced_logging, test_cli_both_languages]
     for t in tests:
         t()
         print(f"ok  {t.__name__}")

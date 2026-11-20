@@ -124,11 +124,11 @@ func TestAreaFiller(t *testing.T) {
 }
 
 // Hellfire burns its caster: the played fight channels it in front of the
-// filler for the ticks the health above the floor (60 %) pays for, and not
+// filler for the ticks the health above its floor (40 %) pays for, and not
 // at all when that is less than a third of the channel.
 func TestBurn(t *testing.T) {
 	st := mcState()
-	st.HealthMax = 1500 // 600 above the floor: six ticks of 100
+	st.HealthMax = 1000 // 600 above the floor: six ticks of 100
 	tgt := NewTarget(20, 2)
 	sh := Shape(hellfire(), st, tgt)
 	almost(t, "tick on the caster", sh.SelfTick, 100, 1e-9)
@@ -142,7 +142,7 @@ func TestBurn(t *testing.T) {
 		t.Fatalf("events: %+v", pb.Events[:2])
 	}
 	almost(t, "six ticks, then the filler", pb.Events[1].T, 6, 1e-9)
-	almost(t, "health after the channel", pb.Events[1].Health, 900, 1e-9)
+	almost(t, "health after the channel", pb.Events[1].Health, 400, 1e-9)
 	almost(t, "its damage: 6 ticks of 50 at 95 % on four enemies", pb.BySpell[1949], 6*50*0.95*4, 1e-9)
 	burns := 0
 	for _, e := range pb.Events {
@@ -162,11 +162,11 @@ func TestBurn(t *testing.T) {
 	st.ManaMax = 1e9
 
 	// Four ticks are less than a third of fifteen: not worth the mana.
-	st.HealthMax = 1000
+	st.HealthMax = 700
 	if pb := Play(st, fight, actions, "dps"); pb.Events[0].Kind != "filler" {
 		t.Errorf("a channel of four ticks: %+v", pb.Events[0])
 	}
-	st.HealthMax = 1500
+	st.HealthMax = 1000
 
 	// One enemy: it is not offered. And the closed form leaves it out.
 	if pb := Play(st, Fight{Seconds: 30, TargetDelta: 2}, actions, "dps"); pb.Events[0].Kind != "filler" {

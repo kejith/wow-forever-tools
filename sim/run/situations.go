@@ -182,7 +182,7 @@ func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool
 			}
 			sh := engine.Shape(sp, st, tgt)
 			if step.Kind == "burn" && sh.PeriodSec > 0 {
-				step.HealthPerSec, step.FloorPct = sh.SelfTick/sh.PeriodSec, engine.HealthFloorPct
+				step.HealthPerSec, step.FloorPct = sh.SelfTick/sh.PeriodSec, engine.BurnFloorPct
 			}
 			if fight.Enemies() == 1 {
 				continue

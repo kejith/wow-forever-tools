@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.7.1"
+const Version = "0.8.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -182,7 +182,10 @@ type SpellNumbers struct {
 	Absorb    float64 `json:"absorb,omitempty"`
 	Mana      float64 `json:"mana"`
 	CastSec   float64 `json:"castSec"`
-	Heal      bool    `json:"heal,omitempty"`
+	// Channeled says that the ticks land while the spell is cast: CastSec
+	// is the whole channel, and what ends it early loses the ticks left.
+	Channeled bool `json:"channeled,omitempty"`
+	Heal      bool `json:"heal,omitempty"`
 	// BonusLossPct is the share of the healing bonus an outgrown heal rank
 	// has lost, in percent (0 = the rank heals with the full bonus).
 	BonusLossPct float64 `json:"bonusLossPct,omitempty"`
@@ -204,7 +207,7 @@ func spellNumbers(cat *catalog.Catalog, known map[int]bool, st *engine.State, tg
 		}
 		sh := engine.Shape(sp, st, tgt)
 		n := SpellNumbers{SpellID: id, BaseID: sp.BaseID, Rank: cat.RankNumber(id), Level: sp.Levels.Spell,
-			Mana: sh.ManaCost, CastSec: sh.ExecuteSec, Heal: sp.IsHeal, Periodic: sh.Ticks * sh.TickBase}
+			Mana: sh.ManaCost, CastSec: sh.ExecuteSec, Channeled: sp.Channeled, Heal: sp.IsHeal, Periodic: sh.Ticks * sh.TickBase}
 		if n.Periodic != 0 {
 			n.Ticks = sh.Ticks
 		}

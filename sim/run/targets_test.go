@@ -17,7 +17,7 @@ func areaInput() Input {
 	in.Character.Level = 50
 	in.Character.Stats.SpellDamage["fire"] = 100
 	in.Character.Stats.ManaMax = 3000
-	in.Character.Stats.HealthMax = 1500
+	in.Character.Stats.HealthMax = 1000
 	in.Character.Spellbook = []int{695, 172, 1949, 5740}
 	in.Situations = true
 	return in
@@ -43,12 +43,15 @@ func TestAreaSpellNumbers(t *testing.T) {
 		t.Fatal(out.Error)
 	}
 	hell := numbersOf(t, out, 1949)
-	if hell.Periodic != 750 || hell.Ticks != 15 || hell.Mana != 600 || hell.CastSec != 15 {
+	if hell.Periodic != 750 || hell.Ticks != 15 || hell.Mana != 600 || hell.CastSec != 15 || !hell.Channeled {
 		t.Errorf("Hellfire: %+v", hell)
 	}
 	rain := numbersOf(t, out, 5740)
-	if rain.Periodic != 160 || rain.Ticks != 4 || rain.Mana != 300 || rain.CastSec != 8 {
+	if rain.Periodic != 160 || rain.Ticks != 4 || rain.Mana != 300 || rain.CastSec != 8 || !rain.Channeled {
 		t.Errorf("Rain of Fire: %+v", rain)
+	}
+	if dot := numbersOf(t, out, 172); dot.Channeled || dot.Ticks == 0 {
+		t.Errorf("Corruption is no channel: %+v", dot)
 	}
 
 	// Against one enemy neither is offered: the gear rating is the one of a
@@ -77,8 +80,8 @@ func TestAreaSpellNumbers(t *testing.T) {
 //
 //	Corruption on each at 0, 1.5 and 3 s, again when it runs out (18.5, 20,
 //	21.5 s): 18 + 8 ticks of 38 = 988
-//	Hellfire at 4.5 s for the six ticks the health above 60 % pays for
-//	(600 of 1500, 100 a tick): 6 * 47.5 * 3 = 855
+//	Hellfire at 4.5 s for the six ticks the health above 40 % pays for
+//	(600 of 1000, 100 a tick): 6 * 47.5 * 3 = 855
 //	Rain of Fire at 10.5 s and at 23 s, the second cut after 7 of its 8 s:
 //	(1 + 7/8) * 4 * 38 * 3 = 855
 //	together 2698 / 30 s = 89.9333 dps
@@ -103,13 +106,13 @@ func TestPackSituation(t *testing.T) {
 	}
 	almost(t, "Hellfire", burn.Value, 28.5, 1e-9)
 	almost(t, "Hellfire's share of the time", burn.SharePct, 20, 1e-9)
-	almost(t, "the health it stops at", burn.FloorPct, 60, 1e-9)
+	almost(t, "the health it stops at", burn.FloorPct, 40, 1e-9)
 	rain := step(pack, "filler", 5740)
 	if rain == nil || !rain.Area || rain.Casts != 2 || rain.HealthPerSec != 0 {
 		t.Fatalf("Rain of Fire: %+v", rain)
 	}
 	almost(t, "Rain of Fire", rain.Value, 28.5, 1e-9)
-	almost(t, "health left", pack.EndHPPct, 60, 1e-9)
+	almost(t, "health left", pack.EndHPPct, 40, 1e-9)
 	if len(pack.Skipped) != 1 || pack.Skipped[0].SpellID != 695 {
 		t.Fatalf("left out: %+v", pack.Skipped)
 	}
@@ -119,7 +122,7 @@ func TestPackSituation(t *testing.T) {
 	if e := pack.Timeline[0]; e.Kind != "dot" || e.N != 3 || pack.Timeline[1].Kind != "burn" || pack.Timeline[1].T != 4.5 {
 		t.Errorf("timeline: %+v", pack.Timeline)
 	}
-	if e := pack.Timeline[2]; e.Kind != "filler" || e.SpellID != 5740 || e.HPPct != 60 {
+	if e := pack.Timeline[2]; e.Kind != "filler" || e.SpellID != 5740 || e.HPPct != 40 {
 		t.Errorf("after the channel: %+v", e)
 	}
 
@@ -137,10 +140,10 @@ func TestPackSituation(t *testing.T) {
 	// Without the health for a third of the channel Hellfire stays out, and
 	// the guide says what it would have brought: nothing.
 	in := areaInput()
-	in.Character.Stats.HealthMax = 1000
+	in.Character.Stats.HealthMax = 700
 	weak := situation(t, Run(in), "pack")
 	if step(weak, "burn", 1949) != nil {
-		t.Errorf("Hellfire with 400 health to spend: %+v", weak.Steps)
+		t.Errorf("Hellfire with 420 health to spend: %+v", weak.Steps)
 	}
 
 	// A warlock without the two plays the pack with what there is.

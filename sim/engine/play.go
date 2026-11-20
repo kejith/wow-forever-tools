@@ -98,7 +98,8 @@ type player struct {
 
 	conv        *converter
 	netHealth   bool
-	healthFloor float64
+	healthFloor float64 // Life Tap keeps the health above it
+	burnFloor   float64 // a channel that costs health stops there
 	wandDPS     float64
 	regenCast   float64
 	regenIdle   float64
@@ -175,6 +176,7 @@ func newPlayer(st *State, fight Fight, actions []Action, metric string) *player 
 	p.conv = converterOf(st, fight, actions)
 	p.netHealth = metric != "dps"
 	p.healthFloor = (1 - healthUseFraction) * st.HealthMax
+	p.burnFloor = (1 - burnUseFraction) * st.HealthMax
 	p.wandDPS = WandDPS(st, tgt)
 	p.regenCast, p.regenIdle = st.Regen(fight)
 	// What the full rotation drains per second beyond the regeneration. When
@@ -374,12 +376,12 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 		spend(sh.ManaCost, sh.ExecuteSec, s == filler && s.act.Spell.Channeled)
 	}
 	// burnTicks is how many ticks of the channel that costs health are worth
-	// starting now: what the health above the floor pays for and the fight
+	// starting now: what the health above its floor pays for and the fight
 	// has time for. A channel pays its mana in full at the start, so less
 	// than a third of it is not started.
 	burnTicks := func() float64 {
 		sh := &p.burn.shape
-		ticks := math.Min(sh.Ticks, math.Floor((health-p.healthFloor)/sh.SelfTick))
+		ticks := math.Min(sh.Ticks, math.Floor((health-p.burnFloor)/sh.SelfTick))
 		ticks = math.Min(ticks, math.Ceil((fight.Seconds-t)/sh.PeriodSec))
 		if ticks < math.Ceil(sh.Ticks*minBurnShare) {
 			return 0

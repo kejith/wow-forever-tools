@@ -158,9 +158,20 @@ func KeptOn(enemies int, durationSec, cooldownSec float64) int {
 // full health bar.
 const healthUseFraction = 0.4
 
-// HealthFloorPct is the share of the health pool a played fight keeps, in
-// percent: Life Tap and Hellfire stop there.
+// HealthFloorPct is the share of the health pool a played fight keeps from
+// Life Tap, in percent.
 const HealthFloorPct = (1 - healthUseFraction) * 100
+
+// burnUseFraction is how much of the health pool a channel that burns its
+// caster (Hellfire) may take: more than Life Tap, because it is cast against
+// several enemies, where a group and its healer are the rule. In the combat
+// log of 2026-11-20 (mostly a dungeon run) the health went below 60 % in
+// twelve of the 22 fights with Hellfire and below 40 % in four.
+const burnUseFraction = 0.6
+
+// BurnFloorPct is the share of the health pool at which a played fight
+// stops such a channel, in percent.
+const BurnFloorPct = (1 - burnUseFraction) * 100
 
 const lifeTapGCDSec = 1.5
 

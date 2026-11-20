@@ -68,8 +68,9 @@ type Wand struct {
 }
 
 // LifeTap is the character's known Life Tap rank, numbers parsed from the
-// spell text by the Python side (base values, no spell-power scaling: the
-// Forever scaling is unmeasured, see sim/data/overrides.json).
+// spell text by the Python side: the amounts at the sheet's spirit. Spell
+// power does not change them (combat log of 2026-11-20: the same mana per
+// cast at 209 and at 231 spell power).
 type LifeTap struct {
 	HealthPerCast float64 `json:"healthPerCast"`
 	ManaPerCast   float64 `json:"manaPerCast"`
@@ -78,6 +79,8 @@ type LifeTap struct {
 // lifeTapPerSpirit is how much one point of spirit adds to the health a
 // Life Tap takes and the mana it gives. Source: the spell's description in
 // the client's Spell table, "Converts ($m1+$SPI*1) Health into ... Mana".
+// The combat log of 2026-11-20 agrees: with Improved Life Tap 2/2 a cast
+// gave 510 mana at 120 spirit, 538 with 23 more and 552 with 35 more.
 const lifeTapPerSpirit = 1.0
 
 // State is the character at the moment of evaluation: snapshot sheet totals
