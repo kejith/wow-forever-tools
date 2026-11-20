@@ -671,9 +671,9 @@ def main() -> None:
     ap.add_argument("--top", type=int, default=3, help="suggestions per slot")
     ap.add_argument("--profile", choices=sorted(PROFILES), default="", help="default: leveling below level 60")
     ap.add_argument("--sort", choices=["gain", "price"], default="gain", help="price = points per gold")
-    ap.add_argument("--engine", choices=["auto", "on", "off"], default="off",
+    ap.add_argument("--engine", choices=["auto", "on", "off"], default="auto",
                     help="rate with the combat simulation (sim/simforever) instead of the weight scale; "
-                         "auto falls back to the scale when the engine cannot run")
+                         "auto (default) falls back to the scale when the engine cannot run")
     ap.add_argument("--fight-seconds", type=float, default=60, help="fight length for the combat model")
     ap.add_argument("--target-delta", type=int, default=-1, choices=[-1, 0, 1, 2, 3],
                     help="enemy levels above you for the combat model (default: from the profile)")

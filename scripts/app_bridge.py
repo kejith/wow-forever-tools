@@ -134,6 +134,10 @@ def main() -> None:
     ap.add_argument("--preview", type=int, default=4)
     ap.add_argument("--profile", choices=["", *sorted(upgrades.PROFILES)], default="")
     ap.add_argument("--sort", choices=["gain", "price"], default="gain")
+    ap.add_argument("--engine", choices=["auto", "on", "off"], default="auto",
+                    help="upgrades: combat engine (auto falls back to the weight scale)")
+    ap.add_argument("--fight-seconds", type=float, default=60)
+    ap.add_argument("--target-delta", type=int, default=-1)
     ap.add_argument("--profession", default="", help="recipes: part of the profession name or its skill line ID")
     ap.add_argument("--ids", default="", help="icons: comma-separated item IDs")
     ap.add_argument("--write", action="store_true", help="ingame: write the data file into the addon folder")
@@ -165,7 +169,8 @@ def main() -> None:
         elif a.command == "writs":
             r = writs.compute(a.wow, a.char, a.top, a.owned_at_ah_price)
         else:
-            r = upgrades.compute(a.wow, a.char, 0, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort)
+            r = upgrades.compute(a.wow, a.char, 0, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort,
+                                 engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta)
         r["generated"] = datetime.datetime.now().timestamp()
         r["language"] = language
     except (FileNotFoundError, LookupError, ValueError, RuntimeError) as e:

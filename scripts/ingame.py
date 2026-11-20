@@ -106,24 +106,30 @@ def add_tip(tips: dict, item_id, line: str) -> None:
 # ---------- Lists ----------
 
 def upgrade_list(r: dict, tips: dict) -> dict | None:
-    """AH upgrades: the package for the budget (the shopping list), then the candidates per slot."""
+    """AH upgrades: the package for the budget (the shopping list), then the candidates per slot.
+    With the combat engine the gains are DPS, with the weight scale points; the texts say which."""
+    eng = r.get("engine")
     sections = []
     package = r.get("package") or {}
     bought = {it["id"] for it in package.get("items") or []}
     if bought:
         rows = [row(it["id"], it["name"], it.get("quality"), info=f"{clean(it.get('slotName'))} {dec(it['gain'], True)}",
                     price=it["price"], shop=True) for it in package["items"]]
+        gain, m = dec(package.get("gain") or 0, True), coin(package.get("cost"))
         sections.append(section(tr("Best package for the budget"),
-                                tr("{gain} points for {m}", gain=dec(package.get("gain") or 0, True),
-                                   m=coin(package.get("cost"))), rows))
+                                tr("{gain} DPS for {m}", gain=gain, m=m) if eng
+                                else tr("{gain} points for {m}", gain=gain, m=m), rows))
     for s in r.get("slots") or []:
         rows = []
         for rank, c in enumerate(s.get("candidates") or [], 1):
             later = " · " + tr("from level {level}", level=c["reqLevel"]) if c.get("soon") else ""
             rows.append(row(c["id"], c["name"], c.get("quality"), info=dec(c["gain"], True) + later, price=c["price"]))
-            add_tip(tips, c["id"], tr("Upgrade for {slot}: {gain} points, no. {rank} in the AH scan ({m})",
-                                      slot=clean(s.get("slotName")), gain=dec(c["gain"], True), rank=rank,
-                                      m=coin(c["price"])))
+            slot, gain, m = clean(s.get("slotName")), dec(c["gain"], True), coin(c["price"])
+            add_tip(tips, c["id"],
+                    tr("Upgrade for {slot}: {gain} DPS, no. {rank} in the AH scan ({m})",
+                       slot=slot, gain=gain, rank=rank, m=m) if eng
+                    else tr("Upgrade for {slot}: {gain} points, no. {rank} in the AH scan ({m})",
+                            slot=slot, gain=gain, rank=rank, m=m))
             if c["id"] in bought:
                 add_tip(tips, c["id"], tr("Part of the best package for your budget"))
         if rows:
@@ -136,7 +142,11 @@ def upgrade_list(r: dict, tips: dict) -> dict | None:
         sections.append(section(tr("With a special effect"), tr("the scale cannot rate these"), review))
     if not sections:
         return None
-    note = tr("Budget {m} · scale: {profile}", m=coin(r.get("budget")), profile=clean(r.get("profileLabel")))
+    if eng:
+        note = tr("Budget {m} · combat model: {dps} DPS now", m=coin(r.get("budget")),
+                  dps=dec(eng.get("value") or 0))
+    else:
+        note = tr("Budget {m} · scale: {profile}", m=coin(r.get("budget")), profile=clean(r.get("profileLabel")))
     return {"key": "upgrades", "title": tr("AH upgrades"), "note": note, "sections": sections}
 
 
@@ -326,7 +336,7 @@ def character_data(wow: str, path: str, prices: dict | None) -> tuple[str | None
         return [writ_list(r, tips), crate_list(r, tips)]
 
     if who.get("classFile") == "WARLOCK":
-        part("upgrades", lambda: upgrade_list(upgrades.compute(wow, folder, prices=prices), tips))
+        part("upgrades", lambda: upgrade_list(upgrades.compute(wow, folder, prices=prices, engine="auto"), tips))
     part("writs", writ_lists)
     part("recipes", lambda: recipe_list(recipes.compute(wow, folder, prices=prices), tips, vendor))
     part("consumables", lambda: consumable_list(consumables.compute(wow, folder, 3), tips))

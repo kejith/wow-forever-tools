@@ -272,6 +272,10 @@ TEXT = {
     "Level {n}": "Stufe {n}",
     "Best package for the budget": "Bestes Paket fürs Budget",
     "{gain} points for {m}": "{gain} Punkte für {m}",
+    "{gain} DPS for {m}": "{gain} DPS für {m}",
+    "Upgrade for {slot}: {gain} DPS, no. {rank} in the AH scan ({m})":
+        "Upgrade für {slot}: {gain} DPS, Nr. {rank} im AH-Scan ({m})",
+    "Budget {m} · combat model: {dps} DPS now": "Budget {m} · Kampfmodell: {dps} DPS jetzt",
     "Upgrade for {slot}: {gain} points, no. {rank} in the AH scan ({m})":
         "Upgrade für {slot}: {gain} Punkte, Nr. {rank} im AH-Scan ({m})",
     "Part of the best package for your budget": "Teil des besten Pakets für dein Budget",

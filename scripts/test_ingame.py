@@ -112,6 +112,13 @@ def test_upgrade_list():
                           "Part of the best package for your budget"]
     assert "no. 2" in tips[9002][0] and 9004 not in tips
     assert g.upgrade_list({"slots": [], "review": []}, {}) is None
+
+    # With the combat engine the same lists speak of DPS instead of points.
+    tips = {}
+    one = g.upgrade_list(dict(UPGRADES, engine={"metric": "dps", "value": 98.7}), tips)
+    assert "combat model" in one["note"] and "98.7 DPS" in one["note"]
+    assert sections(one)["Best package for the budget"]["note"] == "+12.5 DPS for {m:90000}"
+    assert tips[9001][0] == "Upgrade for Chest: +12.5 DPS, no. 1 in the AH scan ({m:90000})"
     print("ok test_upgrade_list")
 
 
