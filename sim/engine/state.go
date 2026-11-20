@@ -90,9 +90,19 @@ type State struct {
 	HPPerSta   float64
 	HastePct   float64
 	RangedCrit float64
-	Wand       Wand
-	LifeTap    LifeTap
-	Mods       Mods
+	// Mana regeneration while not casting, per second: base + spirit * factor.
+	// The per-class constants are Classic approximations (see run.buildState);
+	// talents decide how much of it continues while casting (Mods.CastingRegenPct).
+	RegenBasePS       float64
+	RegenSpiritFactor float64
+	Wand              Wand
+	LifeTap           LifeTap
+	Mods              Mods
+}
+
+// RegenPS is the full mana regeneration per second outside the five-second rule.
+func (st *State) RegenPS() float64 {
+	return st.RegenBasePS + st.Spirit*st.RegenSpiritFactor
 }
 
 // Target is the enemy the rotation runs against.
@@ -134,6 +144,10 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 				s.SP[sc] += v
 			}
 			s.Healing += v
+		case "spDamage": // "damage by all spells", no healing
+			for _, sc := range magicSchools {
+				s.SP[sc] += v
+			}
 		case "spHoly":
 			s.SP[Holy] += v
 		case "spFire":
@@ -164,6 +178,12 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 			s.HealthMax += v * s.HPPerSta
 		case "spi":
 			s.Spirit += v
+			if p := s.Mods.SPPerSpirit; p > 0 { // Spiritual Guidance: spirit feeds spell power
+				for _, sc := range magicSchools {
+					s.SP[sc] += v * p
+				}
+				s.Healing += v * p
+			}
 		case "mp5":
 			s.MP5 += v
 		case "hp5":

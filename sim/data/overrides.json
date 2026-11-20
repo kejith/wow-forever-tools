@@ -22,6 +22,43 @@
       "kind": "dot_crit",
       "schools": ["shadow"],
       "source": "SoD rune with the same spell id lets Shadow DoTs crit; Forever unverified"
+    },
+    {
+      "name": "Meditation",
+      "spells": [14521, 14776, 14777],
+      "kind": "casting_regen_pct",
+      "perRank": 5,
+      "source": "Classic value (5% per rank of spirit regeneration continues while casting); Forever unmeasured"
+    },
+    {
+      "name": "Shadowform",
+      "spells": [15473],
+      "kind": "school_damage_pct",
+      "schools": ["shadow"],
+      "perRank": 15,
+      "source": "Classic value (+15% shadow damage); the model assumes the form is active for damage rotations"
+    },
+    {
+      "name": "Shadow Weaving",
+      "spells": [15257, 15331, 15332, 15333, 15334],
+      "kind": "school_damage_pct",
+      "schools": ["shadow"],
+      "perRank": 3,
+      "source": "Classic debuff (3% per rank at 5 stacks); the model assumes the stacks are kept up"
+    },
+    {
+      "name": "Spiritual Guidance",
+      "spells": [14901, 15028, 15029, 15030, 15031],
+      "kind": "sp_per_spirit",
+      "perRank": 0.05,
+      "source": "Classic value (5% of spirit per rank as spell damage and healing); the character sheet already includes it, so the model applies it only to spirit changes from items"
+    },
+    {
+      "name": "Wand Specialization (Priest)",
+      "spells": [14524, 14525, 14526, 14527, 14528],
+      "kind": "wand_pct",
+      "perRank": 5,
+      "source": "Classic value (+5% wand damage per rank)"
     }
   ]
 }

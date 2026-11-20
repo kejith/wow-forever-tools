@@ -126,19 +126,21 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		rotMPS += p.mps
 	}
 
-	// Mana budget: the pool spread over the fight plus regeneration that
-	// works while casting. Spirit regeneration under the five-second rule
-	// counts 0 for damage rotations in Stage 1 (healers refine this in M3).
+	// Mana budget: the pool spread over the fight, gear mp5, and the share
+	// of spirit regeneration that continues while casting (Meditation).
+	// The model casts for the whole fight, so the rest of the spirit
+	// regeneration counts 0 under the five-second rule.
+	regenPS := st.MP5/5 + st.RegenPS()*st.Mods.CastingRegenPct/100
 	budgetPS := 0.0
 	if fight.Seconds > 0 {
-		budgetPS = st.ManaMax/fight.Seconds + st.MP5/5
+		budgetPS = st.ManaMax/fight.Seconds + regenPS
 	}
 	m.ManaSpentPS = rotMPS
 	m.ManaBudgetPS = budgetPS
 
 	// Time to OOM at the full rotation without conversions.
-	if rotMPS > st.MP5/5 && rotMPS > 0 {
-		t := st.ManaMax / (rotMPS - st.MP5/5)
+	if rotMPS > regenPS && rotMPS > 0 {
+		t := st.ManaMax / (rotMPS - regenPS)
 		m.TTOOMSec = &t
 	}
 
@@ -221,10 +223,9 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	case "hps":
 		m.Value = m.HPS
 	case "ttoom":
-		if m.TTOOMSec != nil {
+		m.Value = 3600 // a sustainable rotation counts as an hour, so gains stay comparable
+		if m.TTOOMSec != nil && *m.TTOOMSec < 3600 {
 			m.Value = *m.TTOOMSec
-		} else {
-			m.Value = fight.Seconds
 		}
 	default:
 		m.Value = m.DPS

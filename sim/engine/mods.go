@@ -40,7 +40,10 @@ type Mods struct {
 	HitFlatByBase   map[int]float64     // base spell id -> extra hit percent (e.g. Suppression)
 	DotCritSchools  uint32              // school mask whose DoTs may crit (e.g. Pandemic)
 	LifeTapPct      float64             // Improved Life Tap: percent more mana per tap
-	HealingPct      float64             // percent more healing done (M3)
+	HealingPct      float64             // percent more healing done
+	CastingRegenPct float64             // Meditation: percent of spirit regeneration that continues while casting
+	WandPct         float64             // Wand Specialization: percent more wand damage
+	SPPerSpirit     float64             // Spiritual Guidance: spell power and healing per point of spirit
 }
 
 // flat sums the flat modifiers of an op for a spell.

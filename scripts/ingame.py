@@ -41,6 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import consumables  # noqa: E402
 import i18n  # noqa: E402
 import recipes  # noqa: E402
+import simengine  # noqa: E402
 import upgrades  # noqa: E402
 import writs  # noqa: E402
 from i18n import tr  # noqa: E402
@@ -109,6 +110,7 @@ def upgrade_list(r: dict, tips: dict) -> dict | None:
     """AH upgrades: the package for the budget (the shopping list), then the candidates per slot.
     With the combat engine the gains are DPS, with the weight scale points; the texts say which."""
     eng = r.get("engine")
+    healer = bool(eng) and eng.get("metric") == "hps"
     sections = []
     package = r.get("package") or {}
     bought = {it["id"] for it in package.get("items") or []}
@@ -116,20 +118,29 @@ def upgrade_list(r: dict, tips: dict) -> dict | None:
         rows = [row(it["id"], it["name"], it.get("quality"), info=f"{clean(it.get('slotName'))} {dec(it['gain'], True)}",
                     price=it["price"], shop=True) for it in package["items"]]
         gain, m = dec(package.get("gain") or 0, True), coin(package.get("cost"))
-        sections.append(section(tr("Best package for the budget"),
-                                tr("{gain} DPS for {m}", gain=gain, m=m) if eng
-                                else tr("{gain} points for {m}", gain=gain, m=m), rows))
+        if healer:
+            note = tr("{gain} HPS for {m}", gain=gain, m=m)
+        elif eng:
+            note = tr("{gain} DPS for {m}", gain=gain, m=m)
+        else:
+            note = tr("{gain} points for {m}", gain=gain, m=m)
+        sections.append(section(tr("Best package for the budget"), note, rows))
     for s in r.get("slots") or []:
         rows = []
         for rank, c in enumerate(s.get("candidates") or [], 1):
             later = " · " + tr("from level {level}", level=c["reqLevel"]) if c.get("soon") else ""
             rows.append(row(c["id"], c["name"], c.get("quality"), info=dec(c["gain"], True) + later, price=c["price"]))
             slot, gain, m = clean(s.get("slotName")), dec(c["gain"], True), coin(c["price"])
-            add_tip(tips, c["id"],
-                    tr("Upgrade for {slot}: {gain} DPS, no. {rank} in the AH scan ({m})",
-                       slot=slot, gain=gain, rank=rank, m=m) if eng
-                    else tr("Upgrade for {slot}: {gain} points, no. {rank} in the AH scan ({m})",
-                            slot=slot, gain=gain, rank=rank, m=m))
+            if healer:
+                tip = tr("Upgrade for {slot}: {gain} HPS, no. {rank} in the AH scan ({m})",
+                         slot=slot, gain=gain, rank=rank, m=m)
+            elif eng:
+                tip = tr("Upgrade for {slot}: {gain} DPS, no. {rank} in the AH scan ({m})",
+                         slot=slot, gain=gain, rank=rank, m=m)
+            else:
+                tip = tr("Upgrade for {slot}: {gain} points, no. {rank} in the AH scan ({m})",
+                         slot=slot, gain=gain, rank=rank, m=m)
+            add_tip(tips, c["id"], tip)
             if c["id"] in bought:
                 add_tip(tips, c["id"], tr("Part of the best package for your budget"))
         if rows:
@@ -142,7 +153,10 @@ def upgrade_list(r: dict, tips: dict) -> dict | None:
         sections.append(section(tr("With a special effect"), tr("the scale cannot rate these"), review))
     if not sections:
         return None
-    if eng:
+    if healer:
+        note = tr("Budget {m} · combat model: {hps} HPS now", m=coin(r.get("budget")),
+                  hps=dec(eng.get("value") or 0))
+    elif eng:
         note = tr("Budget {m} · combat model: {dps} DPS now", m=coin(r.get("budget")),
                   dps=dec(eng.get("value") or 0))
     else:
@@ -335,7 +349,7 @@ def character_data(wow: str, path: str, prices: dict | None) -> tuple[str | None
         r = writs.compute(wow, folder, prices=prices)
         return [writ_list(r, tips), crate_list(r, tips)]
 
-    if who.get("classFile") == "WARLOCK":
+    if simengine.supported(who.get("classFile")):
         part("upgrades", lambda: upgrade_list(upgrades.compute(wow, folder, prices=prices, engine="auto"), tips))
     part("writs", writ_lists)
     part("recipes", lambda: recipe_list(recipes.compute(wow, folder, prices=prices), tips, vendor))

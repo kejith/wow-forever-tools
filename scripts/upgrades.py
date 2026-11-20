@@ -471,9 +471,9 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
 
     # The combat engine, when asked for: "on" must work, "auto" falls back to the weight scale.
     eng = None
+    class_file = (c.get("character") or {}).get("classFile") or ""
     if engine != "off":
         try:
-            class_file = (c.get("character") or {}).get("classFile") or ""
             if not simengine.supported(class_file):
                 raise LookupError(tr("The combat engine does not model this class yet ({cls}).",
                                      cls=class_file or "?"))
@@ -489,6 +489,19 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             if engine == "on":
                 raise
             eng = None
+    if eng is None and simengine.supported(class_file) and class_file != "WARLOCK":
+        # The weight scale knows only the warlock; a class the engine models must not fall back to it.
+        raise LookupError(tr("This class is rated by the combat engine (simforever), which did not run."))
+
+    # What the valuer sees: the engine keeps healing and per-school damage apart, the scale does not.
+    if eng:
+        def norm_value(rec, ranged=False):
+            return simengine.norm_item(rec, ranged, ratings, PCT_LINE)
+        eq_value = {s: norm_value(e, s == 18) for s, e in equipped.items() if s}
+    else:
+        def norm_value(rec, ranged=False):
+            return norm_stats(rec, ranged, ratings)
+        eq_value = eq
 
     def swap(remove: list[int], adds: list[dict]) -> float:
         """Change of the set's value when the items in the `remove` slots make room for `adds`."""
@@ -503,7 +516,7 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         """Gain per evaluation (key, added stat dicts, emptied slots): the engine's metric change when it
         runs, otherwise the weight scale's point change. One engine run values the whole batch."""
         if eng:
-            return eng.batch([(k, simengine.delta(adds, [eq.get(s, {}) for s in rm])) for k, adds, rm in evals])
+            return eng.batch([(k, simengine.delta(adds, [eq_value.get(s, {}) for s in rm])) for k, adds, rm in evals])
         return {k: swap(list(rm), list(adds)) for k, adds, rm in evals}
 
     pool, review = [], []
@@ -529,7 +542,7 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         price = e["m"]
         if price > budget:
             continue
-        n = norm_stats(it, slots == [18], ratings)
+        n = norm_value(it, slots == [18])
         if slots == [16, 17]:
             slot, variants = 16, [[16, 17]]
         elif len(slots) == 2:  # ring or trinket: like Pawn, against the weaker of the two (the bigger gain)
@@ -639,16 +652,24 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             scale_rows.append(dict(label=row.get("label") or row.get("kind") or "?",
                                    weight=round(row.get("value") or 0, 1), note=note))
         fight = eng.bundle["fight"]
-        weights_text = tr("Combat model: {dps:.1f} DPS against +{target} levels, {seconds:g}s fight",
-                          dps=b.get("value") or 0, target=fight["targetDelta"], seconds=fight["seconds"])
-        if b.get("ttoomSeconds") is not None:
+        value, metric_name = b.get("value") or 0, b.get("metric")
+        if metric_name == "hps":
+            weights_text = tr("Combat model: {hps:.1f} HPS over a {seconds:g}s fight",
+                              hps=value, seconds=fight["seconds"])
+        elif metric_name == "ttoom":
+            weights_text = tr("Combat model: the mana lasts {value:.0f}s at full healing", value=value)
+        else:
+            weights_text = tr("Combat model: {dps:.1f} DPS against +{target} levels, {seconds:g}s fight",
+                              dps=value, target=fight["targetDelta"], seconds=fight["seconds"])
+        if metric_name != "ttoom" and b.get("ttoomSeconds") is not None:
             weights_text += tr(", mana for {ttoom:.0f}s", ttoom=b["ttoomSeconds"])
         if eng.spellbook_source == "assumed":
             weights_text += tr(", spellbook assumed from level and talents")
         engine_out = dict(version=eng.version, metric=b.get("metric"), value=b.get("value"),
                           ttoomSeconds=b.get("ttoomSeconds"), spellbookSource=eng.spellbook_source,
                           manaSpentPs=b.get("manaSpentPs"), manaBudgetPs=b.get("manaBudgetPs"),
-                          fight=fight)
+                          fight=fight, metrics=simengine.METRICS.get(class_file) or ["dps"],
+                          spec=simengine.spec_of(c))
 
     review.sort(key=lambda r: r["price"])
     return dict(
@@ -677,7 +698,8 @@ def main() -> None:
     ap.add_argument("--fight-seconds", type=float, default=60, help="fight length for the combat model")
     ap.add_argument("--target-delta", type=int, default=-1, choices=[-1, 0, 1, 2, 3],
                     help="enemy levels above you for the combat model (default: from the profile)")
-    ap.add_argument("--metric", default="", help="metric of the combat model (default: per class)")
+    ap.add_argument("--metric", choices=["", "dps", "hps", "ttoom"], default="",
+                    help="metric of the combat model (default: per class and spec)")
     ap.add_argument("--json", action="store_true", help="print the result as JSON (for the app)")
     i18n.add_argument(ap)
     a = ap.parse_args()
@@ -715,14 +737,15 @@ def main() -> None:
         print(f"   {row['label']:24} {row['weight']:5.2f}  {row['note']}")
     print(tr("Prices are the lowest buyout at the scan.") + "\n")
     p = r["package"]
+    unit = {"dps": "DPS", "hps": "HPS", "ttoom": "s"}.get((r.get("engine") or {}).get("metric") or "", tr("points"))
     if p["items"]:
         pct = f" ({p['gainPct']:+d}%)" if p["gainPct"] is not None else ""
-        print("== " + tr("Best package for {budget}: {gain} points{pct} for {cost}", budget=money(r["budget"]),
-                         gain=f"{p['gain']:+.1f}", pct=pct, cost=money(p["cost"])))
+        print("== " + tr("Best package for {budget}: {gain} {unit}{pct} for {cost}", budget=money(r["budget"]),
+                         gain=f"{p['gain']:+.1f}", unit=unit, pct=pct, cost=money(p["cost"])))
         for c in p["items"]:
             print(f"   {c['slotName']:10} {line(c)}")
-            print(f"   {'':10} " + tr("up to here {cost} for {gain} points", cost=money(c["cumCost"]),
-                                      gain=f"{c['cumGain']:+.1f}")
+            print(f"   {'':10} " + tr("up to here {cost} for {gain} {unit}", cost=money(c["cumCost"]),
+                                      gain=f"{c['cumGain']:+.1f}", unit=unit)
                   + (tr(", replaces {items}", items=" + ".join(c["replaces"])) if c["replaces"] else ""))
         print()
     for s in r["slots"]:

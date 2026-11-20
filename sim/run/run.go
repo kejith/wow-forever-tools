@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/kejith/wow-forever-tools/sim/catalog"
+	"github.com/kejith/wow-forever-tools/sim/classes/priest"
 	"github.com/kejith/wow-forever-tools/sim/classes/warlock"
 	"github.com/kejith/wow-forever-tools/sim/engine"
 	"github.com/kejith/wow-forever-tools/sim/talents"
@@ -86,18 +87,53 @@ type Output struct {
 	Error           string            `json:"error,omitempty"`
 }
 
-// Supported reports whether the engine models a class yet.
-func Supported(classFile string) bool {
-	return classFile == "WARLOCK"
+// Metrics lists what each modeled class can optimize for; the first entry
+// is the default for a damage spec (scripts/simengine.py mirrors this list).
+var Metrics = map[string][]string{
+	"WARLOCK": {"dps"},
+	"PRIEST":  {"hps", "ttoom", "dps"},
 }
 
-// DefaultMetric is the metric a class optimizes for by default.
-func DefaultMetric(classFile string) string {
-	switch classFile {
-	case "WARLOCK":
-		return warlock.DefaultMetric
+// regen is the mana regeneration while not casting, per second:
+// base + spirit * factor. Classic approximations (per 2-second tick:
+// priest 13 + spirit/4, warlock 8 + spirit/4), unmeasured in Forever.
+var regen = map[string][2]float64{
+	"WARLOCK": {4, 0.125},
+	"PRIEST":  {6.5, 0.125},
+}
+
+// Supported reports whether the engine models a class yet.
+func Supported(classFile string) bool {
+	_, ok := Metrics[classFile]
+	return ok
+}
+
+// DefaultMetric is the metric a class and spec optimize for by default.
+func DefaultMetric(classFile, spec string) string {
+	if classFile == "PRIEST" && spec != "shadow" {
+		return "hps"
 	}
 	return "dps"
+}
+
+func metricAllowed(classFile, metric string) bool {
+	for _, m := range Metrics[classFile] {
+		if m == metric {
+			return true
+		}
+	}
+	return false
+}
+
+// rotations returns the rotation candidates of a class for a metric.
+func rotations(classFile, metric string, cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
+	switch classFile {
+	case "WARLOCK":
+		return [][]engine.Action{warlock.Rotation(cat, known, level)}
+	case "PRIEST":
+		return priest.Rotations(metric, cat, known, level)
+	}
+	return nil
 }
 
 // Run evaluates one input bundle.
@@ -151,9 +187,31 @@ func Run(in Input) Output {
 
 	metric := in.Metric
 	if metric == "" {
-		metric = DefaultMetric(in.Character.ClassFile)
+		metric = DefaultMetric(in.Character.ClassFile, in.Character.SpecOverride)
 	}
-	actions := warlock.Rotation(cat, known, in.Character.Level)
+	if !metricAllowed(in.Character.ClassFile, metric) {
+		out.Error = fmt.Sprintf("metric %s is not modeled for %s", metric, in.Character.ClassFile)
+		return out
+	}
+	out.Spec = in.Character.SpecOverride
+
+	rots := rotations(in.Character.ClassFile, metric, cat, known, in.Character.Level)
+	if len(rots) == 0 {
+		out.Error = "no castable rotation: the spellbook has none of the modeled spells"
+		return out
+	}
+	// Several candidates (healer: every known rank of each heal) are ranked
+	// by sustained healing under the mana budget; that is how downranking
+	// enters the model. The chosen rotation then stays fixed for the deltas.
+	actions := rots[0]
+	if len(rots) > 1 {
+		best := -1.0
+		for _, r := range rots {
+			if m := engine.Evaluate(st, in.Fight, r, "hps"); m.HPS > best {
+				best, actions = m.HPS, r
+			}
+		}
+	}
 
 	baseline := engine.Evaluate(st, in.Fight, actions, metric)
 	out.Baseline = &baseline
@@ -189,6 +247,9 @@ func buildState(ch Character, mods engine.Mods) *engine.State {
 		Wand:       ch.Stats.Wand,
 		LifeTap:    ch.Stats.LifeTap,
 		Mods:       mods,
+	}
+	if r, ok := regen[ch.ClassFile]; ok {
+		st.RegenBasePS, st.RegenSpiritFactor = r[0], r[1]
 	}
 	for name, v := range ch.Stats.SpellDamage {
 		if s := engine.SchoolByName(name); s >= 0 {

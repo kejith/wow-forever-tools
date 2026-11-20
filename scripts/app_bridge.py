@@ -138,6 +138,8 @@ def main() -> None:
                     help="upgrades: combat engine (auto falls back to the weight scale)")
     ap.add_argument("--fight-seconds", type=float, default=60)
     ap.add_argument("--target-delta", type=int, default=-1)
+    ap.add_argument("--metric", choices=["", "dps", "hps", "ttoom"], default="",
+                    help="upgrades: metric of the combat model (default: per class and spec)")
     ap.add_argument("--profession", default="", help="recipes: part of the profession name or its skill line ID")
     ap.add_argument("--ids", default="", help="icons: comma-separated item IDs")
     ap.add_argument("--write", action="store_true", help="ingame: write the data file into the addon folder")
@@ -170,7 +172,8 @@ def main() -> None:
             r = writs.compute(a.wow, a.char, a.top, a.owned_at_ah_price)
         else:
             r = upgrades.compute(a.wow, a.char, 0, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort,
-                                 engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta)
+                                 engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta,
+                                 metric=a.metric)
         r["generated"] = datetime.datetime.now().timestamp()
         r["language"] = language
     except (FileNotFoundError, LookupError, ValueError, RuntimeError) as e:

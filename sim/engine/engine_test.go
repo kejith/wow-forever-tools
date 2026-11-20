@@ -125,6 +125,53 @@ func TestHitFloor(t *testing.T) {
 	almost(t, "capped hit", a, b, 1e-9)
 }
 
+// A channel occupies its full duration and deals its ticks: 3 ticks à
+// (15 + 0.15*100) = 90, hit 95%, DoTs do not crit.
+func TestResolveCastChanneled(t *testing.T) {
+	st := testState()
+	flay := &Spell{
+		ID: 15407, BaseID: 15407, Name: "Mind Flay", School: Shadow,
+		Channeled: true, DurationMs: 3000, Cost: Cost{Mana: 45},
+		Periodic: &Effect{BP: 15, Coeff: 0.15, PeriodMs: 1000},
+	}
+	r := ResolveCast(flay, st, NewTarget(20, 2), nil)
+	almost(t, "execute", r.ExecuteSec, 3, 1e-9)
+	almost(t, "damage", r.Damage, 85.5, 1e-9)
+}
+
+// Direct heals crit and use the healing bonus; they never miss.
+func TestResolveCastHeal(t *testing.T) {
+	st := testState()
+	st.Healing = 100
+	st.Crit[Holy] = 10
+	heal := &Spell{
+		ID: 2050, BaseID: 2050, Name: "Lesser Heal", School: Holy,
+		CastMs: 2500, Cost: Cost{Mana: 30}, IsHeal: true,
+		Direct: &Effect{BP: 50, Coeff: 0.4},
+	}
+	r := ResolveCast(heal, st, NewTarget(20, 3), nil)
+	almost(t, "healing", r.Healing, (50+0.4*100)*1.05, 1e-9)
+	almost(t, "no damage", r.Damage, 0, 1e-9)
+}
+
+// Meditation: spirit regeneration enters the budget while casting.
+func TestCastingRegen(t *testing.T) {
+	st := testState()
+	st.ManaMax = 1000
+	st.Spirit = 60
+	st.RegenBasePS = 6.5
+	st.RegenSpiritFactor = 0.125
+	st.Mods.CastingRegenPct = 15
+	m := Evaluate(st, Fight{Seconds: 60, TargetDelta: 2}, []Action{{Kind: "filler", Spell: bolt()}}, "dps")
+	// budget = 1000/60 + (6.5 + 7.5)*0.15 = 16.667 + 2.1
+	almost(t, "budget", m.ManaBudgetPS, 18.7667, 0.001)
+	// ttoom = 1000 / (140/3 - 2.1)
+	if m.TTOOMSec == nil {
+		t.Fatal("ttoom missing")
+	}
+	almost(t, "ttoom", *m.TTOOMSec, 1000/(140.0/3-2.1), 0.001)
+}
+
 // The Monte-Carlo seam: the mean of sampled casts approaches the expectation.
 func TestResolveCastSampledMean(t *testing.T) {
 	st := testState()

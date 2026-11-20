@@ -55,6 +55,11 @@ func ResolveCast(sp *Spell, st *State, tgt Target, rng *rand.Rand) CastResult {
 	if gcdSec > r.ExecuteSec {
 		r.ExecuteSec = gcdSec
 	}
+	if sp.Channeled && sp.DurationMs > 0 { // a channel occupies its full duration (not haste-scaled in Classic)
+		if chanSec := float64(sp.DurationMs) / 1000; chanSec > r.ExecuteSec {
+			r.ExecuteSec = chanSec
+		}
+	}
 
 	// Cost.
 	cost := sp.Cost.Mana + st.Mods.flat(OpCost, sp)
@@ -70,8 +75,8 @@ func ResolveCast(sp *Spell, st *State, tgt Target, rng *rand.Rand) CastResult {
 		power = st.Healing
 	}
 	dmgPct := (1 + st.Mods.SchoolDamagePct[sp.School]/100) * st.Mods.pct(OpDamage, sp)
-	if sp.IsHeal {
-		dmgPct = 1 + st.Mods.HealingPct/100
+	if sp.IsHeal { // talent spell mods (e.g. Spiritual Healing) hit heals through the same op
+		dmgPct = (1 + st.Mods.HealingPct/100) * st.Mods.pct(OpDamage, sp)
 	}
 	crit := st.Crit[sp.School] + st.Mods.flat(OpCrit, sp)
 	if crit < 0 {

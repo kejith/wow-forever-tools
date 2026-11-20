@@ -116,5 +116,5 @@ func WandDPS(st *State, tgt Target) float64 {
 	if crit < 0 {
 		crit = 0
 	}
-	return st.Wand.DPS * (1 - miss/100) * (1 + crit/100*WhiteCritBonus)
+	return st.Wand.DPS * (1 - miss/100) * (1 + crit/100*WhiteCritBonus) * (1 + st.Mods.WandPct/100)
 }

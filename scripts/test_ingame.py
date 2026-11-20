@@ -315,9 +315,11 @@ def test_payload_per_character():
     assert set(payload["chars"]) == {"Tester", "Healer"} and payload["locale"] == "enUS" and payload["version"] == g.VERSION
     lock, priest = payload["chars"]["Tester"], payload["chars"]["Healer"]
     assert [one["key"] for one in lock["lists"]] == ["upgrades", "writs", "crates", "consumables"]
-    assert [one["key"] for one in priest["lists"]] == ["writs", "crates", "consumables"], "the scale is the warlock's"
+    # Since the combat engine models the priest, the priest gets an upgrades list too (the faked
+    # upgrades.compute stands in for a successful engine run).
+    assert [one["key"] for one in priest["lists"]] == ["upgrades", "writs", "crates", "consumables"]
     assert lock["errors"] == {"recipes": "no recipes exported"}, "one failing part does not take the others with it"
-    assert lock["level"] == 46 and 9001 in lock["tips"] and 9001 not in priest["tips"]
+    assert lock["level"] == 46 and 9001 in lock["tips"] and 9001 in priest["tips"]
     assert payload["hash"] == g.digest(payload) == with_fakes(lambda: g.compute(wow))["hash"]
     assert list(with_fakes(lambda: g.compute(wow, "Healer"))["chars"]) == ["Healer"]
 

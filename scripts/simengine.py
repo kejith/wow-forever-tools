@@ -20,20 +20,74 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import icons  # noqa: E402
 from i18n import tr  # noqa: E402
 
-# Classes the engine models so far (sim/run/run.go must agree).
-SUPPORTED = {"WARLOCK"}
+# Classes the engine models and their metrics (sim/run/run.go must agree);
+# the first metric is the default for a damage spec.
+METRICS = {"WARLOCK": ["dps"], "PRIEST": ["hps", "ttoom", "dps"]}
+SUPPORTED = set(METRICS)
+# Talent tree order per class as the client shows it (the addon exports the
+# trees in that order); used to name the spec from where the points sit.
+TREES = {"WARLOCK": ["affliction", "demonology", "destruction"],
+         "PRIEST": ["discipline", "holy", "shadow"]}
 # Tables the engine reads from the shared cache (sim/catalog/catalog.go).
 TABLES = ["SpellClassOptions", "SpellMisc", "SpellEffect", "SpellCastTimes", "SpellDuration",
           "SpellPower", "SpellLevels", "SpellCooldowns", "SkillLineAbility", "SpellName"]
 WANDS_SKILL_ID = 228
-# Canonical scale keys (norm_stats) -> the engine's delta keys. Armor is
-# dropped: the damage metrics cannot see it.
-KEY_MAP = {"sp": "sp", "stamina": "sta", "intellect": "int", "spirit": "spi",
-           "mp5": "mp5", "hp5": "hp5", "wand_dps": "wandDps", "hit": "hit", "crit": "crit"}
+# ITEM_MOD stats (stat_key form) -> the engine's delta keys. Armor and
+# resistances are dropped: the modeled metrics cannot see them yet.
+ITEM_KEYS = {"spell_power": "sp", "spell_damage_done": "spDamage", "spell_healing_done": "healing",
+             "holy_damage_done": "spHoly", "fire_damage_done": "spFire", "nature_damage_done": "spNature",
+             "frost_damage_done": "spFrost", "shadow_damage_done": "spShadow", "arcane_damage_done": "spArcane",
+             "stamina": "sta", "intellect": "int", "spirit": "spi",
+             "mana_regeneration": "mp5", "health_regen": "hp5"}
 
 
 def supported(class_file: str | None) -> bool:
     return (class_file or "") in SUPPORTED
+
+
+def spec_of(c: dict) -> str:
+    """Names the spec from where the most talent points sit (the export lists
+    the trees in the client's tab order)."""
+    class_file = (c.get("character") or {}).get("classFile") or ""
+    names = TREES.get(class_file)
+    trees = (c.get("talents") or {}).get("class") or []
+    if not names or not trees:
+        return ""
+    spent = [t.get("spent") or 0 for t in trees]
+    if not any(spent):
+        return ""
+    best = max(range(len(spent)), key=lambda i: spent[i])
+    return names[best] if best < len(names) else ""
+
+
+def default_metric(class_file: str, spec: str) -> str:
+    if class_file == "PRIEST" and spec != "shadow":
+        return "hps"
+    return "dps"
+
+
+def norm_item(rec: dict | None, ranged: bool = False, ratings: dict | None = None,
+              pct_line: dict | None = None) -> dict:
+    """An item's stats as engine delta keys. Unlike the weight scale's
+    norm_stats this keeps healing, per-school damage and the split between
+    "damage done" and "damage and healing done". Hit and crit come as percent
+    from the tooltip (pct_line = upgrades.PCT_LINE), else rating / ratings."""
+    rec = rec or {}
+    n: dict = {}
+    for key, val in (rec.get("stats") or {}).items():
+        if not isinstance(val, (int, float)):
+            continue
+        k = key.removeprefix("ITEM_MOD_").removesuffix("_SHORT").lower()
+        if k in ITEM_KEYS:
+            n[ITEM_KEYS[k]] = n.get(ITEM_KEYS[k], 0) + val
+        elif k == "damage_per_second" and ranged:
+            n["wandDps"] = val
+        elif k in ("hit_rating", "crit_rating") and ratings and pct_line:
+            kind = k.removesuffix("_rating")
+            pct = sum(float(m.group(1).replace(",", ".")) for t in rec.get("tooltip") or []
+                      for m in [pct_line[kind].search(t)] if m)
+            n[kind] = pct or val / ratings[kind]
+    return {k: v for k, v in n.items() if v}
 
 
 def find_binary() -> str | None:
@@ -51,14 +105,13 @@ def find_binary() -> str | None:
 
 
 def delta(adds: list[dict], removes: list[dict] = ()) -> dict:
-    """Engine delta from normalised stat dicts (norm_stats keys)."""
+    """Engine delta from norm_item dicts (already in engine keys)."""
     d: dict = {}
     for sign, group in ((1, adds), (-1, removes)):
         for n in group:
             for k, v in (n or {}).items():
-                key = KEY_MAP.get(k)
-                if key and isinstance(v, (int, float)):
-                    d[key] = d.get(key, 0) + sign * v
+                if isinstance(v, (int, float)):
+                    d[k] = d.get(k, 0) + sign * v
     return {k: v for k, v in d.items() if v}
 
 
@@ -106,6 +159,9 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
         raise LookupError(tr("The combat engine (simforever) was not found."))
     ch = c.get("character") or {}
     st = ch.get("stats") or {}
+    spec = spec_of(c)
+    if not metric:
+        metric = default_metric(ch.get("classFile") or "", spec)
     client = c.get("client") or {}
     if not client.get("version") or not client.get("build"):
         raise LookupError(tr("The snapshot does not name the client build; /wowmcp sync and /reload first."))
@@ -133,6 +189,7 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
         "cacheDir": icons.CACHE, "build": build, "locale": locale,
         "character": {
             "classFile": ch.get("classFile") or "", "level": ch.get("level") or 60,
+            "specOverride": spec,
             "stats": {
                 "spellDamage": st.get("spellDamage") or {},
                 "spellCrit": st.get("spellCrit") or {},

@@ -131,8 +131,14 @@ TEXT = {
     "wand slot only": "nur im Zauberstab-Platz",
     "The combat engine does not model this class yet ({cls}).":
         "Die Kampf-Engine kennt diese Klasse noch nicht ({cls}).",
+    "This class is rated by the combat engine (simforever), which did not run.":
+        "Diese Klasse bewertet die Kampf-Engine (simforever), und die ist nicht gelaufen.",
     "Combat model: {dps:.1f} DPS against +{target} levels, {seconds:g}s fight":
         "Kampfmodell: {dps:.1f} DPS gegen +{target} Stufen, {seconds:g}s Kampf",
+    "Combat model: {hps:.1f} HPS over a {seconds:g}s fight":
+        "Kampfmodell: {hps:.1f} HPS über einen {seconds:g}s-Kampf",
+    "Combat model: the mana lasts {value:.0f}s at full healing":
+        "Kampfmodell: das Mana reicht {value:.0f}s bei voller Heilung",
     ", mana for {ttoom:.0f}s": ", Mana für {ttoom:.0f}s",
     ", spellbook assumed from level and talents": ", Zauberbuch aus Stufe und Talenten angenommen",
     "{share:.1f}% of the fight time": "{share:.1f} % der Kampfzeit",
@@ -182,9 +188,10 @@ TEXT = {
     'Scale "{label}" (1 point = 1 shadow spell power), value of your gear now: {value}':
         "Skala „{label}“ (1 Punkt = 1 Schatten-Zaubermacht), Wert der Ausrüstung jetzt: {value}",
     "Prices are the lowest buyout at the scan.": "Preise = Mindest-Sofortkauf beim Scan.",
-    "Best package for {budget}: {gain} points{pct} for {cost}":
-        "Bestes Paket für {budget}: {gain} Punkte{pct} für {cost}",
-    "up to here {cost} for {gain} points": "bis hier {cost} für {gain} Punkte",
+    "Best package for {budget}: {gain} {unit}{pct} for {cost}":
+        "Bestes Paket für {budget}: {gain} {unit}{pct} für {cost}",
+    "up to here {cost} for {gain} {unit}": "bis hier {cost} für {gain} {unit}",
+    "points": "Punkte",
     ", replaces {items}": ", ersetzt {items}",
     "{slot}: now {name} ({stats})": "{slot}: jetzt {name} ({stats})",
     "With a special effect, please look for yourself": "Mit Spezialeffekt, bitte selbst ansehen",
@@ -273,9 +280,13 @@ TEXT = {
     "Best package for the budget": "Bestes Paket fürs Budget",
     "{gain} points for {m}": "{gain} Punkte für {m}",
     "{gain} DPS for {m}": "{gain} DPS für {m}",
+    "{gain} HPS for {m}": "{gain} HPS für {m}",
     "Upgrade for {slot}: {gain} DPS, no. {rank} in the AH scan ({m})":
         "Upgrade für {slot}: {gain} DPS, Nr. {rank} im AH-Scan ({m})",
+    "Upgrade for {slot}: {gain} HPS, no. {rank} in the AH scan ({m})":
+        "Upgrade für {slot}: {gain} HPS, Nr. {rank} im AH-Scan ({m})",
     "Budget {m} · combat model: {dps} DPS now": "Budget {m} · Kampfmodell: {dps} DPS jetzt",
+    "Budget {m} · combat model: {hps} HPS now": "Budget {m} · Kampfmodell: {hps} HPS jetzt",
     "Upgrade for {slot}: {gain} points, no. {rank} in the AH scan ({m})":
         "Upgrade für {slot}: {gain} Punkte, Nr. {rank} im AH-Scan ({m})",
     "Part of the best package for your budget": "Teil des besten Pakets für dein Budget",

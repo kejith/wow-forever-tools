@@ -121,6 +121,7 @@ async function runBridge(command, opts = {}) {
   if (['on', 'off'].includes(opts.engine)) args.push('--engine', opts.engine); // auto is the bridge's default
   if (Number(opts.fightSeconds) > 0) args.push('--fight-seconds', String(Number(opts.fightSeconds)));
   if ([0, 1, 2, 3].includes(opts.targetDelta)) args.push('--target-delta', String(opts.targetDelta));
+  if (['dps', 'hps', 'ttoom'].includes(opts.metric)) args.push('--metric', opts.metric);
   if (typeof opts.profession === 'string' && opts.profession) args.push('--profession', opts.profession);
   if (Array.isArray(opts.ids)) args.push('--ids', opts.ids.map(Number).filter((n) => n > 0).join(','));
   // Screenshots only look: nothing is written into the game folder in capture mode.

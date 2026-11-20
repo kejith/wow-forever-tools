@@ -3,14 +3,14 @@ import { $, ago, api, cached, content, errorBox, esc, help, itemIcon, loadStatus
 import { t } from '../i18n.js';
 
 // What the columns of the cards per slot mean; the cards repeat, so the explanation sits at the heading once.
-// With the combat engine the gains are simulated DPS, with the weight scale points.
-const slotTerms = (engine) => terms([
-  [t('Gain'), engine ? t('Change of your DPS in the simulated fight when you swap the item in.')
+// With the combat engine the gains are in the metric's unit (DPS, HPS, seconds), with the weight scale points.
+const slotTerms = (engine, unit) => terms([
+  [t('Gain'), engine ? t('Change of your {unit} in the simulated fight when you swap the item in.', { unit })
     : t('Change of the gear value when you swap the item in, in points of the scale.')],
-  [t('vs. item'), engine ? t('The gain relative to the DPS the replaced item contributes.')
+  [t('vs. item'), engine ? t('The gain relative to the {unit} the replaced item contributes.', { unit })
     : t('The gain relative to the points of the item it replaces.')],
   [t('Price'), t('Lowest buyout at the last scan, not a live offer.')],
-  [engine ? t('DPS/gold') : t('Points/gold'), t('Gain per gold spent.')],
+  [engine ? t('{unit}/gold', { unit }) : t('Points/gold'), t('Gain per gold spent.')],
 ], t('Auctionator cannot tell items with random stats (“of Shadow Wrath”) apart, so they are missing here.'));
 
 export async function renderUpgrades() {
@@ -19,7 +19,8 @@ export async function renderUpgrades() {
   const fightControls = o.engine === 'off' ? '' : `
       <label><span class="label">${esc(t('Fight length (s)'))} ${help(esc(t('The combat model computes DPS over a fight of this length. A longer fight makes mana, regeneration and Life Tap matter more.')))}</span>
         <input type="number" id="u-fight" min="10" max="600" step="10" value="${o.fight}"></label>
-      <label>${esc(t('Enemy level'))}<select id="u-target">${selectOption('', t('from the scale (+2/+3)'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>`;
+      <label>${esc(t('Enemy level'))}<select id="u-target">${selectOption('', t('from the scale (+2/+3)'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
+      <label id="u-metric" style="display:none"></label>`;
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Budget (gold)'))}<input type="number" id="u-max" class="wide" min="0" step="0.5" value="${esc(o.maxPrice)}" placeholder="${esc(t('your own gold'))}"></label>
       <label><span class="label">${esc(t('Rating'))} ${help(esc(t('The combat model simulates your rotation (DPS over the fight); when it cannot run, the weight scale answers instead. The weight scale rates stats with fixed weights.')))}</span>
@@ -39,11 +40,11 @@ export async function renderUpgrades() {
   bind('#u-sort', 'sort', (v) => v);
   bind('#u-pre', 'preview', (v) => Number(v) || 0);
   bind('#u-top', 'top', (v) => Number(v) || 3);
-  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}`;
+  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}`;
   const d = await cached(key, () => api.bridge('upgrades', {
     char: state.char, maxPrice: o.maxPrice ? Number(o.maxPrice) : 0, preview: o.preview, top: o.top,
     profile: o.profile, sort: o.sort, engine: o.engine, fightSeconds: Number(o.fight) || 60,
-    targetDelta: o.target === '' ? -1 : Number(o.target),
+    targetDelta: o.target === '' ? -1 : Number(o.target), metric: o.metric,
   }));
   const body = $('#u-body');
   if (!body) return;
@@ -51,8 +52,19 @@ export async function renderUpgrades() {
     body.innerHTML = `${errorBox(d.error)}<div class="notice">${esc(t('Scan the auction house with Auctionator and close it: the addon then reads new items by itself. Or request an item export on the “Connection” page.'))}</div>`;
     return;
   }
-  const eng = d.engine; // set when the combat engine rated the items (gains are DPS, not points)
-  const perGoldLabel = eng ? t('DPS/gold') : t('Points/gold');
+  const eng = d.engine; // set when the combat engine rated the items (gains are in the metric's unit)
+  const unit = eng ? ({ dps: 'DPS', hps: 'HPS', ttoom: 's' })[eng.metric] || 'DPS' : '';
+  const perGoldLabel = eng ? t('{unit}/gold', { unit }) : t('Points/gold');
+  // A class with several metrics gets the select (its options come from the engine's answer).
+  if (eng?.metrics?.length > 1) {
+    const slot = $('#u-metric');
+    if (slot) {
+      const names = { dps: t('DPS (damage)'), hps: t('HPS (healing)'), ttoom: t('Mana lasts (s)') };
+      slot.innerHTML = `${esc(t('Metric'))}<select id="u-metric-sel">${selectOption('', t('automatic'), o.metric)}${eng.metrics.map((m) => selectOption(m, names[m] || m, o.metric)).join('')}</select>`;
+      slot.style.display = '';
+      bind('#u-metric-sel', 'metric', (v) => v);
+    }
+  }
   const maxGain = Math.max(1, ...d.slots.flatMap((s) => s.candidates.map((c) => c.gain)));
   const signed = (n) => `${n < 0 ? '−' : '+'}${num(Math.abs(n), 1)}`;
   const pctOf = (c) => (c.gainPct === null ? esc(t('new')) : `${c.gainPct < 0 ? '−' : '+'}${percent(Math.abs(c.gainPct))}`);
@@ -83,7 +95,7 @@ export async function renderUpgrades() {
       ${help(esc(t('Best combination across all slots that fits the budget (rings as a pair, main hand + off hand against two-hand, no items above your level). Sorted by gain per gold: buy from top to bottom and stop where it gets too expensive for you.')))}</h2><div class="card">
       <div class="row" style="gap:36px;align-items:flex-start;margin-bottom:10px">
         <div><h2>${esc(t('Gain'))}</h2><div class="big good">${signed(pk.gain)}${pk.gainPct === null ? ''
-          : ` <span class="small muted">(${esc(eng ? t('+{pct} DPS', { pct: percent(pk.gainPct) }) : t('+{pct} gear value', { pct: percent(pk.gainPct) }))})</span>`}</div></div>
+          : ` <span class="small muted">(${esc(eng ? t('+{pct} {unit}', { pct: percent(pk.gainPct), unit }) : t('+{pct} gear value', { pct: percent(pk.gainPct) }))})</span>`}</div></div>
         <div><h2>${esc(t('Cost'))}</h2><div class="big">${money(pk.cost)}</div></div>
         <div><h2>${esc(t('Purchases'))}</h2><div class="big">${pk.items.length}</div></div><span class="spacer"></span></div>
       <table><thead><tr>${th([t('Slot')], [t('Gain'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')], [t('replaces')],
@@ -106,8 +118,8 @@ export async function renderUpgrades() {
         <td class="small">${esc(r.effects.join(' / '))}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(t('Budget'))}</h2><div class="big">${money(d.budget)}</div></div>
-      <div><h2>${esc(eng ? t('DPS now') : t('Gear value'))} ${help(esc(eng
-    ? t('Your damage per second in the simulated fight with the gear you wear now. Every gain below is the change of this number.')
+      <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng
+    ? t('The metric of the simulated fight with the gear you wear now. Every gain below is the change of this number.')
     : t('Everything you wear, rated as one set in points of the scale. Hit counts only up to the cap, so the value of an item depends on the rest of the gear.')))}</h2>
         <div class="big">${num(d.setValue)}</div></div>
       <div><h2>${esc(t('AH scan'))}</h2><div class="big">${esc(d.scanDate)}</div></div>
@@ -116,5 +128,5 @@ export async function renderUpgrades() {
       <span class="spacer"></span></div>
       ${scale}</div>
     ${packageHtml}
-    ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
+    ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
 }

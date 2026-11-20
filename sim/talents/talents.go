@@ -106,5 +106,17 @@ func apply(mods *engine.Mods, o override, rank int) {
 		}
 	case "healing_pct":
 		mods.HealingPct += v
+	case "school_damage_pct":
+		for _, name := range o.Schools {
+			if s := engine.SchoolByName(name); s >= 0 {
+				mods.SchoolDamagePct[s] += v
+			}
+		}
+	case "casting_regen_pct":
+		mods.CastingRegenPct += v
+	case "wand_pct":
+		mods.WandPct += v
+	case "sp_per_spirit":
+		mods.SPPerSpirit += v
 	}
 }

@@ -203,6 +203,7 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		sp.CastMs = castBase[r.Int("CastingTimeIndex")]
 		sp.DurationMs = durBase[r.Int("DurationIndex")]
 		sp.School = schoolOf(r.Int("SchoolMask"))
+		sp.Channeled = r.Int("Attributes_1")&(0x4|0x40) != 0 // SPELL_ATTR1_IS_(SELF_)CHANNELLED
 	}
 	for id, sp := range cat.Spells {
 		if p, ok := powerOf[id]; ok {
@@ -330,14 +331,24 @@ func (c *Catalog) AssumedSpellbook(level int, talents map[int]int) map[int]bool 
 // BestRank returns the highest known rank of a spell chain that the
 // character's level allows, or nil.
 func (c *Catalog) BestRank(baseID int, known map[int]bool, level int) *engine.Spell {
-	var best *engine.Spell
+	ranks := c.KnownRanks(baseID, known, level)
+	if len(ranks) == 0 {
+		return nil
+	}
+	return ranks[len(ranks)-1]
+}
+
+// KnownRanks returns every known rank of a spell chain the character's
+// level allows, lowest first (healers pick the most efficient one).
+func (c *Catalog) KnownRanks(baseID int, known map[int]bool, level int) []*engine.Spell {
+	var out []*engine.Spell
 	id := baseID
 	for depth := 0; depth < 32 && id != 0; depth++ {
 		sp := c.Spells[id]
 		if sp != nil && known[id] && sp.Levels.Base <= level {
-			best = sp
+			out = append(out, sp)
 		}
 		id = c.NextRank[id]
 	}
-	return best
+	return out
 }
