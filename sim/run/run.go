@@ -657,6 +657,10 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 	if cat.HasTraits {
 		cov.TalentValues = "tables"
 	}
+	bestScore := 0.0
+	for _, score := range tried {
+		bestScore = math.Max(bestScore, score)
+	}
 	inRotation := map[int]bool{}
 	var rotation []*engine.Spell
 	for _, a := range actions {
@@ -711,6 +715,11 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 					e, found = entry(sp, talents.StatusIdle, "weaker"), true
 					e.Value = score
 				}
+			}
+			// A candidate that scores what the best one does only has the
+			// spell standing by (Drain Life in a fight the health lasts for).
+			if found && e.Value >= bestScore*(1-1e-9) {
+				e.Reason = "nogain"
 			}
 		}
 		if !found {

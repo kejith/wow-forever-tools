@@ -18,7 +18,7 @@ import (
 // Step is one line of a situation's priority list, with what it did in the
 // played fight.
 type Step struct {
-	Kind     string  `json:"kind"` // dot, hot, cooldown, filler, heal, recover, lifetap, mana, wand
+	Kind     string  `json:"kind"` // debuff, dot, hot, cooldown, filler, heal, recover, lifetap, mana, wand
 	SpellID  int     `json:"spellId,omitempty"`
 	Name     string  `json:"name,omitempty"`
 	Rank     int     `json:"rank,omitempty"`
@@ -36,6 +36,8 @@ type Step struct {
 	// health it costs.
 	ManaGain   float64 `json:"manaGain,omitempty"`
 	HealthCost float64 `json:"healthCost,omitempty"`
+	// A debuff: how much more damage the enemy takes under it, in percent.
+	TakenPct float64 `json:"takenPct,omitempty"`
 }
 
 // Skipped is a spell the character knows that the best rotation of a
@@ -265,12 +267,15 @@ func steps(cat *catalog.Catalog, actions []engine.Action, pb engine.Playback, fi
 		for _, kind := range kinds {
 			for _, a := range actions {
 				if a.Kind == kind && a.Spell != nil {
-					add(kind, a.Spell, a.Spell.ID)
+					if s, ok := line(kind, a.Spell, a.Spell.ID); ok {
+						s.TakenPct = a.TakenPct
+						out = append(out, s)
+					}
 				}
 			}
 		}
 	}
-	byKind("dot", "hot", "cooldown", "filler", "heal")
+	byKind("debuff", "dot", "hot", "cooldown", "filler", "heal")
 	add("lifetap", tapSpell, 0)
 	byKind("mana", "recover")
 	add("wand", nil, 0)

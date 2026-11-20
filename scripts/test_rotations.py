@@ -70,8 +70,10 @@ else:
                       {"t": 151.5, "kind": "wand", "n": 2, "manaPct": 1, "hpPct": 60}]},
         {"key": "boss", "fight": {"seconds": 180.0, "targetDelta": 3, "killsPerMinute": 0}, "metric": "dps",
          "value": 40.0, "oomSeconds": 54.0, "candidates": 24, "endManaPct": 5.0, "endHpPct": 80.0,
-         "steps": [{"kind": "filler", "spellId": 585, "name": "Smite", "rank": 4, "casts": 20, "perMin": 6.7,
-                    "firstSec": 0, "sharePct": 30.0, "value": 20.0},
+         "steps": [{"kind": "debuff", "spellId": 440892, "name": "Curse of the Elements", "rank": 4, "casts": 1,
+                    "perMin": 0.3, "firstSec": 0, "sharePct": 0.8, "value": 0, "takenPct": 10},
+                   {"kind": "filler", "spellId": 585, "name": "Smite", "rank": 4, "casts": 20, "perMin": 6.7,
+                    "firstSec": 1.5, "sharePct": 30.0, "value": 20.0},
                    {"kind": "lifetap", "spellId": 1454, "name": "Life Tap", "rank": 1, "casts": 9, "perMin": 3.0,
                     "firstSec": 4.5, "sharePct": 7.5, "value": 0},
                    {"kind": "recover", "spellId": 689, "name": "Drain Life", "rank": 2, "casts": 4, "perMin": 1.3,
@@ -81,7 +83,8 @@ else:
          "value": 30.0, "oomSeconds": 4.5, "candidates": 24, "endManaPct": 40.0, "endHpPct": 100.0,
          "steps": [{"kind": "dot", "spellId": 589, "name": "Shadow Word: Pain", "rank": 3, "casts": 30,
                     "perMin": 3.0, "firstSec": 0, "sharePct": 7.5, "value": 9.0},
-                   {"kind": "wand", "casts": 300, "perMin": 30.0, "firstSec": 1.5, "sharePct": 92.5, "value": 21.0}]},
+                   {"kind": "wand", "casts": 300, "perMin": 30.0, "firstSec": 1.5, "sharePct": 92.5, "value": 21.0}],
+         "skipped": [{"kind": "debuff", "spellId": 440892, "name": "Curse of the Elements", "rank": 4, "loss": 2.0}]},
     ]
 json.dump({"engine": "stub", "spellbookSource": "export", "fight": fight,
            "baseline": {"metric": data["metric"], "value": 1.0}, "situations": situations}, sys.stdout)
@@ -202,11 +205,17 @@ def test_damage_fights(tmp: str):
     assert rules["wand"] == "when the mana is gone (first after 54 s)"
     assert rules["lifetap"] == "as soon as the health allows it and the mana has room for it, and when the mana is gone"
     assert boss["steps"][-1]["label"] == "Wand"
+    # A debuff deals nothing itself; its rule says what it is for.
+    curse = boss["steps"][0]
+    assert curse["label"] == "Curse of the Elements (Rank 4)" and curse["value"] == 0
+    assert rules["debuff"] == "cast it first and keep it on the enemy: your spells deal 10% more under it"
 
     # No filler: the wand is the choice, not the emergency.
     long = damage["endurance"]
     assert long["steps"][-1]["rule"] == "fills the rest of the time and costs no mana"
     assert long["verdict"].startswith("No filler spell:") and "40% mana" in long["verdict"]
+    assert [(k["label"], k["why"]) for k in long["skipped"]] == [
+        ("Curse of the Elements (Rank 4)", "costs more casting time than it returns in this fight")]
 
 
 def test_german(tmp: str):
@@ -223,6 +232,8 @@ def test_german(tmp: str):
     boss = by_key(damage)["boss"]
     assert boss["title"] == "Boss" and boss["steps"][-1]["label"] == "Zauberstab"
     assert "Ab 2:22 min ist das Leben zu niedrig für Life Tap" in boss["verdict"]
+    assert boss["steps"][0]["rule"] == ("zuerst wirken und auf dem Gegner halten: darunter machen deine Zauber "
+                                        "10 % mehr Schaden")
     assert by_key(damage)["standard"]["skipped"][1]["why"] == "in diesem Kampf der schwächere Füller"
 
 

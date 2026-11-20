@@ -83,7 +83,8 @@ func TestCoverage(t *testing.T) {
 	}
 
 	// The DoTs are cast; of the three fillers one is, and the other two
-	// were tried with a lower result.
+	// were tried: Shadow Bolt with a lower result, Drain Life also standing
+	// by next to the best rotation, which this fight does not need.
 	for _, id := range []int{172, 980} {
 		if e := spellEntry(t, cov, id); e.Status != talents.StatusUsed || e.Reason != "rotation" {
 			t.Errorf("dot %d: %+v", id, e)
@@ -98,7 +99,11 @@ func TestCoverage(t *testing.T) {
 			usedID = id
 		case talents.StatusIdle:
 			idle++
-			if e.Reason != "weaker" || e.Value <= 0 || e.Value > out.Baseline.Value {
+			want := "weaker"
+			if id == 689 {
+				want = "nogain"
+			}
+			if e.Reason != want || e.Value <= 0 || e.Value > out.Baseline.Value || (want == "weaker" && e.Value == out.Baseline.Value) {
 				t.Errorf("idle filler %d: %+v (baseline %g)", id, e, out.Baseline.Value)
 			}
 		default:
@@ -289,4 +294,48 @@ func TestCoverageWithoutTraitTables(t *testing.T) {
 		t.Errorf("talent values = %q", out.Coverage.TalentValues)
 	}
 	almost(t, "budget with the spell's own 5 %", out.Baseline.ManaBudgetPS, 2000.0/60+1+14*0.05, 1e-6)
+}
+
+// Curse of the Elements comes from its aura (87: percent damage taken, the
+// schools in the misc value): a rotation with it in front is tried next to
+// every rotation without, and the curse's row says what it does.
+func TestCurseOfElements(t *testing.T) {
+	in := coverageInput()
+	in.Character.Level = 45
+	in.Character.Talents = nil
+	in.Character.Stats.ManaMax = 1e6
+	in.Character.Spellbook = []int{695, 172}
+	plain := Run(in)
+	in.Character.Spellbook = []int{695, 172, 440892}
+	out := Run(in)
+	if plain.Error != "" || out.Error != "" {
+		t.Fatal(plain.Error, out.Error)
+	}
+	if out.Coverage.Candidates != 2*plain.Coverage.Candidates {
+		t.Errorf("candidates %d, without the curse %d", out.Coverage.Candidates, plain.Coverage.Candidates)
+	}
+	first := out.Baseline.Breakdown[0]
+	if first.Kind != "debuff" || first.SpellID != 440892 || first.TakenPct != 10 || first.Value != 0 {
+		t.Errorf("first row: %+v", first)
+	}
+	// One cast per fight is paid back by 10 % on everything after it.
+	if gain := out.Baseline.Value / plain.Baseline.Value; gain < 1.05 || gain > 1.1 {
+		t.Errorf("gain %g (%g against %g)", gain, out.Baseline.Value, plain.Baseline.Value)
+	}
+	if e := spellEntry(t, out.Coverage, 440892); e.Status != talents.StatusUsed || e.Reason != "rotation" {
+		t.Errorf("coverage: %+v", e)
+	}
+
+	// In a fight of a few seconds the cast costs more than it brings: the
+	// curse was tried and left out.
+	in.Fight.Seconds = 8
+	short := Run(in)
+	for _, row := range short.Baseline.Breakdown {
+		if row.Kind == "debuff" {
+			t.Errorf("curse in an 8 s fight: %+v", short.Baseline.Breakdown)
+		}
+	}
+	if e := spellEntry(t, short.Coverage, 440892); e.Status != talents.StatusIdle || e.Reason != "weaker" || e.Value <= 0 {
+		t.Errorf("coverage in the short fight: %+v", e)
+	}
 }

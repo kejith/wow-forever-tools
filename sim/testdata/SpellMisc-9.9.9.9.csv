@@ -32,3 +32,4 @@ ID,DifficultyID,CastingTimeIndex,DurationIndex,SchoolMask,Attributes_1,SpellID
 31,0,1,1,2,0,402000
 32,0,1,1,32,0,15270
 33,0,1,203,32,0,15271
+34,0,1,207,32,0,440892

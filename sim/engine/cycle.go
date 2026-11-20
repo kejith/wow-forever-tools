@@ -15,8 +15,15 @@ type Action struct {
 	// the played fight casts it when the health is too low to convert. The
 	// closed form gives it the share of the fight that pays most (see
 	// Evaluate).
-	Kind  string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana", "recover"
-	Spell *Spell
+	//
+	// Kind "debuff" is a spell kept on the enemy for what it does to the
+	// other spells (Curse of the Elements): it deals nothing itself, and
+	// while it is up the enemy takes TakenPct percent more damage of the
+	// schools in TakenMask (bit = 1 << School).
+	Kind      string // "dot", "hot", "cooldown", "filler", "heal", "wand", "mana", "recover", "debuff"
+	Spell     *Spell
+	TakenPct  float64
+	TakenMask uint32
 	// CycleSec is the least time between two casts when something other
 	// than the spell's own cooldown limits it: Weakened Soul after Power
 	// Word: Shield on the one target the model heals.
@@ -98,6 +105,9 @@ type Row struct {
 	Rank     int     `json:"rank,omitempty"`   // the spell's rank number (run.go fills it in)
 	Leech    float64 `json:"leech,omitempty"`  // health per second the spell returns to the caster
 	Absorb   bool    `json:"absorb,omitempty"` // the value is damage a shield absorbs
+	// A debuff row: how much more damage the enemy takes while it is up, in
+	// percent. Its own value is 0; what it adds is in the other rows.
+	TakenPct float64 `json:"takenPct,omitempty"`
 	// Rows that trade health for mana (Life Tap, Dark Sacrifice), per second
 	// of the fight. A healer's health cost is taken off the healing.
 	ManaGain   float64 `json:"manaGain,omitempty"`
@@ -169,10 +179,15 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			continue
 		}
 		switch a.Kind {
-		case "dot", "hot", "cooldown":
+		case "dot", "hot", "cooldown", "debuff":
 			p.cycle = res.DurationSec
 			if a.Kind == "cooldown" {
 				p.cycle = math.Max(res.CooldownSec, a.CycleSec)
+			}
+			if a.Kind == "debuff" {
+				// Cast once per duration, and at least once per fight: a
+				// five-minute curse costs a short fight a whole cast.
+				p.cycle = math.Min(DebuffSec(a.Spell, st), fight.Seconds)
 			}
 			if p.cycle <= 0 {
 				continue
@@ -447,6 +462,9 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	// Breakdown.
 	for i, p := range parts {
 		row := Row{SpellID: p.act.Spell.ID, Label: p.act.Spell.Name, Kind: p.act.Kind}
+		if p.act.Kind == "debuff" {
+			row.TakenPct = p.act.TakenPct
+		}
 		dps, hps := share*fDPS, share*fHPS
 		if i == fillerIdx {
 			row.SharePct = share * 100

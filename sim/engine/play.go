@@ -113,6 +113,10 @@ func newPlayer(st *State, fight Fight, actions []Action, metric string) *player 
 			if s.shape.Ticks > 0 {
 				p.dots = append(p.dots, s)
 			}
+		case "debuff": // kept up like a DoT, without ticks
+			if s.shape.DurationSec = DebuffSec(a.Spell, st); s.shape.DurationSec > 0 {
+				p.dots = append(p.dots, s)
+			}
 		case "cooldown":
 			if s.cycle > 0 {
 				p.cooldowns = append(p.cooldowns, s)
@@ -259,7 +263,7 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 		from, to := t, t+dur
 		for d := range dots {
 			end := math.Min(to, math.Min(dotEnd[d], fight.Seconds))
-			if end <= from {
+			if end <= from || dots[d].shape.PeriodSec <= 0 {
 				continue
 			}
 			progress := end - from
@@ -395,7 +399,19 @@ func (p *player) play(rng *rand.Rand, rec *record) (perSec, oom float64) {
 		// returns health there is nothing to wait for: the lower the health,
 		// the more of what that spell returns fits.
 		early := p.netHealth || health >= p.fullAt || (p.recover != nil && p.leecher == p.recover)
-		if canTap && early && mana+conv.mana <= st.ManaMax && mana < p.drainPS*(fight.Seconds-t) {
+		// The mana the rest of the fight needs is an estimate (the steady
+		// rate of the rotation), so a damage dealer converts ahead only what
+		// is certainly missing; the last conversion waits until the mana is
+		// gone.
+		ahead := canTap && early && mana+conv.mana <= st.ManaMax
+		if ahead {
+			need := p.drainPS * (fight.Seconds - t)
+			if !p.netHealth {
+				need -= conv.mana
+			}
+			ahead = mana < need
+		}
+		if ahead {
 			convert()
 			continue
 		}

@@ -254,6 +254,8 @@ json.dump({"engine": "stub", "spellbookSource": "assumed",
                                        "value": 8.0, "sharePct": 9.0, "absorb": True},
                                       {"label": "Dark Sacrifice", "spellId": 1277324, "kind": "mana",
                                        "perMin": 1.0, "sharePct": 2.5, "manaGain": 9.2, "healthCost": 7.25},
+                                      {"label": "Curse of the Elements", "spellId": 440892, "kind": "debuff",
+                                       "value": 0, "sharePct": 2.4, "takenPct": 10},
                                       {"label": "wand", "kind": "wand", "value": 1.0, "sharePct": 10.0}]},
            "coverage": {"talentValues": "tables", "candidates": 4,
                         "spells": [{"spellId": 5676, "name": "Searing Pain", "rank": 2, "status": "unmodeled",
@@ -262,6 +264,8 @@ json.dump({"engine": "stub", "spellbookSource": "assumed",
                                     "value": 97.5},
                                    {"spellId": 1277324, "name": "Dark Sacrifice", "status": "idle",
                                     "reason": "notneeded"},
+                                   {"spellId": 689, "name": "Drain Life", "status": "idle", "reason": "nogain",
+                                    "value": 100.0},
                                    {"spellId": 686, "name": "Shadow Bolt", "rank": 3, "status": "used",
                                     "reason": "rotation"}],
                         "talents": [{"spellId": 427712, "name": "Pandemic", "rank": 3, "status": "used",
@@ -349,20 +353,24 @@ def test_compute_with_engine(tmp: str):
     assert r["engine"]["spellbookSource"] == "assumed"
     assert r["engine"]["fight"] == {"seconds": 45.0, "targetDelta": 3, "killsPerMinute": 0}
     assert [row["label"] for row in r["scale"]] == ["Shadow Bolt (Rank 3)", "Drain Life (Rank 2)", "Life Tap",
-                                                    "Power Word: Shield", "Dark Sacrifice", "Wand"]
+                                                    "Power Word: Shield", "Dark Sacrifice",
+                                                    "Curse of the Elements", "Wand"]
     assert "returns 4.5 health per second" in r["scale"][1]["note"] and r["engine"]["selfHealPs"] == 4.5
     assert "3.0 casts per minute" in r["scale"][2]["note"]
     assert "7.0 mana per second for 6.0 health per second" in r["scale"][2]["note"]
     assert "taken off the healing" not in r["scale"][2]["note"]  # a damage metric has a health budget instead
     assert "a shield" in r["scale"][3]["note"] and "9.2 mana per second" in r["scale"][4]["note"]
+    # A debuff has no value of its own; its note says what it does to the others.
+    assert r["scale"][5]["weight"] == 0 and "the other spells deal 10% more under it" in r["scale"][5]["note"]
     assert r["engine"]["killBuff"] is True  # a talent that needs kills: the window offers the option
 
     # The coverage report: every spell and talent with what the model does with it, the used ones first.
     cov = r["engine"]["coverage"]
     assert cov["candidates"] == 4 and cov["exactTalents"] is True
     assert [(e["label"], e["status"]) for e in cov["spells"]] == [
-        ("Shadow Bolt (Rank 3)", "used"), ("Immolate", "idle"), ("Dark Sacrifice", "idle"),
+        ("Shadow Bolt (Rank 3)", "used"), ("Immolate", "idle"), ("Dark Sacrifice", "idle"), ("Drain Life", "idle"),
         ("Searing Pain (Rank 2)", "unmodeled")]
+    assert cov["spells"][3]["text"] == "tried next to the rotation above: this fight does not need it"
     assert cov["spells"][2]["text"] == "trades health for mana; the mana lasts without it in this fight"
     assert cov["spells"][0]["text"] == "cast in the rotation" and cov["spells"][0]["statusLabel"] == "used"
     assert cov["spells"][1]["text"] == "tried instead: 97.5 DPS, less than the rotation above"

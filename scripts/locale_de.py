@@ -166,6 +166,7 @@ TEXT = {
     ", spellbook assumed from level and talents": ", Zauberbuch aus Stufe und Talenten angenommen",
     "{share:.1f}% of the fight time": "{share:.1f} % der Kampfzeit",
     "{n:.1f} casts per minute": "{n:.1f} Mal pro Minute",
+    "the other spells deal {pct:g}% more under it": "darunter machen die anderen Zauber {pct:g} % mehr Schaden",
     "returns {n:.1f} health per second": "gibt {n:.1f} Leben pro Sekunde zurück",
     "used": "genutzt",
     "in your stats": "in deinen Werten",
@@ -179,6 +180,8 @@ TEXT = {
         "gilt als immer aktiv; die Lebensregeneration kommt Aderlass zugute",
     "tried instead: {value:.1f} {unit}, less than the rotation above":
         "stattdessen geprüft: {value:.1f} {unit}, weniger als die Rotation oben",
+    "tried next to the rotation above: this fight does not need it":
+        "zusätzlich zur Rotation oben geprüft: dieser Kampf braucht ihn nicht",
     "deals damage, but the model does not cast it": "macht Schaden, aber das Modell wirkt ihn nicht",
     "heals, but the model does not cast it": "heilt, aber das Modell wirkt ihn nicht",
     "absorbs damage, which the model does not count yet":
@@ -437,6 +440,8 @@ TEXT = {
     "{targets} targets need {value:.0f} healing per second together: {pct:.0f}% of the most you can heal there.":
         "{targets} Ziele brauchen zusammen {value:.0f} Heilung pro Sekunde: {pct:.0f} % dessen, was du dort "
         "höchstens heilen kannst.",
+    "cast it first and keep it on the enemy: your spells deal {pct:g}% more under it":
+        "zuerst wirken und auf dem Gegner halten: darunter machen deine Zauber {pct:g} % mehr Schaden",
     "keep it on the enemy": "auf dem Gegner halten",
     "whenever it is ready": "immer wenn bereit",
     "fills the rest of the time": "füllt die restliche Zeit",

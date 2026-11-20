@@ -440,6 +440,7 @@ COVERAGE_SPELL = {
     "regen": mark("converts health to mana when the rotation runs short"),
     "buff": mark("taken as always active; its health regeneration feeds Life Tap"),
     "weaker": mark("tried instead: {value:.1f} {unit}, less than the rotation above"),
+    "nogain": mark("tried next to the rotation above: this fight does not need it"),
     "damage": mark("deals damage, but the model does not cast it"),
     "heal": mark("heals, but the model does not cast it"),
     "absorb": mark("absorbs damage, which the model does not count yet"),
@@ -751,6 +752,8 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                                       mana=row["manaGain"], health=row.get("healthCost") or 0)
                     if b.get("metric") != "dps":
                         note += " " + tr("(the health is taken off the healing)")
+            if row.get("takenPct"):
+                note += ", " + tr("the other spells deal {pct:g}% more under it", pct=row["takenPct"])
             if row.get("leech"):
                 note += ", " + tr("returns {n:.1f} health per second", n=row["leech"])
             if row.get("absorb"):

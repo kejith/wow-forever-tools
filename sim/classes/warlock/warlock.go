@@ -26,7 +26,53 @@ const (
 	LifeTap      = 1454
 	DemonSkin    = 687
 	DemonArmor   = 706
+	// A curse and a bane do not exclude each other in Forever, so Curse of
+	// the Elements goes next to Bane of Agony.
+	CurseOfElements = 440892
+	SearingPain     = 5676
+	SoulFire        = 6353 // one-minute cooldown; costs a Soul Shard, which the model does not count
+	DrainSoul       = 1120
 )
+
+// auraDamageTakenPct is the aura of a debuff that raises the damage its
+// target takes: percent in the base points, school mask in the first misc
+// value (Curse of the Elements).
+const auraDamageTakenPct = 87
+
+// fillerBases are the spells that can fill the time between the DoTs, in
+// the order they are tried.
+var fillerBases = []int{Wrack, ShadowBolt, DrainLife, SearingPain, DrainSoul}
+
+// debuff is the action that keeps a damage-taken debuff on the enemy, if
+// the spell is one.
+func debuff(cat *catalog.Catalog, sp *engine.Spell) (engine.Action, bool) {
+	if sp == nil {
+		return engine.Action{}, false
+	}
+	for _, a := range cat.Auras[sp.ID] {
+		if a.Aura == auraDamageTakenPct && a.BP > 0 && sp.DurationMs > 0 {
+			return engine.Action{Kind: "debuff", Spell: sp, TakenPct: a.BP, TakenMask: uint32(a.Misc0)}, true
+		}
+	}
+	return engine.Action{}, false
+}
+
+// optional are the spells a rotation can do with or without, in priority
+// order: the curse first, so that everything after it lands under it.
+func optional(cat *catalog.Catalog, best func(int) *engine.Spell, bases ...int) []engine.Action {
+	var out []engine.Action
+	if curse, ok := debuff(cat, best(CurseOfElements)); ok {
+		out = append(out, curse)
+	}
+	kinds := map[int]string{CurseOfAgony: "dot", Corruption: "dot", SiphonLife: "dot", Immolate: "dot",
+		DeathCoil: "cooldown", SoulFire: "cooldown"}
+	for _, base := range bases {
+		if sp := best(base); sp != nil {
+			out = append(out, engine.Action{Kind: kinds[base], Spell: sp})
+		}
+	}
+	return out
+}
 
 // auraHealthRegenInCombat is the aura of Demon Skin/Armor that regenerates
 // health in combat (points per 5 seconds).
@@ -36,9 +82,9 @@ const auraHealthRegenInCombat = 161
 const DefaultMetric = "dps"
 
 // Rotations builds the candidate priority lists from what the character
-// actually knows: the three DoTs always, Immolate and Death Coil each with
-// and without, and one of the fillers Wrack, Shadow Bolt or Drain Life, the
-// first two also with Drain Life standing by.
+// actually knows: the three DoTs always; Curse of the Elements, Immolate,
+// Death Coil and Soul Fire each with and without; and one of the fillers,
+// each of them but Drain Life also with Drain Life standing by.
 func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
 	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
 	var dots []engine.Action
@@ -48,21 +94,22 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 		}
 	}
 	// Each optional spell doubles the candidates: without it and with it.
-	options := [][]engine.Action{nil}
-	for _, opt := range []struct {
-		kind string
-		base int
-	}{{"dot", Immolate}, {"cooldown", DeathCoil}} {
-		sp := best(opt.base)
-		if sp == nil {
-			continue
-		}
+	// The curse goes in front of the DoTs, the others behind them.
+	type choice struct{ front, back []engine.Action }
+	options := []choice{{}}
+	for _, opt := range optional(cat, best, Immolate, DeathCoil, SoulFire) {
 		for _, o := range options[:len(options):len(options)] {
-			options = append(options, append(append([]engine.Action(nil), o...), engine.Action{Kind: opt.kind, Spell: sp}))
+			with := choice{append([]engine.Action(nil), o.front...), append([]engine.Action(nil), o.back...)}
+			if opt.Kind == "debuff" {
+				with.front = append(with.front, opt)
+			} else {
+				with.back = append(with.back, opt)
+			}
+			options = append(options, with)
 		}
 	}
 	var fillers []*engine.Spell
-	for _, base := range []int{Wrack, ShadowBolt, DrainLife} {
+	for _, base := range fillerBases {
 		if sp := best(base); sp != nil {
 			fillers = append(fillers, sp)
 		}
@@ -81,7 +128,7 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 				continue
 			}
 			for _, opt := range options {
-				actions := append(append([]engine.Action(nil), dots...), opt...)
+				actions := append(append(append([]engine.Action(nil), opt.front...), dots...), opt.back...)
 				if filler != nil {
 					actions = append(actions, engine.Action{Kind: "filler", Spell: filler})
 				}
@@ -105,15 +152,8 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 func Choices(cat *catalog.Catalog, known map[int]bool, level int) engine.Choices {
 	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
 	c := engine.Choices{Tail: []engine.Action{{Kind: "wand"}}, Recover: best(DrainLife)}
-	for _, opt := range []struct {
-		kind string
-		base int
-	}{{"dot", CurseOfAgony}, {"dot", Corruption}, {"dot", SiphonLife}, {"dot", Immolate}, {"cooldown", DeathCoil}} {
-		if sp := best(opt.base); sp != nil {
-			c.Optional = append(c.Optional, engine.Action{Kind: opt.kind, Spell: sp})
-		}
-	}
-	for _, base := range []int{Wrack, ShadowBolt, DrainLife} {
+	c.Optional = optional(cat, best, CurseOfAgony, Corruption, SiphonLife, Immolate, DeathCoil, SoulFire)
+	for _, base := range fillerBases {
 		if sp := best(base); sp != nil {
 			c.Fillers = append(c.Fillers, sp)
 		}

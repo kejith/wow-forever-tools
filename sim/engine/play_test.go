@@ -225,3 +225,78 @@ func TestChoicesRotations(t *testing.T) {
 		t.Errorf("no choices: %+v", got)
 	}
 }
+
+func curse() *Spell {
+	return &Spell{
+		ID: 1311680, BaseID: 440892, Name: "Curse of the Elements", School: Shadow,
+		DurationMs: 300000, Cost: Cost{Mana: 200},
+	}
+}
+
+// A debuff deals nothing itself: it costs a cast per duration (at least one
+// per fight) and makes every spell of its schools hit harder. The fixture
+// with endless mana over 60 s, by hand:
+//
+//	without     Corruption every 18 s + (1 - 1.5/18) * 1.5 s of waiting = 19.375 s:
+//	            228/19.375 = 11.7677 dps, 7.7419 % of the time; bolts on the
+//	            rest at 46.55 dps -> 54.7139 dps
+//	with +10 %  the curse once per fight: the two take 1.5/18 + 1.5/60 = 10.8333 %
+//	            before the wait, which is 0.891667 * 1.5 s = 1.3375 s;
+//	            Corruption every 19.3375 s: 250.8/19.3375 = 12.9696 dps,
+//	            the curse every 61.3375 s; bolts on the remaining 89.7976 %
+//	            at 51.205 dps -> 58.9505 dps
+func TestDebuff(t *testing.T) {
+	st := mcState()
+	fight := Fight{Seconds: 60, TargetDelta: 2}
+	plain := []Action{{Kind: "dot", Spell: corruption()}, {Kind: "filler", Spell: bolt()}, {Kind: "wand"}}
+	cursed := append([]Action{{Kind: "debuff", Spell: curse(), TakenPct: 10, TakenMask: 1 << Shadow}}, plain...)
+	almost(t, "without the curse", Evaluate(st, fight, plain, "dps").DPS, 54.7139, 0.001)
+	with := Evaluate(st, fight, cursed, "dps")
+	almost(t, "with the curse", with.DPS, 58.9505, 0.001)
+	for _, row := range with.Breakdown {
+		if row.Kind == "debuff" {
+			almost(t, "the curse's own damage", row.Value, 0, 1e-12)
+			almost(t, "the curse's share of the time", row.SharePct, 150/61.3375, 1e-4)
+		}
+	}
+
+	// Only the schools of the mask gain: a fire spell lands as before.
+	fire := bolt()
+	fire.School = Fire
+	st.SP[Fire], st.Crit[Fire] = 100, 10
+	ctx := ContextOf(cursed)
+	tgt := NewTarget(20, 2)
+	almost(t, "fire under a shadow curse", ResolveCastIn(fire, st, tgt, ctx, nil).Damage, 139.65, 1e-9)
+	almost(t, "shadow under it", ResolveCastIn(bolt(), st, tgt, ctx, nil).Damage, 139.65*1.1, 1e-9)
+
+	// The played fight opens with the curse and renews it when it runs out:
+	// once in 60 s, twice in 400 s.
+	pb := Play(st, fight, cursed, "dps")
+	if len(pb.Events) < 3 || pb.Events[0].Kind != "debuff" || pb.Events[1].Kind != "dot" {
+		t.Fatalf("events: %+v", pb.Events[:3])
+	}
+	almost(t, "second action starts", pb.Events[1].T, 1.5, 1e-9)
+	if pb.Value <= Play(st, fight, plain, "dps").Value {
+		t.Errorf("the curse should pay over 60 s: %g", pb.Value)
+	}
+	casts := func(pb Playback) (n int) {
+		for _, e := range pb.Events {
+			if e.Kind == "debuff" {
+				n++
+			}
+		}
+		return n
+	}
+	if n := casts(pb); n != 1 {
+		t.Errorf("curse cast %d times in 60 s", n)
+	}
+	long := Play(st, Fight{Seconds: 400, TargetDelta: 2}, cursed, "dps")
+	if n := casts(long); n != 2 {
+		t.Errorf("curse cast %d times in 400 s", n)
+	}
+	// In a fight shorter than the cast pays back, the closed form says so.
+	short := Fight{Seconds: 6, TargetDelta: 2}
+	if with, without := Evaluate(st, short, cursed, "dps").DPS, Evaluate(st, short, plain, "dps").DPS; with >= without {
+		t.Errorf("a 6 s fight has no time for the curse: %g vs %g", with, without)
+	}
+}

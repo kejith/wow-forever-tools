@@ -64,6 +64,7 @@ SITUATIONS = {
 }
 # What a line of the priority list means, per kind of step.
 RULES = {
+    "debuff": mark("cast it first and keep it on the enemy: your spells deal {pct:g}% more under it"),
     "dot": mark("keep it on the enemy"),
     "cooldown": mark("whenever it is ready"),
     "filler": mark("fills the rest of the time"),
@@ -77,6 +78,7 @@ TAP_WITH_STANDBY = mark("as soon as the health allows it and the mana has room f
 # A rotation without a filler spell: the wand takes its place.
 WAND_FILLS = mark("fills the rest of the time and costs no mana")
 SKIPPED = {
+    "debuff": mark("costs more casting time than it returns in this fight"),
     "filler": mark("the weaker filler in this fight"),
     "dot": mark("costs more casting time than it returns in this fight"),
     "cooldown": mark("costs more casting time than it returns in this fight"),
@@ -180,7 +182,8 @@ def situation_out(s: dict, label, unit: str) -> dict:
         elif kind == "lifetap" and has_standby:
             rule = tr(TAP_WITH_STANDBY)
         else:
-            rule = tr(RULES[kind], time=clock(st.get("firstSec") or 0)) if kind in RULES else ""
+            rule = (tr(RULES[kind], time=clock(st.get("firstSec") or 0), pct=st.get("takenPct") or 0)
+                    if kind in RULES else "")
         steps.append({"kind": kind, "spellId": st.get("spellId"), "label": text, "rule": rule,
                       "casts": st.get("casts") or 0, "perMin": round(st.get("perMin") or 0, 2),
                       "firstSec": st.get("firstSec") or 0, "sharePct": round(st.get("sharePct") or 0, 1),

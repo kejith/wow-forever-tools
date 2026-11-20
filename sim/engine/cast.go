@@ -68,8 +68,21 @@ type CastShape struct {
 // Context is what a spell's numbers depend on beyond the character: the
 // DoTs the rotation keeps on the target (base ids), which some talents
 // count (Soul Siphon). nil means none.
+//
+// Taken is how much more damage of each school the enemy takes, in percent,
+// from the debuffs the rotation keeps up (Curse of the Elements). They are
+// first in the priority list, so every other cast counts as landing under
+// them.
 type Context struct {
-	Dots map[int]bool
+	Dots  map[int]bool
+	Taken [NumSchools]float64
+}
+
+// DebuffSec is how long a debuff without ticks stays on the enemy.
+func DebuffSec(sp *Spell, st *State) float64 {
+	ms := float64(sp.DurationMs) + st.Mods.flat(OpDuration, sp)
+	ms *= st.Mods.pct(OpDuration, sp)
+	return math.Max(0, ms/1000)
 }
 
 // ContextOf reads the context from a rotation.
@@ -78,6 +91,13 @@ func ContextOf(actions []Action) *Context {
 	for _, a := range actions {
 		if a.Kind == "dot" && a.Spell != nil {
 			ctx.Dots[a.Spell.BaseID] = true
+		}
+		if a.Kind == "debuff" && a.Spell != nil {
+			for sc := School(0); sc < NumSchools; sc++ {
+				if a.TakenMask&(1<<uint(sc)) != 0 {
+					ctx.Taken[sc] += a.TakenPct
+				}
+			}
 		}
 	}
 	return ctx
@@ -172,6 +192,7 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 		schoolPct = 1 + st.Mods.HealingPct/100
 	} else if ctx != nil {
 		schoolPct *= st.Mods.dotStackPct(sp, ctx.Dots)
+		schoolPct *= 1 + ctx.Taken[sp.School]/100
 	}
 	directPct := schoolPct * st.Mods.pct(OpDamage, sp)
 	tickPct := schoolPct * st.Mods.pct(OpPeriodic, sp)
