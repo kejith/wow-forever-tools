@@ -129,6 +129,21 @@ TEXT = {
     "Crit, per 1%": "Krit, je 1 %",
     "Wand DPS": "Zauberstab-DPS",
     "wand slot only": "nur im Zauberstab-Platz",
+    "The combat engine does not model this class yet ({cls}).":
+        "Die Kampf-Engine kennt diese Klasse noch nicht ({cls}).",
+    "Combat model: {dps:.1f} DPS against +{target} levels, {seconds:g}s fight":
+        "Kampfmodell: {dps:.1f} DPS gegen +{target} Stufen, {seconds:g}s Kampf",
+    ", mana for {ttoom:.0f}s": ", Mana für {ttoom:.0f}s",
+    ", spellbook assumed from level and talents": ", Zauberbuch aus Stufe und Talenten angenommen",
+    "{share:.1f}% of the fight time": "{share:.1f} % der Kampfzeit",
+    "{n:.1f} casts per minute": "{n:.1f} Mal pro Minute",
+
+    # ---- simengine.py ----
+    "The combat engine (simforever) was not found.": "Die Kampf-Engine (simforever) wurde nicht gefunden.",
+    "The combat engine failed: {err}": "Die Kampf-Engine ist fehlgeschlagen: {err}",
+    "The combat engine reports: {err}": "Die Kampf-Engine meldet: {err}",
+    "The snapshot does not name the client build; /wowmcp sync and /reload first.":
+        "Der Schnappschuss nennt den Client-Build nicht; erst /wowmcp sync und /reload.",
     "Shadow/spell power 1, Stamina {stamina:.2f}, Int {intellect:.2f}, Spirit {spirit:g}, Mana/5s {mp5:g}, "
     "Hit 1% = {hit:.1f}, Crit 1% = {crit:.1f}, Wand DPS {wand:g}":
         "Schatten/Zaubermacht 1, Ausdauer {stamina:.2f}, Int {intellect:.2f}, Willenskraft {spirit:g}, "

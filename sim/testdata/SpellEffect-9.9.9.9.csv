@@ -1,0 +1,7 @@
+ID,DifficultyID,EffectIndex,Effect,EffectAura,EffectAuraPeriod,EffectBonusCoefficient,EffectRealPointsPerLevel,Variance,EffectBasePointsF,EffectMiscValue_0,EffectMiscValue_1,EffectSpellClassMask_0,EffectSpellClassMask_1,EffectSpellClassMask_2,EffectSpellClassMask_3,SpellID
+1,0,0,2,0,0,0.5,0,0,50,0,0,0,0,0,0,686
+2,0,0,2,0,0,0.6,0,0,80,0,0,0,0,0,0,695
+3,0,0,6,3,3000,0.2,0,0,20,0,0,0,0,0,0,172
+4,0,0,6,3,3000,0.1,0,0,15,0,0,0,0,0,0,980
+5,0,0,6,79,0,0,0,0,10,32,0,0,0,0,0,18271
+6,0,0,6,107,0,0,0,0,-500,10,0,1,0,0,0,9999

@@ -162,8 +162,8 @@ def test_best_package():
     assert u.best_package([a, b], 1000) == (140, 44.0, ("a2", "b2"))
 
 
-def test_compute_weapons_and_package(tmp: str):
-    """End to end against a temporary WoW folder: a staff is compared with main hand + off hand."""
+def write_fixture(tmp: str) -> dict:
+    """A temporary WoW folder with a warlock and an item export; returns the prices."""
     wtf = os.path.join(tmp, "WTF", "Account", "TEST")
     char_dir = os.path.join(wtf, "93", "Tester - Realm", "SavedVariables")
     os.makedirs(char_dir)
@@ -174,8 +174,10 @@ def test_compute_weapons_and_package(tmp: str):
                 f'subclassID = {sub}, stats = {{ ITEM_MOD_SPELL_POWER_SHORT = {sp} }}, tooltip = {{ {tip} }} }}')
 
     with open(os.path.join(char_dir, "WoWMCP.lua"), "w", encoding="utf-8") as f:
-        f.write('WoWMCP_Char = { character = { name = "Tester", class = "Warlock", level = 46, money = 1000000, '
-                'stats = { spellHit = 5, spellDamage = { shadow = 100 } } }, equipment = {'
+        f.write('WoWMCP_Char = { character = { name = "Tester", class = "Warlock", classFile = "WARLOCK", '
+                'level = 46, money = 1000000, '
+                'stats = { spellHit = 5, spellDamage = { shadow = 100 } } }, '
+                'client = { version = "9.9.9", build = 9, locale = "deDE" }, equipment = {'
                 '{ slot = 16, name = "Old Staff", equipLoc = "INVTYPE_2HWEAPON", stats = { ITEM_MOD_SPELL_POWER_SHORT = 30 } },'
                 '{ slot = 11, name = "Ring A", equipLoc = "INVTYPE_FINGER", stats = { ITEM_MOD_SPELL_POWER_SHORT = 2 } },'
                 '{ slot = 12, name = "Ring B", equipLoc = "INVTYPE_FINGER", stats = { ITEM_MOD_SPELL_POWER_SHORT = 8 } },'
@@ -192,7 +194,12 @@ def test_compute_weapons_and_package(tmp: str):
                 f"""[108] = {item("Goggles", "INVTYPE_HEAD", 50, 4, 1, '"Requires Engineering (215)"')},\n"""
                 f"""[109] = {item("Warlock Hood", "INVTYPE_HEAD", 6, 4, 1, '"Classes: Warlock"')},\n"""
                 "} }\n")
-    prices = {str(i): {"m": 10000, "a": {"100": 1}} for i in range(101, 110)}
+    return {str(i): {"m": 10000, "a": {"100": 1}} for i in range(101, 110)}
+
+
+def test_compute_weapons_and_package(tmp: str):
+    """End to end against a temporary WoW folder: a staff is compared with main hand + off hand."""
+    prices = write_fixture(tmp)
     r = u.compute(tmp, "Tester", prices=prices, top=5)
     by_slot = {s["slot"]: {c["name"]: c for c in s["candidates"]} for s in r["slots"]}
 
@@ -210,6 +217,68 @@ def test_compute_weapons_and_package(tmp: str):
     r = u.compute(tmp, "Tester", prices=prices, max_price=1)  # one gold: the best single purchase
     assert [p["name"] for p in r["package"]["items"]] in (["New Staff"], ["Ring D"])
     assert r["package"]["gain"] == 10
+
+
+STUB_ENGINE = '''
+import json, sys
+data = json.load(sys.stdin)
+assert data["character"]["classFile"] == "WARLOCK" and data["build"] == "9.9.9.9" and data["cacheDir"]
+assert data["fight"] == {"seconds": 45.0, "targetDelta": 3}
+res = {e["key"]: {"gain": 2.0 * e["delta"].get("sp", 0), "value": 100 + 2.0 * e["delta"].get("sp", 0),
+                 "gainPct": 0} for e in data["evaluations"]}
+json.dump({"engine": "stub", "spellbookSource": "assumed",
+           "baseline": {"metric": "dps", "value": 100.0, "ttoomSeconds": 42.0,
+                        "manaSpentPs": 5.0, "manaBudgetPs": 6.0,
+                        "breakdown": [{"label": "Shadow Bolt", "value": 60.0, "sharePct": 80.0, "kind": "filler"},
+                                      {"label": "Life Tap", "kind": "lifetap", "perMin": 3.0, "sharePct": 5.0}]},
+           "results": res}, sys.stdout)
+'''
+
+
+def test_compute_with_engine(tmp: str):
+    """The engine path: a stub binary answers (gain = 2 x spell power change), its numbers land unchanged.
+    The stub also proves what the bundle carries (class, build, fight). No network: the table download is
+    stubbed out, the engine binary is the Python script above (simengine runs *.py through the interpreter)."""
+    import icons
+    import simengine
+    prices = write_fixture(tmp)
+    stub = os.path.join(tmp, "engine_stub.py")
+    with open(stub, "w", encoding="utf-8") as f:
+        f.write(STUB_ENGINE)
+    real_table, real_env = icons.table, os.environ.get("SIMFOREVER_BIN")
+    icons.table = lambda *a, **k: []
+    os.environ["SIMFOREVER_BIN"] = stub
+    try:
+        r = u.compute(tmp, "Tester", prices=prices, top=5, engine="on", fight_seconds=45, target_delta=3)
+    finally:
+        icons.table = real_table
+        os.environ.pop("SIMFOREVER_BIN", None)
+        if real_env:
+            os.environ["SIMFOREVER_BIN"] = real_env
+
+    by_slot = {s["slot"]: {c["name"]: c for c in s["candidates"]} for s in r["slots"]}
+    assert by_slot[16]["New Staff"]["gain"] == 20  # 2 x (40 - 30) spell power, from the stub
+    assert by_slot[11]["Ring D"]["gain"] == 20  # still against the weaker ring (2 x (12 - 2))
+    assert r["setValue"] == 100 and r["engine"]["metric"] == "dps" and r["engine"]["ttoomSeconds"] == 42
+    assert r["engine"]["spellbookSource"] == "assumed" and r["engine"]["fight"] == {"seconds": 45.0, "targetDelta": 3}
+    assert [row["label"] for row in r["scale"]] == ["Shadow Bolt", "Life Tap"]
+    assert r["package"]["gain"] == round(sum(p["gain"] for p in r["package"]["items"]), 1)
+    assert r["package"]["gainPct"] == round(r["package"]["gain"] / 100 * 100)
+
+    # Without the binary, "auto" falls back to the weight scale and "on" refuses.
+    os.environ["SIMFOREVER_BIN"] = os.path.join(tmp, "missing")
+    try:
+        r = u.compute(tmp, "Tester", prices=prices, top=5, engine="auto")
+        assert r["engine"] is None and r["setValue"] != 100
+        try:
+            u.compute(tmp, "Tester", prices=prices, engine="on")
+            raise AssertionError("engine=on must fail without the binary")
+        except LookupError:
+            pass
+    finally:
+        os.environ.pop("SIMFOREVER_BIN", None)
+        if real_env:
+            os.environ["SIMFOREVER_BIN"] = real_env
 
 
 if __name__ == "__main__":

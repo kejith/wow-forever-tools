@@ -24,6 +24,10 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: false # the scripts carry their dependencies in the header, there is no lock file to key a cache on
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false # the engine has no dependencies, so there is no go.sum to key a cache on
       - name: Install the app's dependencies
         # The tests need no Electron binary; this checks that package-lock.json fits package.json.
         working-directory: app
@@ -31,6 +35,11 @@ jobs:
       - name: App tests (addon install, releases, translations)
         working-directory: app
         run: npm test
+      - name: Combat engine tests (sim/)
+        working-directory: sim
+        run: |
+          go vet ./...
+          go test ./...
       - name: Script and MCP server tests
         shell: bash
         run: |
@@ -54,12 +63,21 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: false # the scripts carry their dependencies in the header, there is no lock file to key a cache on
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          cache: false # the engine has no dependencies, so there is no go.sum to key a cache on
       - name: Put uv into the app
         # The installed app runs its Python scripts with this uv, so nobody has to install anything else.
         run: |
           mkdir -p app/build/bin
           cp "$(command -v uv)" app/build/bin/uv.exe
           app/build/bin/uv.exe --version
+      - name: Build the combat engine into the app
+        # upgrades.py runs resources/bin/simforever.exe for the simulated rating (scripts/simengine.py).
+        run: |
+          go build -C sim -o ../app/build/bin/simforever.exe ./cmd/simforever
+          app/build/bin/simforever.exe --version
       - name: Install the app's dependencies
         working-directory: app
         run: npm ci

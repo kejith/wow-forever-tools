@@ -1,0 +1,5 @@
+ID,SkillLine,Spell,MinSkillLineRank,ClassMask,SupercedesSpell,AcquireMethod
+1,355,686,1,256,0,0
+2,355,695,1,256,686,0
+3,355,172,1,256,0,0
+4,355,980,1,256,0,0

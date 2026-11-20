@@ -1,0 +1,4 @@
+{
+  "comment": "Threat values are entirely server-side and unknown for Forever. This file is filled with sourced values when tank metrics land (M5); until then TPS is not offered.",
+  "entries": []
+}

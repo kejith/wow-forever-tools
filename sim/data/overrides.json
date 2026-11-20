@@ -1,0 +1,27 @@
+{
+  "comment": "Hand-written talent facts the generic DB2 decode cannot or should not derive. Every entry names its source; 'Classic value' means the number is taken from Classic-era theorycraft and has NOT been measured on Forever yet. 'spells' lists the rank spell ids as the talent export reports them; 'perRank' is multiplied by the exported rank.",
+  "entries": [
+    {
+      "name": "Suppression",
+      "spells": [18174, 18175, 18176, 18177, 18178],
+      "kind": "spell_hit_flat",
+      "perRank": 2,
+      "affectsBases": [172, 980, 603, 689, 1120, 18265],
+      "source": "Classic value (2% per rank on Affliction spells); Forever unmeasured, CLAUDE.md 2026-11"
+    },
+    {
+      "name": "Improved Life Tap",
+      "spells": [18182, 18183],
+      "kind": "life_tap_pct",
+      "perRank": 10,
+      "source": "Classic value (+10% mana per rank); Forever unmeasured, tooltip not exported"
+    },
+    {
+      "name": "Pandemic",
+      "spells": [427712],
+      "kind": "dot_crit",
+      "schools": ["shadow"],
+      "source": "SoD rune with the same spell id lets Shadow DoTs crit; Forever unverified"
+    }
+  ]
+}

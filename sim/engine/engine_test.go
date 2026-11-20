@@ -1,0 +1,208 @@
+package engine
+
+import (
+	"math"
+	"math/rand"
+	"testing"
+)
+
+func almost(t *testing.T, name string, got, want, eps float64) {
+	t.Helper()
+	if math.Abs(got-want) > eps {
+		t.Errorf("%s = %g, want %g (±%g)", name, got, want, eps)
+	}
+}
+
+// The classic boss example: weapon skill 300 against defense 315.
+func TestMeleeTableBoss(t *testing.T) {
+	tab := MeleeTable(300, 315, 25, false)
+	almost(t, "miss", tab.Miss, 8, 1e-9)          // 6 + 5*0.4
+	almost(t, "dodge", tab.Dodge, 6.5, 1e-9)      // 5 + 15*0.1
+	almost(t, "glancing", tab.Glancing, 40, 1e-9) // capped
+	almost(t, "penalty", tab.GlancePenalty, 0.65, 1e-9)
+	almost(t, "crit", tab.Crit, 22, 1e-9) // 25 - 15*0.2
+	if sum := tab.Miss + tab.Dodge + tab.Glancing + tab.Crit; sum > 100 {
+		t.Errorf("table overflows: %g", sum)
+	}
+}
+
+func TestMeleeTableEqualLevel(t *testing.T) {
+	tab := MeleeTable(300, 300, 10, false)
+	almost(t, "miss", tab.Miss, 5, 1e-9)
+	almost(t, "glancing", tab.Glancing, 0, 1e-9)
+	almost(t, "crit", tab.Crit, 10, 1e-9)
+}
+
+func TestRangedMiss(t *testing.T) {
+	almost(t, "miss +5", RangedMiss(300, 305), 5.5, 1e-9)
+	almost(t, "miss +15", RangedMiss(300, 315), 8, 1e-9)
+}
+
+func TestApplyDeltaChains(t *testing.T) {
+	st := &State{ManaPerInt: 15, CritPerInt: 0.02, HPPerSta: 10}
+	s := st.ApplyDelta(map[string]float64{"int": 30, "sta": 5, "sp": 10, "spShadow": 7, "hit": 2})
+	almost(t, "mana", s.ManaMax, 450, 1e-9)
+	almost(t, "crit shadow", s.Crit[Shadow], 0.6, 1e-9)
+	almost(t, "health", s.HealthMax, 50, 1e-9)
+	almost(t, "sp shadow", s.SP[Shadow], 17, 1e-9)
+	almost(t, "sp fire", s.SP[Fire], 10, 1e-9)
+	almost(t, "healing", s.Healing, 10, 1e-9)
+	almost(t, "hit", s.Hit, 2, 1e-9)
+	// The original is untouched.
+	almost(t, "original", st.SP[Shadow], 0, 1e-9)
+}
+
+func testState() *State {
+	st := &State{Level: 20, Hit: 1}
+	st.SP[Shadow] = 100
+	st.Crit[Shadow] = 10
+	return st
+}
+
+func bolt() *Spell {
+	return &Spell{
+		ID: 695, BaseID: 686, Name: "Shadow Bolt", School: Shadow,
+		CastMs: 3000, Cost: Cost{Mana: 140},
+		Levels: Levels{Base: 16},
+		Direct: &Effect{BP: 80, Coeff: 0.6},
+	}
+}
+
+func corruption() *Spell {
+	return &Spell{
+		ID: 172, BaseID: 172, Name: "Corruption", School: Shadow,
+		DurationMs: 18000, Cost: Cost{Mana: 50},
+		Periodic: &Effect{BP: 20, Coeff: 0.2, PeriodMs: 3000},
+	}
+}
+
+// Hand-computed: (80 + 0.6*100) * (1 + 10%*0.5) * hit 95% = 139.65.
+func TestResolveCastDirect(t *testing.T) {
+	st := testState()
+	r := ResolveCast(bolt(), st, NewTarget(20, 2), nil)
+	almost(t, "damage", r.Damage, 139.65, 1e-9)
+	almost(t, "execute", r.ExecuteSec, 3, 1e-9)
+	almost(t, "mana", r.ManaCost, 140, 1e-9)
+}
+
+// Hand-computed: 6 ticks * (20 + 0.2*100) * 95% = 228; DoTs do not crit.
+func TestResolveCastPeriodic(t *testing.T) {
+	st := testState()
+	r := ResolveCast(corruption(), st, NewTarget(20, 2), nil)
+	almost(t, "damage", r.Damage, 228, 1e-9)
+	almost(t, "duration", r.DurationSec, 18, 1e-9)
+	almost(t, "execute (gcd)", r.ExecuteSec, 1.5, 1e-9)
+}
+
+func TestDotCritWithPandemic(t *testing.T) {
+	st := testState()
+	st.Mods.DotCritSchools = 1 << uint(Shadow)
+	r := ResolveCast(corruption(), st, NewTarget(20, 2), nil)
+	almost(t, "damage", r.Damage, 228*1.05, 1e-9)
+}
+
+func TestSpellModsCastTimeAndMask(t *testing.T) {
+	st := testState()
+	st.Mods.SpellMods = []SpellMod{{Op: OpCastTime, Value: -500, Mask: [4]uint32{1, 0, 0, 0}}}
+	sb := bolt()
+	sb.ClassMask = [4]uint32{1, 0, 0, 0}
+	r := ResolveCast(sb, st, NewTarget(20, 2), nil)
+	almost(t, "execute", r.ExecuteSec, 2.5, 1e-9)
+	// A spell outside the mask is untouched.
+	co := corruption()
+	co.ClassMask = [4]uint32{2, 0, 0, 0}
+	r = ResolveCast(co, st, NewTarget(20, 2), nil)
+	almost(t, "execute corruption", r.ExecuteSec, 1.5, 1e-9)
+}
+
+// The hit floor: one percent miss always remains.
+func TestHitFloor(t *testing.T) {
+	st := testState()
+	st.Hit = 5 // miss vs +2 would be 6 - 5 = 1 = the floor
+	a := ResolveCast(bolt(), st, NewTarget(20, 2), nil).Damage
+	st.Hit = 50
+	b := ResolveCast(bolt(), st, NewTarget(20, 2), nil).Damage
+	almost(t, "capped hit", a, b, 1e-9)
+}
+
+// The Monte-Carlo seam: the mean of sampled casts approaches the expectation.
+func TestResolveCastSampledMean(t *testing.T) {
+	st := testState()
+	want := ResolveCast(bolt(), st, NewTarget(20, 2), nil).Damage
+	rng := rand.New(rand.NewSource(1))
+	n := 200000
+	sum := 0.0
+	for i := 0; i < n; i++ {
+		sum += ResolveCast(bolt(), st, NewTarget(20, 2), rng).Damage
+	}
+	got := sum / float64(n)
+	if math.Abs(got-want)/want > 0.02 {
+		t.Errorf("sampled mean %g too far from expectation %g", got, want)
+	}
+}
+
+// The full cycle, hand-computed in the comments (fight 60 s, target +2):
+//
+//	Corruption: 228 dmg / 18 s, share 1.5/18; CoA-like omitted here.
+//	Shadow Bolt filler: 139.65 per 3 s cast.
+//	Unconstrained: see values below; mana forces Life Tap and wanding.
+func TestEvaluateManaClipping(t *testing.T) {
+	st := testState()
+	st.ManaMax = 1000
+	st.HealthMax = 500
+	st.MP5 = 10
+	st.LifeTap = LifeTap{HealthPerCast: 100, ManaPerCast: 120}
+	st.Wand = Wand{DPS: 20, Skill: 100}
+	st.RangedCrit = 5
+
+	actions := []Action{
+		{Kind: "dot", Spell: corruption()},
+		{Kind: "filler", Spell: bolt()},
+		{Kind: "wand"},
+	}
+	m := Evaluate(st, Fight{Seconds: 60, TargetDelta: 2}, actions, "dps")
+
+	// Shares: corruption 1/12, filler 11/12.
+	// rotDPS = 228/18 + (11/12)*139.65/3 = 12.6667 + 42.6708 = 55.3375
+	// rotMPS = 50/18 + (11/12)*140/3 = 2.7778 + 42.7778 = 45.5556
+	almost(t, "manaSpentPs", m.ManaSpentPS, 45.5556, 0.001)
+	// budget = 1000/60 + 10/5 = 18.6667
+	almost(t, "manaBudgetPs", m.ManaBudgetPS, 18.6667, 0.001)
+	// ttoom = 1000 / (45.5556 - 2) = 22.959
+	if m.TTOOMSec == nil {
+		t.Fatal("ttoom missing")
+	}
+	almost(t, "ttoom", *m.TTOOMSec, 22.959, 0.01)
+	// Health caps the taps: 0.4*500 / (60*100) = 1/30 taps per second,
+	// castFraction = (18.6667 + 4) / 45.5556 = 0.49756 (mana-bound),
+	// wand = 1 - 0.49756 - 0.05 = 0.45244, wandDPS = 20*0.94*1.03 = 19.364.
+	// dps = 55.3377*0.49756 + 19.364*0.45244 = 27.534 + 8.761 = 36.295
+	almost(t, "dps", m.DPS, 36.295, 0.01)
+
+	// Without mana pressure the full rotation runs.
+	st.ManaMax = 1e9
+	m2 := Evaluate(st, Fight{Seconds: 60, TargetDelta: 2}, actions, "dps")
+	almost(t, "unconstrained dps", m2.DPS, 55.3375, 0.001)
+	if m2.TTOOMSec != nil && *m2.TTOOMSec < 60 {
+		t.Errorf("unexpected early ttoom %g", *m2.TTOOMSec)
+	}
+	if m2.DPS <= m.DPS {
+		t.Error("mana pressure should lower dps")
+	}
+}
+
+// More spell power must help, and hit past the floor must not.
+func TestEvaluateDeltas(t *testing.T) {
+	st := testState()
+	st.ManaMax = 1e9
+	actions := []Action{{Kind: "dot", Spell: corruption()}, {Kind: "filler", Spell: bolt()}}
+	fight := Fight{Seconds: 60, TargetDelta: 2}
+	base := Evaluate(st, fight, actions, "dps").DPS
+	up := Evaluate(st.ApplyDelta(map[string]float64{"sp": 10}), fight, actions, "dps").DPS
+	if up <= base {
+		t.Error("spell power gained nothing")
+	}
+	capped := Evaluate(st.ApplyDelta(map[string]float64{"hit": 5}), fight, actions, "dps").DPS
+	over := Evaluate(st.ApplyDelta(map[string]float64{"hit": 25}), fight, actions, "dps").DPS
+	almost(t, "hit beyond the cap", over, capped, 1e-9)
+}

@@ -1,0 +1,7 @@
+{
+  "comment": "Target model. Armor by level is the Classic-era NPC baseline (warrior-type mobs), used for melee mitigation once melee classes land; unverified for Forever. Boss presets stay empty until swings are measured from combat logs (Details!).",
+  "armorByLevel": {
+    "10": 150, "20": 400, "30": 800, "40": 1500, "50": 2300, "60": 3100, "63": 3731
+  },
+  "bosses": {}
+}

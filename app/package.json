@@ -52,7 +52,9 @@
         "to": "bin",
         "filter": [
           "uv",
-          "uv.exe"
+          "uv.exe",
+          "simforever",
+          "simforever.exe"
         ]
       }
     ],
