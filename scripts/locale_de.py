@@ -601,4 +601,52 @@ TEXT = {
         "Was ein Punkt bringt ({unit}; in Klammern: so viele Punkte Heilbonus bringen dasselbe)",
     "{label}: {short} in a fight of {seconds:.0f} s, {long} in one of {long_seconds:.0f} s":
         "{label}: {short} in einem Kampf von {seconds:.0f} s, {long} in einem von {long_seconds:.0f} s",
+    # combatlog.py
+    "Melee": "Nahkampf",
+    "No combat log found. Type /combatlog in the game before the fight; the game writes it to its Logs folder.":
+        "Kein Kampflog gefunden. Gib im Spiel vor dem Kampf /combatlog ein; das Spiel schreibt es in seinen Ordner Logs.",
+    "The combat log has no fights of this character.": "Das Kampflog enthält keine Kämpfe dieses Charakters.",
+    "{file}: {name}, {fights} fights, {time} fighting, {damage:,.0f} damage, {dps:.1f} DPS while fighting":
+        "{file}: {name}, {fights} Kämpfe, {time} im Kampf, {damage:,.0f} Schaden, {dps:.1f} DPS im Kampf",
+    "The log was written without advanced logging: no mana, no health and no enemy levels. "
+    "Turn it on in the game (System > Network > Advanced Combat Logging).":
+        "Das Log wurde ohne erweiterte Kampfaufzeichnung geschrieben: kein Mana, kein Leben und keine Stufen der "
+        "Gegner. Schalte sie im Spiel ein (System > Netzwerk > Erweiterte Kampfaufzeichnung).",
+    "No numbers of the combat model: {err}": "Keine Zahlen des Kampfmodells: {err}",
+    "Spell power in the log: {low} to {high}.": "Zaubermacht im Log: {low} bis {high}.",
+    "The log has no fight {n}.": "Das Log hat keinen Kampf {n}.",
+    "... and {n} more casts": "... und {n} weitere Zauber",
+    "Casts": "Gewirkt",
+    "/min": "/min",
+    "Hits": "Treffer",
+    "Missed": "Verfehlt",
+    "Avg hit": "Ø Treffer",
+    "Model": "Modell",
+    "Ticks": "Ticks",
+    "Avg tick": "Ø Tick",
+    "Tick every": "Tick alle",
+    "Up": "Aktiv",
+    "Enemy": "Gegner",
+    "Crit x": "Krit x",
+    "Resisted": "Widerstanden",
+    "Share": "Anteil",
+    "Avg hit and avg tick are the amounts before crit and mitigation, as a tooltip shows them; "
+    "\"Enemy\" is what the enemies added to them (debuffs) and \"Crit x\" what a crit multiplied. "
+    "\"Tick every\" is the fastest tenth, the median and the slowest tenth of the time between two ticks.":
+        "Ø Treffer und Ø Tick sind die Werte vor Krit und Minderung, wie ein Tooltip sie zeigt; "
+        "„Gegner“ ist, was die Gegner darauf aufgeschlagen haben (Debuffs), und „Krit x“, womit ein Krit "
+        "multipliziert hat. „Tick alle“ ist das schnellste Zehntel, der Median und das langsamste Zehntel der "
+        "Zeit zwischen zwei Ticks.",
+    "{n:,} mana, {count}x ({each:.0f} each)": "{n:,} Mana, {count}x (je {each:.0f})",
+    "{n:,} healing, {over:,} overhealing": "{n:,} Heilung, {over:,} Überheilung",
+    "{n:,} damage to yourself": "{n:,} Schaden an dir selbst",
+    "Casts on enemies that missed, by the enemy's level above yours:":
+        "Zauber auf Gegner, die verfehlt haben, nach der Stufe des Gegners über deiner:",
+    "  {delta:+d}: {misses} of {casts} ({pct:.1f}%)": "  {delta:+d}: {misses} von {casts} ({pct:.1f} %)",
+    ", the model expects {pct:.0f}%": ", das Modell erwartet {pct:.0f} %",
+    "Fights (--fight N shows one cast by cast):": "Kämpfe (--fight N zeigt einen Zauber für Zauber):",
+    "{n:3d}  {start}  {time:>8}  enemies {enemies}  {damage:>7,} damage  {dps:7.1f} DPS":
+        "{n:3d}  {start}  {time:>8}  Gegner {enemies}  {damage:>7,} Schaden  {dps:7.1f} DPS",
+    "  mana {a}% > {b}%": "  Mana {a} % > {b} %",
+    "  level {delta:+d}": "  Stufe {delta:+d}",
 }

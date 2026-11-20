@@ -14,6 +14,7 @@
     uv run scripts/app_bridge.py rotations --char Malgruk [--fight-seconds 60] [--target-delta 2]
                                            [--kills-per-minute 1]
     uv run scripts/app_bridge.py healing --char Siegfried [--fight-seconds 60] [--target-delta 2]
+    uv run scripts/app_bridge.py combatlog [--char Malgruk] [--file <log>]
     uv run scripts/app_bridge.py icons --ids 9492,287004
     uv run scripts/app_bridge.py goldperhour
     uv run scripts/app_bridge.py pricehistory
@@ -34,6 +35,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import combatlog  # noqa: E402
 import consumables  # noqa: E402
 import goldperhour  # noqa: E402
 import healing  # noqa: E402
@@ -132,7 +134,8 @@ def character(wow: str, name: str) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "consumables", "icons",
-                                           "goldperhour", "ingame", "pricehistory", "rotations", "healing"])
+                                           "goldperhour", "ingame", "pricehistory", "rotations", "healing",
+                                           "combatlog"])
     ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=3)
@@ -154,6 +157,7 @@ def main() -> None:
     ap.add_argument("--profession", default="", help="recipes: part of the profession name or its skill line ID")
     ap.add_argument("--ids", default="", help="icons: comma-separated item IDs")
     ap.add_argument("--write", action="store_true", help="ingame: write the data file into the addon folder")
+    ap.add_argument("--file", default="", help="combatlog: the log to read (default: the newest of the game)")
     i18n.add_argument(ap)
     a = ap.parse_args()
     language = i18n.set_language(a.lang, a.wow)
@@ -185,6 +189,9 @@ def main() -> None:
         elif a.command == "healing":
             # Every known heal rank with its numbers, the ranks to use and the stat weights.
             r = healing.compute(a.wow, a.char, a.fight_seconds, a.target_delta)
+        elif a.command == "combatlog":
+            # What the character did in the newest combat log, next to the combat model's numbers.
+            r = combatlog.compute(a.wow, a.char, a.file)
         elif a.command == "writs":
             r = writs.compute(a.wow, a.char, a.top, a.owned_at_ah_price)
         else:
