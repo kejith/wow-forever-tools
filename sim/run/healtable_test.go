@@ -1,6 +1,10 @@
 package run
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/kejith/wow-forever-tools/sim/engine"
+)
 
 func healRow(t *testing.T, tab *HealTable, id int) HealRow {
 	t.Helper()
@@ -128,4 +132,43 @@ func TestRenewIsOptional(t *testing.T) {
 		t.Errorf("without Renew: %q %+v", out.Error, out.Baseline)
 	}
 	almost(t, "lesser heal alone", out.Baseline.Value, 36.9, 1e-6)
+}
+
+// The character sheet's own regeneration (addon 1.12) replaces the class
+// formula and the gear's mp5.
+//
+//	spirit regeneration 20 mana/s on the sheet, Meditation lets 15 % through:
+//	3 mana/s while casting. The sheet says 4.5 while casting, so 1.5 mana/s
+//	(7.5 mp5) come from gear and buffs. Outside the five-second rule 21.5.
+//	Eight more spirit add 8 * 0.125 = 1 mana/s to the spirit regeneration.
+func TestSheetRegeneration(t *testing.T) {
+	in := shieldInput()
+	in.Situations = false
+	in.HealTable = true
+	casting := 4.5
+	in.Character.Stats.SpiritRegen = 20
+	in.Character.Stats.CastingRegen = &casting
+	tab := Run(in).HealTable
+	if tab == nil {
+		t.Fatal("no heal table")
+	}
+	almost(t, "mp5 from the sheet", tab.GearMP5, 7.5, 1e-9)
+	almost(t, "regen casting", tab.RegenCastingPS, 4.5, 1e-9)
+	almost(t, "regen idle", tab.RegenIdlePS, 21.5, 1e-9)
+
+	st := buildState(in.Character, engine.Mods{CastingRegenPct: 15}).ApplyDelta(map[string]float64{"spi": 8, "mp5": 5})
+	c, idle := st.Regen(in.Fight)
+	almost(t, "with more spirit, casting", c, 4.5+1+1*0.15, 1e-9)
+	almost(t, "with more spirit, idle", idle, 21.5+1+1, 1e-9)
+
+	// Without the regeneration while casting the gear's mp5 stays; a sheet
+	// that shows less than the spirit share has no mp5.
+	in.Character.Stats.CastingRegen = nil
+	almost(t, "only the spirit part", Run(in).HealTable.GearMP5, 5, 1e-9)
+	low := 2.0
+	in.Character.Stats.CastingRegen = &low
+	almost(t, "never below zero", Run(in).HealTable.GearMP5, 0, 1e-9)
+	// A snapshot without the sheet's numbers keeps the class formula.
+	in.Character.Stats.SpiritRegen = 0
+	almost(t, "class formula", Run(in).HealTable.RegenIdlePS, 15, 1e-9)
 }

@@ -69,8 +69,14 @@ type Stats struct {
 	HPPerSta    float64            `json:"hpPerSta"`
 	HastePct    float64            `json:"hastePct"`
 	RangedCrit  float64            `json:"rangedCrit"`
-	Wand        engine.Wand        `json:"wand"`
-	LifeTap     engine.LifeTap     `json:"lifeTap"`
+	// What the character sheet says about the mana regeneration, per second
+	// (addon 1.12, GetManaRegenFromSpirit and GetManaRegen): from spirit
+	// outside the five-second rule, and everything while casting. They
+	// replace the class formula and the gear's mp5: the sheet has buffs too.
+	SpiritRegen  float64        `json:"spiritRegen"`
+	CastingRegen *float64       `json:"castingRegen"`
+	Wand         engine.Wand    `json:"wand"`
+	LifeTap      engine.LifeTap `json:"lifeTap"`
 }
 
 // Evaluation is one stat delta to rate (an item swap, or a package prefix).
@@ -230,10 +236,13 @@ var Metrics = map[string][]string{
 }
 
 // regen is the mana regeneration while not casting, per second:
-// base + spirit * factor. Classic approximations (per 2-second tick:
-// priest 13 + spirit/4, warlock 8 + spirit/4), unmeasured in Forever.
+// base + spirit * factor, used as it is for a snapshot without the sheet's
+// regeneration (Stats.SpiritRegen). Per 2-second tick the warlock has
+// 12.5 + spirit/4: a level 51 warlock with 120 spirit shows 21.25 mana per
+// second on the sheet. The priest's 13 + spirit/4 is the Classic
+// approximation, unmeasured in Forever.
 var regen = map[string][2]float64{
-	"WARLOCK": {4, 0.125},
+	"WARLOCK": {6.25, 0.125},
 	"PRIEST":  {6.5, 0.125},
 }
 
@@ -628,6 +637,18 @@ func buildState(ch Character, mods engine.Mods) *engine.State {
 	}
 	if r, ok := regen[ch.ClassFile]; ok {
 		st.RegenBasePS, st.RegenSpiritFactor = r[0], r[1]
+	}
+	// The sheet's own numbers win. The spirit regeneration is the sheet's at
+	// the sheet's spirit (the formula keeps the slope for item deltas), and
+	// the mana per 5 s is what the sheet regenerates while casting beyond the
+	// share of the spirit regeneration the talents let through: gear and
+	// buffs, so that the model's regeneration while casting is the sheet's.
+	if ch.Stats.SpiritRegen > 0 {
+		st.RegenBasePS = ch.Stats.SpiritRegen - st.Spirit*st.RegenSpiritFactor
+		if c := ch.Stats.CastingRegen; c != nil {
+			share := math.Min(100, mods.CastingRegenPct) / 100
+			st.MP5 = math.Max(0, *c-ch.Stats.SpiritRegen*share) * 5
+		}
 	}
 	for name, v := range ch.Stats.SpellDamage {
 		if s := engine.SchoolByName(name); s >= 0 {

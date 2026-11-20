@@ -136,10 +136,18 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float =
     stats = {"healing": round(table.get("healing") or 0), "critPct": round(table.get("critPct") or 0, 2),
              "manaMax": round(mana_max), "spirit": round(table.get("spirit") or 0), "gearMp5": round(gear, 1),
              "castingPer5": round(casting * 5, 1), "idlePer5": round(idle * 5, 1),
-             "spiritPer5": round(idle * 5 - gear, 1), "castingRegenPct": round(pct, 1)}
-    notes = [tr("Mana per 5 sec. on your gear counts all the time ({gear:.0f} now). The regeneration from spirit "
-                "({spirit:.0f} mana per 5 sec.) stops while you cast and for five seconds after a cast that "
-                "costs mana.", gear=gear, spirit=stats["spiritPer5"])]
+             "spiritPer5": round(idle * 5 - gear, 1), "castingRegenPct": round(pct, 1),
+             # The regeneration is the character sheet's own (addon 1.12): its mp5 has the buffs as well.
+             "regenFromSheet": "castingRegen" in simengine.sheet_numbers(ch.get("stats") or {})}
+    if stats["regenFromSheet"]:
+        notes = [tr("Mana per 5 sec. from your gear and buffs counts all the time ({gear:.0f} now). The "
+                    "regeneration from spirit ({spirit:.0f} mana per 5 sec.) stops while you cast and for five "
+                    "seconds after a cast that costs mana. Both numbers are those of your character sheet.",
+                    gear=gear, spirit=stats["spiritPer5"])]
+    else:
+        notes = [tr("Mana per 5 sec. on your gear counts all the time ({gear:.0f} now). The regeneration from "
+                    "spirit ({spirit:.0f} mana per 5 sec.) stops while you cast and for five seconds after a cast "
+                    "that costs mana.", gear=gear, spirit=stats["spiritPer5"])]
     if pct > 0:
         notes.append(tr("Your talents let {pct:.0f}% of it through while casting.", pct=pct))
     notes.append(tr("The numbers are those of your last snapshot, with the buffs you had then."))

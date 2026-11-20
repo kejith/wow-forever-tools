@@ -68,7 +68,7 @@ func TestDamageSituations(t *testing.T) {
 	if std.Fight.Seconds != 60 || std.Fight.TargetDelta != 2 {
 		t.Errorf("standard fight: %+v", std.Fight)
 	}
-	almost(t, "standard dps", std.Value, 43.861, 0.01)
+	almost(t, "standard dps", std.Value, 44.2573, 0.01)
 	if std.OOMSec == nil {
 		t.Fatal("standard: the mana should run out")
 	}

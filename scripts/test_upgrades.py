@@ -178,7 +178,9 @@ def write_fixture(tmp: str) -> dict:
     with open(os.path.join(char_dir, "WoWMCP.lua"), "w", encoding="utf-8") as f:
         f.write('WoWMCP_Char = { character = { name = "Tester", class = "Warlock", classFile = "WARLOCK", '
                 'level = 46, money = 1000000, '
-                'stats = { spellHit = 5, spellDamage = { shadow = 100 } } }, '
+                'stats = { spellHit = 5, spellDamage = { shadow = 100 }, spellHaste = 15, '
+                'manaRegen = { base = 22, casting = 2, spirit = 20, spiritCasting = 0 } }, '
+                'buffs = { { id = 16609, name = "Blessing" } } }, '
                 'spellbook = { updated = 1, count = 2, spells = { [686] = { name = "Shadow Bolt", rank = "Rank 3", '
                 'text = "Sends a shadowy bolt at the enemy, causing 133 to 139 Shadow damage." }, '
                 '[172] = { name = "Corruption" } } }, '
@@ -311,6 +313,8 @@ assert data["fight"] == {"seconds": 45.0, "targetDelta": 3, "killsPerMinute": -1
 assert data["character"]["spellbook"] == [172, 686], "the addon's spellbook export reaches the engine"
 assert data["character"]["stats"]["wand"]["dps"] == 20, "the equipped wand's damage per second reaches the engine"
 assert data["character"]["talents"] == {"18174": 5}
+sheet = {k: data["character"]["stats"].get(k) for k in ("hastePct", "spiritRegen", "castingRegen")}
+assert sheet == {"hastePct": 15, "spiritRegen": 20, "castingRegen": 2}, "the sheet's haste and regeneration"
 import os
 cap = float(os.environ.get("STUB_SP_CAP") or 1e9)  # spell power above the cap adds nothing: gains stop adding up
 gain = lambda e: 2.0 * min(e["delta"].get("sp", 0), cap)
@@ -395,6 +399,38 @@ def test_tooltip_check():
     # Without a coverage report every spell with an amount and a text is checked.
     assert simengine.tooltip_check(spells, book)["checked"] == 7
     assert simengine.tooltip_check(spells, {}) is None and simengine.tooltip_check([], book) is None
+    assert not r["costs"] and {o["kind"] for o in r["off"]} == {"amount"}
+
+    # Since addon 1.12 the export has the mana cost and the cast time of each rank as well.
+    spells = [
+        {"spellId": 686, "baseId": 686, "directMin": 13, "directMax": 18, "mana": 25, "castSec": 1.5},
+        {"spellId": 695, "baseId": 686, "directMin": 26, "directMax": 32, "mana": 40, "castSec": 2.2},
+        {"spellId": 704, "baseId": 704, "mana": 50, "castSec": 1.5},  # a curse: nothing but its cost
+        {"spellId": 755, "baseId": 755, "periodic": 120, "ticks": 10, "mana": 11, "castSec": 10},
+        {"spellId": 1454, "baseId": 1454, "castSec": 1.5},  # nothing to compare
+    ]
+    book = {
+        # A cast shorter than the global cooldown occupies the global cooldown.
+        686: {"name": "Shadow Bolt", "rank": "Rank 1", "text": "13 to 18 Shadow damage.", "cost": 25, "castTime": 1478},
+        695: {"name": "Shadow Bolt", "rank": "Rank 2", "text": "26 to 32 Shadow damage.", "cost": 38, "castTime": 1913},
+        704: {"name": "Curse of Recklessness", "text": "Curses the target.", "cost": 50, "castTime": 0},
+        # It costs health: the cost is not compared; a channel has no cast time in the export.
+        755: {"name": "Health Funnel", "text": "Gives 12 health per second.", "cost": 30, "costType": 2, "castTime": 0},
+        1454: {"name": "Life Tap", "text": "Converts health into mana."},
+    }
+    r = simengine.tooltip_check(spells, book)
+    assert (r["checked"], r["matched"], r["costs"]) == (4, 3, True), r
+    assert [(o["spellId"], o["kind"], o["model"], o.get("game")) for o in r["off"]] == [
+        (695, "cost", [40], 38), (695, "cast", [2.2], 1.91)], r["off"]
+    assert u.check_texts(r["off"][0]) == dict(model="the model has 40 mana", text="the game says 38 mana")
+    assert u.check_texts(r["off"][1]) == dict(model="the model takes 2.2 s to cast it", text="the game says 1.91 s")
+
+    # The sheet's haste and regeneration for the engine; an older snapshot has neither.
+    assert simengine.sheet_numbers({}) == {"hastePct": 0}
+    assert simengine.sheet_numbers({"spellHaste": 15, "manaRegen": {"spirit": 21.25, "casting": 2.0}}) == {
+        "hastePct": 15, "spiritRegen": 21.25, "castingRegen": 2.0}
+    assert simengine.sheet_numbers({"manaRegen": {"spirit": 21.25}}) == {"hastePct": 0, "spiritRegen": 21.25}
+    assert simengine.sheet_numbers({"manaRegen": {"casting": 2.0}}) == {"hastePct": 0}
 
 
 def test_compute_with_engine(tmp: str):
@@ -463,6 +499,8 @@ def test_compute_with_engine(tmp: str):
     assert r["engine"]["tooltipCheck"] == dict(
         checked=1, matched=1, off=[],
         text="Checked against the spell texts of the game: 1 of 1 spell ranks agree.")
+    assert r["engine"]["buffs"] == dict(
+        names=["Blessing"], text="The snapshot was taken with these buffs, and its numbers include them: Blessing.")
     assert r["package"]["gain"] == round(sum(p["gain"] for p in r["package"]["items"]), 1)
     assert r["package"]["gainPct"] == round(r["package"]["gain"] / 100 * 100)
     # Gains that do not add up: once the first purchases reach the cap, the others add nothing on top and

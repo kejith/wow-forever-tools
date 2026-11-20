@@ -64,12 +64,14 @@ function statTiles(d) {
   const s = d.stats;
   const tile = (label, value, sub = '') => `<div class="heal-tile"><div class="small muted">${esc(label)}</div>
       <div class="big">${value}</div>${sub ? `<div class="small muted">${esc(sub)}</div>` : ''}</div>`;
+  // The character sheet's regeneration (addon 1.12) has the buffs in its mana per 5 sec.
+  const source = s.regenFromSheet ? t('gear and buffs') : t('gear');
   return `<div class="heal-tiles">
       ${tile(t('Healing bonus'), num(s.healing))}
       ${tile(t('Spell crit'), esc(percent(num(s.critPct, 1))))}
       ${tile(t('Mana'), num(s.manaMax))}
-      ${tile(t('Mana per 5 sec. while casting'), num(s.castingPer5, 1), s.castingRegenPct ? t('gear {gear} + {pct} of the spirit regeneration', { gear: num(s.gearMp5), pct: percent(num(s.castingRegenPct, 0)) }) : t('gear {gear}', { gear: num(s.gearMp5) }))}
-      ${tile(t('Mana per 5 sec. after 5 s without a cast'), num(s.idlePer5, 1), t('gear {gear} + spirit {spirit}', { gear: num(s.gearMp5), spirit: num(s.spiritPer5, 1) }))}
+      ${tile(t('Mana per 5 sec. while casting'), num(s.castingPer5, 1), s.castingRegenPct ? t('{source} {gear} + {pct} of the spirit regeneration', { source, gear: num(s.gearMp5), pct: percent(num(s.castingRegenPct, 0)) }) : `${source} ${num(s.gearMp5)}`)}
+      ${tile(t('Mana per 5 sec. after 5 s without a cast'), num(s.idlePer5, 1), t('{source} {gear} + spirit {spirit}', { source, gear: num(s.gearMp5), spirit: num(s.spiritPer5, 1) }))}
     </div>`;
 }
 

@@ -153,7 +153,7 @@ export async function renderUpgrades() {
   };
   // The model's numbers per spell rank next to the game's own spell texts.
   const check = eng?.tooltipCheck;
-  const tipCheck = check ? `<h3>${esc(t('Checked against the game'))} ${help(esc(t('The spell texts in your spellbook hold the numbers of your character: spell power, talents and the loss of an outgrown rank are in them. For every rank of the spells above, the model computes the same numbers; here is how many agree. A rank that differs means the model misses something for it.')))}</h3>
+  const tipCheck = check ? `<h3>${esc(t('Checked against the game'))} ${help(esc(t('The spell texts in your spellbook hold the numbers of your character: spell power, talents and the loss of an outgrown rank are in them. For every rank of the spells above, the model computes the same numbers; here is how many agree. With WoWMCP 1.12 or newer the mana cost and the cast time of every rank are compared as well. A rank that differs means the model misses something for it.')))}</h3>
       <p class="small ${check.off.length ? '' : 'muted'}">${esc(check.text)}</p>
       ${check.off.length ? `<table><tbody>${check.off.map((o) => `<tr><td><span class="badge warn">${esc(t('differs'))}</span></td>
         <td>${esc(o.label)}</td><td class="small muted">${esc(o.model)}</td><td class="small">${esc(o.text)}</td></tr>`).join('')}</tbody></table>` : ''}` : '';
@@ -176,7 +176,7 @@ export async function renderUpgrades() {
       <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.')))}</h2>
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>
       <span class="spacer"></span></div>
-      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${unknownNote}${healRanks}${coverage}</div>
+      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${eng?.buffs ? `<p class="small muted" style="margin:8px 0 0">${esc(eng.buffs.text)}</p>` : ''}${unknownNote}${healRanks}${coverage}</div>
     ${packageHtml}
     ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
 }

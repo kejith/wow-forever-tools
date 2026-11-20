@@ -167,6 +167,16 @@ TEXT = {
     "Checked against the spell texts of the game: {matched} of {checked} spell ranks agree.":
         "Mit den Zaubertexten des Spiels verglichen: {matched} von {checked} Zauberrängen stimmen überein.",
     "the model has {numbers}": "das Modell hat {numbers}",
+    "Checked against the spell texts, mana costs and cast times of the game: "
+    "{matched} of {checked} spell ranks agree.":
+        "Mit den Zaubertexten, Manakosten und Zauberzeiten des Spiels verglichen: "
+        "{matched} von {checked} Zauberrängen stimmen überein.",
+    "the model has {n} mana": "das Modell hat {n} Mana",
+    "the game says {n} mana": "das Spiel sagt {n} Mana",
+    "the model takes {n} s to cast it": "das Modell braucht {n} s für den Zauber",
+    "the game says {n} s": "das Spiel sagt {n} s",
+    "The snapshot was taken with these buffs, and its numbers include them: {names}.":
+        "Der Schnappschuss entstand mit diesen Buffs, und seine Zahlen enthalten sie: {names}.",
     "(outgrown: {pct:.0f}% less healing bonus)": "(entwachsen: {pct:.0f} % weniger Heilbonus)",
     "Downranking pays: heal with {spell} instead of {instead} ({pct:+.0f}% healing over the fight).":
         "Downranking lohnt sich: Heile mit {spell} statt {instead} ({pct:+.0f} % Heilung über den Kampf).",
@@ -548,6 +558,12 @@ TEXT = {
     "The combat engine has no heals for this class ({cls}).": "Das Kampfmodell kennt für diese Klasse keine Heilungen ({cls}).",
     "This character knows no heal the combat engine models.": "Dieser Charakter kennt keine Heilung, die das Kampfmodell abbildet.",
     "Sustained": "Dauerhaft",
+    "Mana per 5 sec. from your gear and buffs counts all the time ({gear:.0f} now). The "
+    "regeneration from spirit ({spirit:.0f} mana per 5 sec.) stops while you cast and for five "
+    "seconds after a cast that costs mana. Both numbers are those of your character sheet.":
+        "Mana pro 5 Sek. von Ausrüstung und Buffs zählt immer (jetzt {gear:.0f}). Die Regeneration aus Willenskraft "
+        "({spirit:.0f} Mana pro 5 Sek.) setzt aus, während du zauberst und fünf Sekunden nach einem Zauber, der Mana "
+        "kostet. Beide Zahlen stammen aus deinem Charakterfenster.",
     "Mana per 5 sec. on your gear counts all the time ({gear:.0f} now). The regeneration from spirit "
     "({spirit:.0f} mana per 5 sec.) stops while you cast and for five seconds after a cast that costs mana.":
         "Mana pro 5 Sek. auf der Ausrüstung zählt immer (jetzt {gear:.0f}). Die Regeneration aus Willenskraft "

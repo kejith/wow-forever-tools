@@ -122,6 +122,9 @@ def delta(adds: list[dict], removes: list[dict] = ()) -> dict:
 NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
 
 
+GCD_SEC = 1.5  # the engine's global cooldown: no cast occupies less time
+
+
 def tooltip_check(spells: list, book: dict, coverage: dict | None = None) -> dict | None:
     """Lays the model's numbers next to the game's own spell texts.
 
@@ -131,8 +134,13 @@ def tooltip_check(spells: list, book: dict, coverage: dict | None = None) -> dic
     that text, give or take the rounding. Language does not matter: only the numbers are read. With a
     coverage report only the spells the model casts or tried are checked (it has no use for the others).
 
-    Returns {"checked", "matched", "off": [{"spellId", "name", "rank", "model": [...], "text"}]}, or None
-    without an exported spellbook or without numbers from the engine."""
+    Since addon 1.12 the export also has each rank's mana cost and cast time as the game computes them
+    (talents and haste included); a rank agrees only if those are the model's too. An instant spell has no
+    cast time there, and a cast shorter than the global cooldown takes the global cooldown in the model.
+
+    Returns {"checked", "matched", "costs" (the export had costs to compare), "off": [{"spellId", "name",
+    "rank", "kind" ("amount", "cost" or "cast"), "model": [...], "text" (the game's text) or "game" (the
+    game's number)}]}, or None without an exported spellbook or without numbers from the engine."""
     if not spells or not book:
         return None
     bases = None
@@ -140,7 +148,7 @@ def tooltip_check(spells: list, book: dict, coverage: dict | None = None) -> dic
         base_of = {n.get("spellId"): n.get("baseId") for n in spells}
         bases = {base_of.get(e.get("spellId")) for e in coverage.get("spells") or []
                  if e.get("status") in ("used", "idle")}
-    checked, off = 0, []
+    checked, matched, off, costs = 0, 0, [], False
     for n in spells:
         entry = book.get(n.get("spellId")) or book.get(str(n.get("spellId"))) or {}
         text = entry.get("text") or ""
@@ -150,14 +158,25 @@ def tooltip_check(spells: list, book: dict, coverage: dict | None = None) -> dic
         amounts = [[n.get(k)] for k in ("directMin", "directMax", "absorb") if n.get(k)]
         if n.get("periodic"):
             amounts.append([n["periodic"], n["periodic"] / n["ticks"]] if n.get("ticks") else [n["periodic"]])
-        if not amounts:
+        # Another power than mana (health, a pet's energy) is not the model's mana.
+        cost = None if entry.get("costType") else entry.get("cost")
+        cast = (entry.get("castTime") or 0) / 1000
+        if not amounts and cost is None and not cast:
             continue
         checked += 1
+        before = len(off)
+        who = {"spellId": n.get("spellId"), "name": entry.get("name") or "", "rank": entry.get("rank") or ""}
         # The client rounds the ends of the base range and then the sum: up to a point and a bit.
         if not all(any(abs(x - v) <= 1 + 0.002 * v for v in forms for x in seen) for forms in amounts):
-            off.append({"spellId": n.get("spellId"), "name": entry.get("name") or "", "rank": entry.get("rank") or "",
-                        "model": [round(forms[0]) for forms in amounts], "text": text})
-    return {"checked": checked, "matched": checked - len(off), "off": off} if checked else None
+            off.append(dict(who, kind="amount", model=[round(forms[0]) for forms in amounts], text=text))
+        if cost is not None:
+            costs = True
+            if abs(cost - (n.get("mana") or 0)) > 1:
+                off.append(dict(who, kind="cost", model=[round(n.get("mana") or 0)], game=cost))
+        if cast and abs(max(cast, GCD_SEC) - (n.get("castSec") or 0)) > 0.02:
+            off.append(dict(who, kind="cast", model=[round(n.get("castSec") or 0, 2)], game=round(cast, 2)))
+        matched += len(off) == before
+    return {"checked": checked, "matched": matched, "costs": costs, "off": off} if checked else None
 
 
 class Engine:
@@ -215,6 +234,20 @@ class Engine:
         self.spells = out.get("spells") or self.spells
         self.fight = out.get("fight") or self.fight
         return out
+
+
+def sheet_numbers(st: dict) -> dict:
+    """The character sheet's own haste and regeneration (addon 1.12) as the engine's stats: spell haste in
+    percent, mana per second from spirit outside the five-second rule, and everything while casting. The
+    engine takes the two regeneration numbers instead of its class formula and of the gear's mp5; like every
+    other number of the sheet they include the buffs of the moment. An older snapshot has none of them."""
+    out = {"hastePct": st.get("spellHaste") or 0}
+    regen = st.get("manaRegen") or {}
+    if regen.get("spirit"):
+        out["spiritRegen"] = regen["spirit"]
+        if regen.get("casting") is not None:
+            out["castingRegen"] = regen["casting"]
+    return out
 
 
 def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
@@ -279,6 +312,7 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
                 "rangedCrit": st.get("rangedCrit") or 0,
                 "wand": {"dps": wand_dps, "skill": wand_skill},
                 "lifeTap": life_tap,
+                **sheet_numbers(st),
             },
             "talents": talents, "spellbook": spellbook,
         },

@@ -74,17 +74,17 @@ json.dump(out, sys.stdout)
 '''
 
 
-def write_fixture(tmp: str, class_file: str = "PRIEST") -> None:
+def write_fixture(tmp: str, class_file: str = "PRIEST", sheet: str = "") -> None:
     char_dir = os.path.join(tmp, "WTF", "Account", "TEST", "93", "Tester - Realm", "SavedVariables")
     os.makedirs(char_dir)
     with open(os.path.join(char_dir, "WoWMCP.lua"), "w", encoding="utf-8") as f:
         f.write('WoWMCP_Char = { character = { name = "Tester", class = "Priester", classFile = "%s", level = 27, '
-                'stats = { healing = 100, powerMax = 1500, healthMax = 700, spirit = 100 } }, '
+                'stats = { healing = 100, powerMax = 1500, healthMax = 700, spirit = 100 %s } }, '
                 'spellbook = { updated = 1, count = 3, spells = { '
                 '[139] = { name = "Erneuerung", rank = "Rang 1" }, [2053] = { name = "Geringes Heilen", rank = "Rang 3" }, '
                 '[17] = { name = "Machtwort: Schild" } } }, '
                 'talents = { class = {} }, client = { version = "9.9.9", build = 9, locale = "deDE" }, '
-                'equipment = {} }\n' % class_file)
+                'equipment = {} }\n' % (class_file, sheet))
 
 
 def run(tmp: str, **kw) -> dict:
@@ -105,11 +105,11 @@ def run(tmp: str, **kw) -> dict:
             os.environ["SIMFOREVER_BIN"] = real_env
 
 
-def fresh(lang: str = "en", class_file: str = "PRIEST") -> dict:
+def fresh(lang: str = "en", class_file: str = "PRIEST", sheet: str = "") -> dict:
     import tempfile
     i18n.set_language(lang)
     with tempfile.TemporaryDirectory() as tmp:
-        write_fixture(tmp, class_file)
+        write_fixture(tmp, class_file, sheet)
         return run(tmp)
 
 
@@ -181,6 +181,11 @@ def test_regeneration():
     assert len(r["notes"]) == 3
     assert "(10 now)" in r["notes"][0] and "(30 mana per 5 sec.)" in r["notes"][0]
     assert r["notes"][1] == "Your talents let 50% of it through while casting."
+    assert not s["regenFromSheet"] and "on your gear" in r["notes"][0]
+    # With the character sheet's regeneration in the snapshot (addon 1.12) the mp5 has the buffs as well.
+    sheet = fresh(sheet=", manaRegen = { base = 8, casting = 5, spirit = 6, spiritCasting = 3 }")
+    assert sheet["stats"]["regenFromSheet"] and "from your gear and buffs counts" in sheet["notes"][0]
+    assert sheet["notes"][0].endswith("Both numbers are those of your character sheet.")
 
 
 def test_weights():

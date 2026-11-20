@@ -541,6 +541,17 @@ COVERAGE_TALENT = {
 COVERAGE_ASSUMED = mark("An assumption of the model that has not been measured in the game.")
 
 
+def check_texts(o: dict) -> dict:
+    """What the model has and what the game says, for a spell rank the tooltip check found off."""
+    if o["kind"] == "cost":
+        return dict(model=tr("the model has {n} mana", n=f"{o['model'][0]:g}"),
+                    text=tr("the game says {n} mana", n=f"{o['game']:g}"))
+    if o["kind"] == "cast":
+        return dict(model=tr("the model takes {n} s to cast it", n=f"{o['model'][0]:g}"),
+                    text=tr("the game says {n} s", n=f"{o['game']:g}"))
+    return dict(model=tr("the model has {numbers}", numbers=" / ".join(f"{v:g}" for v in o["model"])), text=o["text"])
+
+
 def coverage_out(cov: dict, c: dict, unit: str, spell_label) -> dict | None:
     """The engine's coverage report with labels and sentences: per spell and per talent a status (English
     code the window groups by), its label and what the model does with it."""
@@ -888,13 +899,21 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
         check = simengine.tooltip_check(eng.spells, (c.get("spellbook") or {}).get("spells") or {}, eng.coverage)
         if check:
             # The game's own spell texts are the reference: they hold this character's numbers.
+            said = (tr("Checked against the spell texts, mana costs and cast times of the game: "
+                       "{matched} of {checked} spell ranks agree.", matched=check["matched"], checked=check["checked"])
+                    if check["costs"] else
+                    tr("Checked against the spell texts of the game: {matched} of {checked} spell ranks agree.",
+                       matched=check["matched"], checked=check["checked"]))
             engine_out["tooltipCheck"] = dict(
-                checked=check["checked"], matched=check["matched"],
-                text=tr("Checked against the spell texts of the game: {matched} of {checked} spell ranks agree.",
-                        matched=check["matched"], checked=check["checked"]),
-                off=[dict(spellId=o["spellId"], label=spell_label(o["spellId"], o["name"], 0), text=o["text"],
-                          model=tr("the model has {numbers}", numbers=" / ".join(f"{v:g}" for v in o["model"])))
+                checked=check["checked"], matched=check["matched"], text=said,
+                off=[dict(spellId=o["spellId"], label=spell_label(o["spellId"], o["name"], 0), **check_texts(o))
                      for o in check["off"]])
+        buffs = [b.get("name") for b in (c.get("character") or {}).get("buffs") or []
+                 if isinstance(b, dict) and b.get("name")]
+        if buffs:
+            # The sheet's numbers are the engine's start, and they are the numbers under these buffs.
+            engine_out["buffs"] = dict(names=buffs, text=tr("The snapshot was taken with these buffs, and its numbers "
+                                                            "include them: {names}.", names=", ".join(buffs)))
 
     review.sort(key=lambda r: r["price"])
     return dict(
@@ -999,6 +1018,8 @@ def main() -> None:
                     print(f"      {e['statusLabel']:17} {e['label']}: {e['text']}{flag}")
             if quiet:
                 print(f"      {tr(COVERAGE_STATUS['none']):17} " + ", ".join(quiet))
+    if (r.get("engine") or {}).get("buffs"):
+        print("   " + r["engine"]["buffs"]["text"])
     check = (r.get("engine") or {}).get("tooltipCheck")
     if check:
         print("   " + check["text"])
