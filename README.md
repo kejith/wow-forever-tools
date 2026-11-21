@@ -27,7 +27,7 @@ The app brings everything it needs. On the first start it downloads Python and t
 ### Pages
 
 - **Connection:** Is WoW Forever running? Are WoWMCP and GoldPerHour installed and current (install and update with one click)? How old are the auction house scan, the item export and the character snapshots? Which lists did the app send into the game, and has the game loaded them? Requests to the addon: item export, read all items again, character snapshot.
-- **Character:** the character window as in the game: stats, equipment with points, professions, talents.
+- **Character:** the character window as in the game: stats, equipment with points, professions, talents. For a healer every heal rank with its healing per second and per mana (`scripts/healing.py`); for a caster that deals damage the rotation for the most damage and the one for a long fight, every damage spell and rank with its DPS and damage per mana, and what a point of each stat adds (`scripts/damage.py`).
 - **Writs:** the cheapest crafting writ per tier, net of the coin pouch, and the trade crates by silver per Merchant's Favor (`scripts/writs.py`).
 - **AH upgrades:** upgrades per equipment slot with a budget, a preview of higher levels and a mark for items new in Forever (`scripts/upgrades.py`).
 - **Professions:** profit per craft of the recipes you know, and missing recipes that pay more, with the source and price of the recipe (`scripts/recipes.py`).
@@ -81,6 +81,7 @@ The scripts need [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`
 | `uv run scripts/upgrades.py --char <name>` | equipment upgrades from the auction house (`--max-price <gold>`, `--profile leveling\|dungeon`, `--sort gain\|price`, `--preview 4`, `--top 3`) |
 | `uv run scripts/recipes.py --char <name>` | profit per recipe (`--profession Alchemy`, `--top 15`) |
 | `uv run scripts/consumables.py --char <name>` | the strongest potions, food, bandages and buffs for the level, and the best set of consumables for a fight (`--top 5`, `--all-buffs`, `--fight-seconds 60`) |
+| `uv run scripts/damage.py --char <name>` | the rotation for the most damage and the one for a long fight, every damage spell with its DPS, and stat weights (`--all-ranks`, `--fight-seconds 60`); needs the combat engine (`sim/`) |
 | `uv run scripts/ingame.py` | what the WoWMCP addon shows in the game, per character; `--write` puts it into the addon folder |
 | `uv run scripts/goldperhour.py` | GoldPerHour sessions |
 | `uv run scripts/app_bridge.py status` | what the app sees, as JSON |

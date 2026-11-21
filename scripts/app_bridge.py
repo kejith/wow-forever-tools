@@ -14,6 +14,8 @@
     uv run scripts/app_bridge.py rotations --char Malgruk [--fight-seconds 60] [--target-delta 2]
                                            [--kills-per-minute 1]
     uv run scripts/app_bridge.py healing --char Siegfried [--fight-seconds 60] [--target-delta 2]
+    uv run scripts/app_bridge.py damage --char Malgruk [--fight-seconds 60] [--target-delta 2]
+                                        [--kills-per-minute 1]
     uv run scripts/app_bridge.py combatlog [--char Malgruk] [--file <log>]
     uv run scripts/app_bridge.py icons --ids 9492,287004
     uv run scripts/app_bridge.py goldperhour
@@ -37,6 +39,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import combatlog  # noqa: E402
 import consumables  # noqa: E402
+import damage  # noqa: E402
 import goldperhour  # noqa: E402
 import healing  # noqa: E402
 import i18n  # noqa: E402
@@ -44,6 +47,7 @@ import ingame  # noqa: E402
 import pricehistory  # noqa: E402
 import recipes  # noqa: E402
 import rotations  # noqa: E402
+import simengine  # noqa: E402
 import upgrades  # noqa: E402
 import writs  # noqa: E402
 from i18n import tr  # noqa: E402
@@ -122,19 +126,22 @@ def character(wow: str, name: str) -> dict:
                           "stats": upgrades.short(e.get("stats")), "durability": e.get("durability"),
                           "score": round(full - upgrades.set_value(rest, scale), 1),
                           "tip": upgrades.tooltip(e, label)})
+    class_file = (c.get("character") or {}).get("classFile") or ""
     return {"key": char_key(files[0]), "updated": c.get("updated"), "character": c.get("character") or {},
             "equipment": sorted(equipment, key=lambda e: e["slot"] or 0),
             "weights": scale["text"], "profileLabel": scale["label"], "setValue": round(full, 1),
             "professions": skills.get("professions") or [], "talents": talents.get("class") or [],
             "legacy": talents.get("legacy") or [], "errors": c.get("errors") or {},
-            # Whether the window should ask for the heal table (command "healing").
-            "heals": healing.supported((c.get("character") or {}).get("classFile"))}
+            # Whether the window should ask for the heal table (command "healing") and for the damage analysis
+            # (command "damage"), and which of the two is the spec's own.
+            "heals": healing.supported(class_file), "deals": damage.supported(class_file),
+            "metric": simengine.default_metric(class_file, simengine.spec_of(c))}
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("command", choices=["status", "character", "writs", "upgrades", "recipes", "consumables", "icons",
-                                           "goldperhour", "ingame", "pricehistory", "rotations", "healing",
+                                           "goldperhour", "ingame", "pricehistory", "rotations", "healing", "damage",
                                            "combatlog"])
     ap.add_argument("--wow", default=writs.DEFAULT_WOW)
     ap.add_argument("--char", default="")
@@ -194,6 +201,9 @@ def main() -> None:
         elif a.command == "healing":
             # Every known heal rank with its numbers, the ranks to use and the stat weights.
             r = healing.compute(a.wow, a.char, a.fight_seconds, a.target_delta)
+        elif a.command == "damage":
+            # Every known damage spell with its numbers, the rotations to use and the stat weights.
+            r = damage.compute(a.wow, a.char, a.fight_seconds, a.target_delta, a.kills_per_minute)
         elif a.command == "combatlog":
             # What the character did in the newest combat log, next to the combat model's numbers.
             r = combatlog.compute(a.wow, a.char, a.file)

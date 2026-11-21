@@ -26,7 +26,7 @@ const guideTerms = (g) => (g.metric === 'hps' ? terms([
   [t('Cast by cast'), t('The start of the played fight: every action with your mana and health right before it.')],
 ], g.about));
 
-function stepsTable(s, healer) {
+export function stepsTable(s, healer) {
   const rows = s.steps.map((st, i) => `<tr>
       <td class="muted num">${i + 1}</td>
       <td>${esc(st.label)}<div class="small muted">${esc(st.rule)}</div></td>
@@ -54,8 +54,9 @@ function timeline(s) {
 }
 
 function card(s, healer) {
-  // For a healer the answer is how long the mana pays for it.
-  const mana = !healer ? ''
+  // For a healer the answer is how long the mana pays for it; so it is for the fight played as if the mana
+  // never ran out.
+  const mana = !healer && !s.freeMana ? ''
     : s.oomSeconds == null ? `<span class="badge ok">${esc(t('Mana lasts'))}</span>`
       : `<span class="badge warn">${esc(t('Mana lasts {time}', { time: clock(s.oomSeconds) }))}</span>`;
   const skipped = s.skipped.map((k) => `<div class="small muted">${esc(t('Left out'))}: <span class="rot-name">${esc(k.label)}</span>

@@ -26,7 +26,7 @@ func step(s Situation, kind string, id int) *Step {
 	return nil
 }
 
-// The rotation guide of the golden warlock: four fights against one enemy
+// The rotation guide of the golden warlock: five fights against one enemy
 // and two against several, each with the best of the candidate rotations
 // played cast by cast.
 func TestDamageSituations(t *testing.T) {
@@ -46,7 +46,7 @@ func TestDamageSituations(t *testing.T) {
 			t.Errorf("%s: %+v", s.Key, s)
 		}
 	}
-	if keys != "quick standard boss endurance pack crowd " {
+	if keys != "quick standard max boss endurance pack crowd " {
 		t.Fatalf("situations: %s", keys)
 	}
 	// The gear rating is untouched by the guide.
@@ -89,6 +89,31 @@ func TestDamageSituations(t *testing.T) {
 	almost(t, "values add up", value, std.Value, 1e-6)
 	if std.Timeline[0].Kind != "dot" || std.Timeline[0].ManaPct != 100 || std.Timeline[0].N != 1 {
 		t.Errorf("timeline: %+v", std.Timeline)
+	}
+
+	// The same fight if mana were no limit: no tap, no wand, bolts all the
+	// time. The real mana pays for it until 22.5 s: 1000 - 40 - 50 + 6
+	// regenerated = 916 at 3 s, six bolts (140 - 6 each) leave 112 at 21 s,
+	// Corruption again 65, and the next bolt costs 140.
+	max := situation(t, out, "max")
+	if !max.FreeMana || max.Fight != std.Fight || std.FreeMana {
+		t.Errorf("max: %+v", max)
+	}
+	almost(t, "max dps", max.Value, 57.9579, 0.01)
+	if max.OOMSec == nil {
+		t.Fatal("max: the real mana should run out")
+	}
+	almost(t, "max oom", *max.OOMSec, 22.5, 1e-9)
+	if step(max, "lifetap", 0) != nil || step(max, "wand", 0) != nil {
+		t.Errorf("max steps: %+v", max.Steps)
+	}
+	if b := step(max, "filler", 695); b == nil || b.Casts != 17 {
+		t.Errorf("max bolts: %+v", b)
+	}
+	almost(t, "max timeline shows the real mana", max.Timeline[1].ManaPct, 96.3, 1e-6)
+	almost(t, "max mana left", max.EndManaPct, 0, 1e-9)
+	if max.Value <= std.Value {
+		t.Errorf("max %g, standard %g", max.Value, std.Value)
 	}
 
 	// A boss: three levels above, no kills; ten minutes: a long timeline is cut.
@@ -212,7 +237,7 @@ func TestHealSituations(t *testing.T) {
 	// The same priest asked for damage gets the fights instead.
 	in.Metric = "dps"
 	out = Run(in)
-	if len(out.Situations) != 6 || out.Situations[0].Key != "quick" || out.Situations[0].Demand != nil {
+	if len(out.Situations) != 7 || out.Situations[0].Key != "quick" || out.Situations[0].Demand != nil {
 		t.Errorf("damage situations: %+v", out.Situations)
 	}
 }

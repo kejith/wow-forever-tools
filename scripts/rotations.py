@@ -53,8 +53,11 @@ SITUATIONS = {
     "standard": (mark("Normal fight"),
                  mark("{seconds:.0f} seconds against an enemy {delta} levels above you: the fight your gear is "
                       "rated for.")),
+    "max": (mark("Maximum damage"),
+            mark("The normal fight as if your mana never ran out: the most damage you can do in {seconds:.0f} "
+                 "seconds, whatever it costs.")),
     "boss": (mark("Boss"), mark("{minutes:.0f} minutes against an enemy {delta} levels above you.")),
-    "endurance": (mark("Endurance"), mark("{minutes:.0f} minutes of fighting without a break.")),
+    "endurance": (mark("Sustained damage"), mark("{minutes:.0f} minutes of fighting without a break.")),
     "pack": (mark("Several enemies"), SEVERAL),
     "crowd": (mark("Many enemies"), SEVERAL),
     "light": (mark("Light damage"), SAME_DEMAND),
@@ -170,6 +173,12 @@ def damage_rule(step: dict, enemies: int) -> str:
 
 def damage_verdict(s: dict, steps: list) -> str:
     """How the mana holds in a played fight: the phases a player notices."""
+    if s.get("freeMana"):
+        # Mana was no limit: the only question is how long the real bar pays for it.
+        if s.get("oomSeconds") is None:
+            return tr("Your mana pays for the whole fight like this: it is the rotation of the normal fight.")
+        return tr("Your mana pays for {time} of it. A fight that lasts longer needs the rotation of the normal "
+                  "fight.", time=clock(s["oomSeconds"]))
     by_kind = {st["kind"]: st for st in steps}
     trade = by_kind.get("lifetap") or by_kind.get("mana")
     recover = by_kind.get("recover")
@@ -254,6 +263,7 @@ def situation_out(s: dict, label, unit: str) -> dict:
     return {"key": s["key"], "title": tr(title), "about": about, "value": round(s.get("value") or 0, 1), "unit": unit,
             "verdict": verdict, "oomSeconds": oom, "steps": steps, "skipped": skipped, "timeline": timeline,
             "more": s.get("more") or 0, "candidates": s.get("candidates") or 0, "fight": fight, "demand": demand,
+            "freeMana": bool(s.get("freeMana")),
             "endManaPct": round(s.get("endManaPct") or 0), "endHpPct": round(s.get("endHpPct") or 0)}
 
 

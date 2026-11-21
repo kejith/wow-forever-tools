@@ -506,7 +506,16 @@ TEXT = {
     "Boss": "Boss",
     "{minutes:.0f} minutes against an enemy {delta} levels above you.":
         "{minutes:.0f} Minuten gegen einen Gegner {delta} Stufen über dir.",
-    "Endurance": "Dauerkampf",
+    "Maximum damage": "Maximaler Schaden",
+    "The normal fight as if your mana never ran out: the most damage you can do in {seconds:.0f} seconds, "
+    "whatever it costs.":
+        "Der normale Kampf, als ginge dein Mana nie aus: der meiste Schaden, den du in {seconds:.0f} Sekunden "
+        "machen kannst, egal was es kostet.",
+    "Your mana pays for the whole fight like this: it is the rotation of the normal fight.":
+        "Dein Mana reicht so für den ganzen Kampf: es ist die Rotation des normalen Kampfs.",
+    "Your mana pays for {time} of it. A fight that lasts longer needs the rotation of the normal fight.":
+        "Dein Mana reicht dafür {time}. Ein Kampf, der länger dauert, braucht die Rotation des normalen Kampfs.",
+    "Sustained damage": "Dauerkampf",
     "{minutes:.0f} minutes of fighting without a break.": "{minutes:.0f} Minuten Kampf ohne Pause.",
     "Several enemies": "Mehrere Gegner",
     "Many enemies": "Viele Gegner",
@@ -652,6 +661,56 @@ TEXT = {
         "Was ein Punkt bringt ({unit}; in Klammern: so viele Punkte Heilbonus bringen dasselbe)",
     "{label}: {short} in a fight of {seconds:.0f} s, {long} in one of {long_seconds:.0f} s":
         "{label}: {short} in einem Kampf von {seconds:.0f} s, {long} in einem von {long_seconds:.0f} s",
+    # damage.py
+    "Fire": "Feuer",
+    "Holy": "Heilig",
+    "Frost": "Frost",
+    "Nature": "Natur",
+    "Arcane": "Arkan",
+    "Physical": "Körperlich",
+    "Spell hit, per 1%": "Zaubertreffer, pro 1 %",
+    "The combat engine has no damage spells for this class ({cls}).":
+        "Das Kampfmodell kennt für diese Klasse keine Schadenszauber ({cls}).",
+    "This character knows no damage spell the combat engine models.":
+        "Dieser Charakter kennt keinen Schadenszauber, den das Kampfmodell abbildet.",
+    "Every number is against an enemy {delta} levels above you, with your talents in it and the buffs you had "
+    "at your last snapshot.":
+        "Jede Zahl gilt gegen einen Gegner {delta} Stufen über dir, mit deinen Talenten und den Buffs, die du "
+        "beim letzten Snapshot hattest.",
+    "A row of the spell table is one cast alone: what your other spells add to it (a curse on the enemy, "
+    "talents that count your spells over time) shows in the rotations.":
+        "Eine Zeile der Zaubertabelle ist ein Zauber für sich: was deine anderen Zauber dazutun (ein Fluch auf "
+        "dem Gegner, Talente, die deine Zauber über Zeit zählen), zeigt sich in den Rotationen.",
+    "The rotations cast the highest rank of each spell; a lower rank is in the table for its damage per mana.":
+        "Die Rotationen zaubern von jedem Zauber den höchsten Rang; ein niedrigerer Rang steht wegen seines "
+        "Schadens pro Mana in der Tabelle.",
+    "{dps} kept up": "{dps} gehalten",
+    "{dps} per cooldown": "{dps} pro Abklingzeit",
+    "{school}: {power} spell power, {crit:.1f}% crit": "{school}: {power} Zaubermacht, {crit:.1f} % Krit",
+    "{miss:g}% of your spells miss an enemy {delta} levels above you":
+        "{miss:g} % deiner Zauber verfehlen einen Gegner {delta} Stufen über dir",
+    "mana {mana}": "Mana {mana}",
+    "wand {dps:.1f} DPS": "Zauberstab {dps:.1f} DPS",
+    "Life Tap: {mana} mana for {health} health": "Aderlass: {mana} Mana für {health} Leben",
+    "Which rotation when": "Welche Rotation wann",
+    "your mana pays for all of it": "dein Mana reicht für alles",
+    "your mana pays for {time} of it": "dein Mana reicht dafür {time}",
+    "Left out: {spells}": "Weggelassen: {spells}",
+    "{label} (-{loss:.1f})": "{label} (-{loss:.1f})",
+    "Your gear is rated by a faster estimate of the normal fight: {value:.1f} {unit} over {seconds:.0f} s.":
+        "Deine Ausrüstung wird mit einer schnelleren Schätzung des normalen Kampfs bewertet: {value:.1f} {unit} "
+        "über {seconds:.0f} s.",
+    "Every rank you know": "Jeder Rang, den du kennst",
+    "Your spells in their highest rank (--all-ranks lists every rank)":
+        "Deine Zauber im höchsten Rang (--all-ranks listet jeden Rang)",
+    "Per cast second": "Pro Zaubersekunde",
+    "Nothing else": "Nur das",
+    "Cast in": "Einsatz",
+    "lasts": "reicht",
+    "* the most damage per mana, and the most per second among the spells you can cast back to back":
+        "* der meiste Schaden pro Mana und der meiste pro Sekunde unter den Zaubern, die du am Stück zaubern kannst",
+    "What a point adds ({unit}; in brackets: the points of spell power that do the same)":
+        "Was ein Punkt bringt ({unit}; in Klammern: so viele Punkte Zaubermacht bringen dasselbe)",
     # combatlog.py
     "Melee": "Nahkampf",
     "No combat log found. Type /combatlog in the game before the fight; the game writes it to its Logs folder.":

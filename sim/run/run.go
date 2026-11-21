@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.9.0"
+const Version = "0.10.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -40,6 +40,9 @@ type Input struct {
 	// HealTable asks for every known heal and shield rank with its numbers
 	// per cast (see healtable.go).
 	HealTable bool `json:"healTable"`
+	// DamageTable asks for every known rank of every damage spell with its
+	// numbers (see damagetable.go).
+	DamageTable bool `json:"damageTable"`
 	// Buffs are canonical stat deltas (see engine.ApplyDelta) that every
 	// number of the answer is to include: the consumables the character
 	// would use. The per-rank spell numbers stay without them, since the
@@ -172,6 +175,7 @@ type Output struct {
 	Coverage        *Coverage          `json:"coverage,omitempty"`
 	Situations      []Situation        `json:"situations,omitempty"`
 	HealTable       *HealTable         `json:"healTable,omitempty"`
+	DamageTable     *DamageTable       `json:"damageTable,omitempty"`
 	Spells          []SpellNumbers     `json:"spells,omitempty"`
 	Results         map[string]Result  `json:"results,omitempty"`
 	Buffs           map[string]float64 `json:"buffs,omitempty"` // as applied (Input.Buffs)
@@ -399,6 +403,11 @@ func Run(in Input) Output {
 		}
 		if t := healTable(cat, known, st, fight, lockouts); len(t.Rows) > 0 {
 			out.HealTable = t
+		}
+	}
+	if in.DamageTable {
+		if t := damageTable(cat, known, st, fight); len(t.Rows) > 0 {
+			out.DamageTable = t
 		}
 	}
 	if in.Situations && metric == "dps" {

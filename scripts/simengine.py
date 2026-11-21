@@ -212,6 +212,12 @@ class Engine:
         out = self._run(dict(self.bundle, evaluations=[], healTable=True, situations=True))
         return out.get("healTable") or {}, out.get("situations") or []
 
+    def damage_table(self) -> tuple[dict, list]:
+        """Every known rank of a damage spell with its numbers per cast (sim/run/damagetable.go), and the
+        rotation guide of the same run. For an engine started with the metric "dps"."""
+        out = self._run(dict(self.bundle, evaluations=[], damageTable=True, situations=True))
+        return out.get("damageTable") or {}, out.get("situations") or []
+
     def _run(self, payload: dict) -> dict:
         cmd = [sys.executable, self.binary] if self.binary.endswith(".py") else [self.binary]  # .py: test stub
         try:

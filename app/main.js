@@ -347,7 +347,12 @@ async function capturePages(out, required) {
     if (page === 'character') {
       // A class that heals has the heal table below the character window.
       await captureScrolled(out, wait, '#c-heal', 'character-healing');
-      await captureScrolled(out, wait, '.heal-grid', 'character-healing-ranks');
+      await captureScrolled(out, wait, '#c-heal .heal-grid', 'character-healing-ranks');
+      // A class that deals damage with spells has the damage analysis: the two rotations, the spell table,
+      // the other fights with the stat weights.
+      await captureScrolled(out, wait, '#c-dmg', 'character-damage');
+      await captureScrolled(out, wait, '#c-dmg .dmg-spells', 'character-damage-spells');
+      await captureScrolled(out, wait, '#c-dmg .dmg-grid', 'character-damage-fights');
       // The consumables for a fight: the best set, then the cards per kind.
       await captureScrolled(out, wait, '#c-cons', 'character-consumables');
       await captureScrolled(out, wait, '#c-cons .cons-grid', 'character-consumables-kinds');

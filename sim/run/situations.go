@@ -80,6 +80,9 @@ type Situation struct {
 	Timeline   []TimelineEntry `json:"timeline,omitempty"`
 	More       int             `json:"more,omitempty"` // actions after the listed timeline
 	Candidates int             `json:"candidates"`
+	// FreeMana: the fight was played as if the mana never ran out; OOMSec is
+	// when the real mana would be gone, and the timeline shows the real bar.
+	FreeMana bool `json:"freeMana,omitempty"`
 	// EndManaPct and EndHPPct are what is left when a played fight ends.
 	EndManaPct float64 `json:"endManaPct"`
 	EndHPPct   float64 `json:"endHpPct"`
@@ -107,24 +110,59 @@ const timelineEntries = 40
 
 // damageFights are the fights a damage dealer's guide covers. The standard
 // one is the fight the gear is rated for.
-func damageFights(standard engine.Fight) []struct {
-	key   string
-	fight engine.Fight
-} {
+//
+// "max" is the standard fight with mana that never runs out: the most
+// damage the character can do there, whatever it costs. The situation says
+// how long the real mana pays for it (OOMSec).
+func damageFights(standard engine.Fight) []damageFight {
 	f := func(seconds float64, delta int) engine.Fight {
 		return engine.Fight{Seconds: seconds, TargetDelta: delta, KillsPerMinute: -1}
 	}
-	return []struct {
-		key   string
-		fight engine.Fight
-	}{
-		{"quick", f(15, standard.TargetDelta)},
-		{"standard", engine.Fight{Seconds: standard.Seconds, TargetDelta: standard.TargetDelta, KillsPerMinute: -1}},
-		{"boss", f(180, 3)},
-		{"endurance", f(600, standard.TargetDelta)},
-		{"pack", engine.Fight{Seconds: 30, TargetDelta: standard.TargetDelta, KillsPerMinute: -1, Targets: 3}},
-		{"crowd", engine.Fight{Seconds: 20, TargetDelta: standard.TargetDelta, KillsPerMinute: -1, Targets: 6}},
+	normal := engine.Fight{Seconds: standard.Seconds, TargetDelta: standard.TargetDelta, KillsPerMinute: -1}
+	return []damageFight{
+		{key: "quick", fight: f(15, standard.TargetDelta)},
+		{key: "standard", fight: normal},
+		{key: "max", fight: normal, freeMana: true},
+		{key: "boss", fight: f(180, 3)},
+		{key: "endurance", fight: f(600, standard.TargetDelta)},
+		{key: "pack", fight: engine.Fight{Seconds: 30, TargetDelta: standard.TargetDelta, KillsPerMinute: -1, Targets: 3}},
+		{key: "crowd", fight: engine.Fight{Seconds: 20, TargetDelta: standard.TargetDelta, KillsPerMinute: -1, Targets: 6}},
 	}
+}
+
+type damageFight struct {
+	key      string
+	fight    engine.Fight
+	freeMana bool // played with mana that never runs out
+}
+
+// freeManaPool is the mana added for a fight in which mana is no limit:
+// more than any fight spends.
+const freeManaPool = 1e6
+
+// withFreeMana plays the rotation with mana that never runs out and returns
+// the fight as the real mana bar would see it: the mana of every event is
+// what the real bar has left (0 once it is gone), and the second result is
+// when a cast first costs more than that (nil: the real mana pays for the
+// whole fight).
+func withFreeMana(cat *catalog.Catalog, st *engine.State, fight engine.Fight, actions []engine.Action) (engine.Playback, *float64) {
+	rich := *st
+	rich.ManaMax += freeManaPool
+	pb := engine.Play(&rich, fight, actions, "dps")
+	tgt := engine.NewTarget(st.Level, fight.TargetDelta)
+	var oom *float64
+	for i := range pb.Events {
+		e := &pb.Events[i]
+		e.Mana -= freeManaPool
+		if sp := cat.Spells[e.SpellID]; oom == nil && sp != nil && e.Mana < engine.Shape(sp, st, tgt).ManaCost {
+			at := e.T
+			oom = &at
+		}
+		if e.Mana < 0 {
+			e.Mana = 0
+		}
+	}
+	return pb, oom
 }
 
 // resolveKills turns automatic kills into a number: a damage dealer against
@@ -162,16 +200,27 @@ func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool
 		if len(rots) == 0 {
 			return nil
 		}
+		play := st
+		if df.freeMana {
+			rich := *st
+			rich.ManaMax += freeManaPool
+			play = &rich
+		}
 		scores := make([]float64, len(rots))
 		best := 0
 		for i, r := range rots {
-			scores[i] = engine.Play(st, fight, r, "dps").Value
+			scores[i] = engine.Play(play, fight, r, "dps").Value
 			if scores[i] > scores[best] {
 				best = i
 			}
 		}
 		pb := engine.Play(st, fight, rots[best], "dps")
-		s := Situation{Key: df.key, Fight: fight, Metric: "dps", Value: pb.Value, OOMSec: pb.OOMSec, Candidates: len(rots)}
+		oom := pb.OOMSec
+		if df.freeMana {
+			pb, oom = withFreeMana(cat, st, fight, rots[best])
+		}
+		s := Situation{Key: df.key, Fight: fight, Metric: "dps", Value: pb.Value, OOMSec: oom, Candidates: len(rots),
+			FreeMana: df.freeMana}
 		s.Steps = steps(cat, rots[best], pb, fight, tapSpell)
 		tgt := engine.NewTarget(st.Level, fight.TargetDelta)
 		for i := range s.Steps {

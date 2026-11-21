@@ -1,8 +1,10 @@
 // Page "Character": the character window as in the game (gear left and right, weapons below, stats in the
-// middle), then professions and talents, and for a class that heals the heal table (pages/healing.js).
+// middle), then professions and talents, for a class that heals the heal table (pages/healing.js) and for one
+// that deals damage with spells the damage analysis (pages/damage.js), the spec's own of the two first.
 import { $, DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, state, tipAttr } from '../core.js';
 import { mark, t } from '../i18n.js';
 import { consumablesSection, loadConsumables } from './consumables.js';
+import { damageSection } from './damage.js';
 import { healingSection } from './healing.js';
 
 // Slot IDs and order of the in-game character window (Classic layout).
@@ -85,6 +87,8 @@ export async function renderCharacter() {
   const talents = [...(d.talents || []), ...(d.legacy || [])].map(talentLine).filter(Boolean).join('<br>');
   const xp = t('Experience {xp} / {max} ({pct})', { xp: num(c.xp || 0), max: num(c.xpMax || 0), pct: percent(xpPct) })
     + (c.rested ? ` · ${t('rested {n}', { n: num(c.rested) })}` : '');
+  const heal = d.heals ? `<div class="section" id="c-heal">${loading(t('Computing every heal rank …'))}</div>` : '';
+  const dmg = d.deals ? `<div class="section" id="c-dmg">${loading(t('Playing the fights and computing every damage spell …'))}</div>` : '';
   content.innerHTML = `
     <div class="paperdoll">
       <div class="pd-head">
@@ -104,9 +108,10 @@ export async function renderCharacter() {
     </div>
     <div class="grid section"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
       <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>
-    ${d.heals ? `<div class="section" id="c-heal">${loading(t('Computing every heal rank …'))}</div>` : ''}
+    ${(d.metric === 'dps' ? [dmg, heal] : [heal, dmg]).join('')}
     <div id="c-cons">${loading(t('Rating the consumables for a fight …'))}</div>`;
-  // The heal table and the consumables take a few engine runs each: the page stands, the sections follow.
+  // The heal table, the damage analysis and the consumables take a few engine runs each: the page stands,
+  // the sections follow.
   const char = state.char;
   const fill = async (selector, load, html) => {
     const r = await load();
@@ -115,6 +120,7 @@ export async function renderCharacter() {
   };
   await Promise.all([
     d.heals ? fill('#c-heal', () => cached(`healing:${char}`, () => api.bridge('healing', { char })), healingSection) : null,
+    d.deals ? fill('#c-dmg', () => cached(`damage:${char}`, () => api.bridge('damage', { char })), damageSection) : null,
     fill('#c-cons', () => loadConsumables(char), consumablesSection),
   ]);
 }
