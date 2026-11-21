@@ -279,10 +279,15 @@ func (p *parser) table() (*Table, error) {
 	p.pos++ // {
 	t := NewTable()
 	var next int64 = 1
+	var keyed []any // the record fields in file order, for the order Lua iterates them in
+	done := func() (*Table, error) {
+		t.luaOrder(keyed, next-1)
+		return t, nil
+	}
 	for {
 		p.space()
 		if p.eat('}') {
-			return t, nil
+			return done()
 		}
 		var key any
 		positional := false
@@ -330,6 +335,7 @@ func (p *parser) table() (*Table, error) {
 			next++
 		} else {
 			t.Set(key, v)
+			keyed = append(keyed, normKey(key))
 		}
 		p.space()
 		if !p.eat(',') && !p.eat(';') {
@@ -337,7 +343,7 @@ func (p *parser) table() (*Table, error) {
 			if !p.eat('}') {
 				return nil, p.errorf("',' or '}' expected")
 			}
-			return t, nil
+			return done()
 		}
 	}
 }
