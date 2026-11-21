@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: WoWMCP
+## Version: 1.12.0
+## SavedVariables: WoWMCP_Account, WoWMCP_Items
+## SavedVariablesPerCharacter: WoWMCP_Char
+
+AppRequest.lua
+AppData.lua
+Locales.lua
+WoWMCP.lua
+Lists.lua
+History.lua

@@ -1,3 +1,5 @@
 # One line ending for everyone: the tests compare file contents, and Windows checks out CRLF otherwise.
 * text=auto eol=lf
 *.png binary
+# Auctionator keeps its price database as CBOR inside a Lua string: raw bytes, not text.
+scripts/fixtures/**/Auctionator.lua binary
