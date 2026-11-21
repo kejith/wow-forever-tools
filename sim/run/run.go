@@ -17,7 +17,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.8.0"
+const Version = "0.9.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -40,6 +40,16 @@ type Input struct {
 	// HealTable asks for every known heal and shield rank with its numbers
 	// per cast (see healtable.go).
 	HealTable bool `json:"healTable"`
+	// Buffs are canonical stat deltas (see engine.ApplyDelta) that every
+	// number of the answer is to include: the consumables the character
+	// would use. The per-rank spell numbers stay without them, since the
+	// caller compares those with the tooltips of the snapshot.
+	Buffs map[string]float64 `json:"buffs"`
+	// Reoptimize picks the best rotation again for every evaluation instead
+	// of keeping the baseline's. Gear swaps are small and keep it; a set of
+	// consumables changes the mana budget enough for another heal rank or
+	// filler to win.
+	Reoptimize bool `json:"reoptimize"`
 }
 
 // Character is the snapshot-derived character.
@@ -152,19 +162,20 @@ type Coverage struct {
 // Output is the engine's answer. Errors are reported in the payload (exit
 // code 0), the same convention as app_bridge.py.
 type Output struct {
-	Engine          string            `json:"engine"`
-	Fight           *engine.Fight     `json:"fight,omitempty"` // as evaluated: defaults and automatic values resolved
-	Baseline        *engine.Metrics   `json:"baseline,omitempty"`
-	Spec            string            `json:"spec,omitempty"`
-	SpellbookSource string            `json:"spellbookSource,omitempty"`
-	Downrank        *Downrank         `json:"downrank,omitempty"`
-	HealOptions     []HealOption      `json:"healOptions,omitempty"`
-	Coverage        *Coverage         `json:"coverage,omitempty"`
-	Situations      []Situation       `json:"situations,omitempty"`
-	HealTable       *HealTable        `json:"healTable,omitempty"`
-	Spells          []SpellNumbers    `json:"spells,omitempty"`
-	Results         map[string]Result `json:"results,omitempty"`
-	Error           string            `json:"error,omitempty"`
+	Engine          string             `json:"engine"`
+	Fight           *engine.Fight      `json:"fight,omitempty"` // as evaluated: defaults and automatic values resolved
+	Baseline        *engine.Metrics    `json:"baseline,omitempty"`
+	Spec            string             `json:"spec,omitempty"`
+	SpellbookSource string             `json:"spellbookSource,omitempty"`
+	Downrank        *Downrank          `json:"downrank,omitempty"`
+	HealOptions     []HealOption       `json:"healOptions,omitempty"`
+	Coverage        *Coverage          `json:"coverage,omitempty"`
+	Situations      []Situation        `json:"situations,omitempty"`
+	HealTable       *HealTable         `json:"healTable,omitempty"`
+	Spells          []SpellNumbers     `json:"spells,omitempty"`
+	Results         map[string]Result  `json:"results,omitempty"`
+	Buffs           map[string]float64 `json:"buffs,omitempty"` // as applied (Input.Buffs)
+	Error           string             `json:"error,omitempty"`
 }
 
 // SpellNumbers is what one cast of a known spell rank does in the model,
@@ -357,6 +368,10 @@ func Run(in Input) Output {
 	fight = resolveKills(fight, metric)
 	out.Fight = &fight
 	out.Spells = spellNumbers(cat, known, st, engine.NewTarget(in.Character.Level, fight.TargetDelta))
+	if len(in.Buffs) > 0 {
+		st = st.ApplyDelta(in.Buffs)
+		out.Buffs = in.Buffs
+	}
 
 	// Self buffs the model takes as active: the warlock's armor regenerates
 	// health in combat, which Life Tap can spend.
@@ -566,7 +581,17 @@ func Run(in Input) Output {
 
 	out.Results = make(map[string]Result, len(in.Evaluations))
 	for _, ev := range in.Evaluations {
-		m := engine.Evaluate(st.ApplyDelta(ev.Delta), fight, actions, metric)
+		s := st.ApplyDelta(ev.Delta)
+		with := actions
+		if in.Reoptimize {
+			top := math.Inf(-1)
+			for _, r := range rots {
+				if v := engine.Evaluate(s, fight, r, scoreMetric).Value; v > top {
+					top, with = v, r
+				}
+			}
+		}
+		m := engine.Evaluate(s, fight, with, metric)
 		r := Result{Value: m.Value, Gain: m.Value - baseline.Value}
 		if baseline.Value != 0 {
 			r.GainPct = r.Gain / baseline.Value * 100

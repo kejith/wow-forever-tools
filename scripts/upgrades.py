@@ -590,12 +590,13 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             top: int = 3, prices: dict | None = None, profile: str = "", sort: str = "gain",
             engine: str = "off", fight_seconds: float = 60.0, target_delta: int = -1,
             kills_per_minute: float = -1, metric: str = "",
-            method: str = "", iterations: int = 0) -> dict:
+            method: str = "", iterations: int = 0, with_consumables: bool = False) -> dict:
     """Upgrade candidates per slot and the best purchase for the budget, as plain data (copper prices).
 
     With engine "on" (must work) or "auto" (falls back to the weight scale) the gains come from the combat
     simulation (sim/): the metric change (DPS) of each swap over a fight of `fight_seconds` against enemies
-    `target_delta` levels above you (default: the profile's target)."""
+    `target_delta` levels above you (default: the profile's target). `with_consumables` starts the engine
+    with the best set of consumables.py as buffs: every swap is then rated on top of them."""
     prices = prices if prices is not None else writs.load_prices(writs.find_auctionator(wow))
     last = max(int(k) for e in prices.values() if isinstance(e, dict) for k in (e.get("a") or {}))
     files = writs.find_chars(wow, char)
@@ -624,6 +625,7 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
 
     # The combat engine, when asked for: "on" must work, "auto" falls back to the weight scale.
     eng = None
+    consumed = None  # the consumables every number includes, when asked for
     class_file = (c.get("character") or {}).get("classFile") or ""
     if engine != "off":
         try:
@@ -640,8 +642,11 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
             fight = {"seconds": fight_seconds,
                      "targetDelta": target_delta if 0 <= target_delta <= 3 else PROFILES[scale["profile"]]["target"],
                      "killsPerMinute": kills_per_minute if kills_per_minute >= 0 else -1}
+            if with_consumables:
+                import consumables  # imports this module
+                consumed = consumables.fight_buffs(wow, char, metric, fight["seconds"], fight["targetDelta"])
             eng = simengine.start(c, totals.get("mp5", 0), totals.get("hp5", 0), fight, metric, life_tap,
-                                  method=method, iterations=iterations)
+                                  method=method, iterations=iterations, buffs=(consumed or {}).get("delta"))
         except LookupError:
             if engine == "on":
                 raise
@@ -910,6 +915,8 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", level: int = 0, previe
                 checked=check["checked"], matched=check["matched"], text=said,
                 off=[dict(spellId=o["spellId"], label=spell_label(o["spellId"], o["name"], 0), **check_texts(o))
                      for o in check["off"]])
+        if consumed:
+            engine_out["consumables"] = {k: consumed[k] for k in ("names", "gain", "unit", "text")}
         buffs = [b.get("name") for b in (c.get("character") or {}).get("buffs") or []
                  if isinstance(b, dict) and b.get("name")]
         if buffs:
@@ -956,6 +963,8 @@ def main() -> None:
                     help="montecarlo plays the rotation with real rolls: the summary gains a spread, "
                          "the biggest gains are replayed")
     ap.add_argument("--iterations", type=int, default=0, help="montecarlo: simulated fights (default 10000)")
+    ap.add_argument("--consumables", action="store_true",
+                    help="combat model: rate every swap with the best set of consumables active (consumables.py)")
     ap.add_argument("--json", action="store_true", help="print the result as JSON (for the app)")
     i18n.add_argument(ap)
     a = ap.parse_args()
@@ -964,7 +973,8 @@ def main() -> None:
     try:
         r = compute(a.wow, a.char, a.level, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort,
                     engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta,
-                    kills_per_minute=a.kills_per_minute, metric=a.metric, method=a.method, iterations=a.iterations)
+                    kills_per_minute=a.kills_per_minute, metric=a.metric, method=a.method, iterations=a.iterations,
+                    with_consumables=a.consumables)
     except (FileNotFoundError, LookupError) as e:
         sys.exit(str(e))
     sys.stdout.reconfigure(encoding="utf-8")
@@ -1022,6 +1032,8 @@ def main() -> None:
                 print(f"      {tr(COVERAGE_STATUS['none']):17} " + ", ".join(quiet))
     if (r.get("engine") or {}).get("buffs"):
         print("   " + r["engine"]["buffs"]["text"])
+    if (r.get("engine") or {}).get("consumables"):
+        print("   " + r["engine"]["consumables"]["text"])
     check = (r.get("engine") or {}).get("tooltipCheck")
     if check:
         print("   " + check["text"])

@@ -123,6 +123,7 @@ async function runBridge(command, opts = {}) {
   if ([0, 1, 2, 3].includes(opts.targetDelta)) args.push('--target-delta', String(opts.targetDelta));
   // Without it the engine decides how many kills the fight has.
   if (typeof opts.killsPerMinute === 'number' && opts.killsPerMinute >= 0) args.push('--kills-per-minute', String(opts.killsPerMinute));
+  if (opts.consumables) args.push('--consumables');
   if (['dps', 'hps', 'ttoom'].includes(opts.metric)) args.push('--metric', opts.metric);
   if (opts.method === 'montecarlo') args.push('--method', 'montecarlo');
   if (typeof opts.profession === 'string' && opts.profession) args.push('--profession', opts.profession);
@@ -347,13 +348,19 @@ async function capturePages(out, required) {
       // A class that heals has the heal table below the character window.
       await captureScrolled(out, wait, '#c-heal', 'character-healing');
       await captureScrolled(out, wait, '.heal-grid', 'character-healing-ranks');
+      // The consumables for a fight: the best set, then the cards per kind.
+      await captureScrolled(out, wait, '#c-cons', 'character-consumables');
+      await captureScrolled(out, wait, '#c-cons .cons-grid', 'character-consumables-kinds');
     }
     if (page === 'upgrades') await captureUpgradeDetails(out, wait);
     if (page === 'rotations') await captureRotationDetails(out, wait);
     if (page === 'writs') await captureScrolled(out, wait, '#crates', 'writs-crates');
     if (page === 'recipes') await captureHelp(out, wait);
     if (page === 'pricehistory') await captureHelp(out, wait, '.ph-chart .hit:last-of-type', 'pricehistory-day');
-    if (page === 'consumables') await captureScrolled(out, wait, '#c-buffs', 'consumables-buffs');
+    if (page === 'consumables') {
+      await captureScrolled(out, wait, '.cons-fight .cons-grid', 'consumables-kinds');
+      await captureScrolled(out, wait, '#c-buffs', 'consumables-buffs');
+    }
     if (page === 'goldperhour') {
       // Open the first finished session, then shoot settings and history.
       await win.webContents.executeJavaScript('document.querySelector("[data-gph-open]")?.click()');

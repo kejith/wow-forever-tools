@@ -97,6 +97,65 @@ func TestEvaluationsAndHitCap(t *testing.T) {
 	}
 }
 
+// Buffs are part of every number but the per-rank spell numbers: the
+// baseline with a buff is the evaluation of the same delta without it, and
+// an evaluation on top of the buff starts from the buffed baseline.
+func TestBuffs(t *testing.T) {
+	buff := map[string]float64{"spShadow": 40, "mp5": 15}
+	plain := input()
+	plain.Evaluations = []Evaluation{{Key: "buff", Delta: buff}}
+	without := Run(plain)
+	in := input()
+	in.Buffs = buff
+	in.Evaluations = []Evaluation{{Key: "none", Delta: map[string]float64{}}, {Key: "sp", Delta: map[string]float64{"sp": 10}}}
+	with := Run(in)
+	if without.Error != "" || with.Error != "" {
+		t.Fatal(without.Error, with.Error)
+	}
+	if with.Baseline.Value < without.Results["buff"].Value-1e-9 {
+		// The buffed baseline picks its own best rotation, so it is at least the evaluation.
+		t.Errorf("baseline with buffs = %g, evaluation of the buff = %g", with.Baseline.Value, without.Results["buff"].Value)
+	}
+	if with.Baseline.Value <= without.Baseline.Value {
+		t.Errorf("the buff adds nothing: %g against %g", with.Baseline.Value, without.Baseline.Value)
+	}
+	almost(t, "no delta on top", with.Results["none"].Gain, 0, 1e-9)
+	if with.Results["sp"].Gain <= 0 {
+		t.Errorf("sp on top of the buff = %g", with.Results["sp"].Gain)
+	}
+	if len(with.Buffs) != 2 || len(without.Buffs) != 0 {
+		t.Errorf("buffs echoed: %v, %v", with.Buffs, without.Buffs)
+	}
+	for i, sp := range with.Spells {
+		if sp != without.Spells[i] {
+			t.Errorf("spell numbers moved with the buff: %+v against %+v", sp, without.Spells[i])
+		}
+	}
+}
+
+// With Reoptimize an evaluation is the baseline of the same character with
+// the delta as a buff: the best rotation is picked again. Without it the
+// baseline's rotation stays, which can only be worse.
+func TestReoptimize(t *testing.T) {
+	delta := map[string]float64{"mp5": 400, "spShadow": 50} // mana for bolts all the time
+	in := input()
+	in.Evaluations = []Evaluation{{Key: "x", Delta: delta}}
+	fixed := Run(in)
+	in.Reoptimize = true
+	again := Run(in)
+	buffed := input()
+	buffed.Buffs = delta
+	want := Run(buffed)
+	if fixed.Error != "" || again.Error != "" || want.Error != "" {
+		t.Fatal(fixed.Error, again.Error, want.Error)
+	}
+	almost(t, "reoptimized evaluation", again.Results["x"].Value, want.Baseline.Value, 1e-9)
+	if fixed.Results["x"].Value > again.Results["x"].Value+1e-9 {
+		t.Errorf("the fixed rotation beats the best one: %g against %g", fixed.Results["x"].Value, again.Results["x"].Value)
+	}
+	almost(t, "baseline unchanged", again.Baseline.Value, fixed.Baseline.Value, 1e-9)
+}
+
 // An exported spellbook wins over the assumption: without rank 2 the
 // character bolts with rank 1, and the missing Curse of Agony is not cast.
 func TestExportedSpellbook(t *testing.T) {

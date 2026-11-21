@@ -2,6 +2,7 @@
 // middle), then professions and talents, and for a class that heals the heal table (pages/healing.js).
 import { $, DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, state, tipAttr } from '../core.js';
 import { mark, t } from '../i18n.js';
+import { consumablesSection, loadConsumables } from './consumables.js';
 import { healingSection } from './healing.js';
 
 // Slot IDs and order of the in-game character window (Classic layout).
@@ -103,12 +104,17 @@ export async function renderCharacter() {
     </div>
     <div class="grid section"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
       <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>
-    ${d.heals ? `<div class="section" id="c-heal">${loading(t('Computing every heal rank …'))}</div>` : ''}`;
-  if (!d.heals) return;
-  // The heal table takes a few engine runs: the page stands, the section follows.
+    ${d.heals ? `<div class="section" id="c-heal">${loading(t('Computing every heal rank …'))}</div>` : ''}
+    <div id="c-cons">${loading(t('Rating the consumables for a fight …'))}</div>`;
+  // The heal table and the consumables take a few engine runs each: the page stands, the sections follow.
   const char = state.char;
-  const h = await cached(`healing:${char}`, () => api.bridge('healing', { char }));
-  const box = $('#c-heal');
-  if (!box || state.char !== char) return;
-  box.innerHTML = h.error ? errorBox(h.error) : healingSection(h);
+  const fill = async (selector, load, html) => {
+    const r = await load();
+    const box = $(selector);
+    if (box && state.char === char && state.page === 'character') box.innerHTML = r.error ? errorBox(r.error) : html(r);
+  };
+  await Promise.all([
+    d.heals ? fill('#c-heal', () => cached(`healing:${char}`, () => api.bridge('healing', { char })), healingSection) : null,
+    fill('#c-cons', () => loadConsumables(char), consumablesSection),
+  ]);
 }

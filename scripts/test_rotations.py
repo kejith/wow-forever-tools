@@ -18,8 +18,9 @@ import i18n  # noqa: E402
 import rotations  # noqa: E402
 
 STUB_ENGINE = '''
-import json, sys
+import json, os, sys
 data = json.load(sys.stdin)
+assert data.get("buffs") == json.loads(os.environ.get("TEST_EXPECT_BUFFS") or "null"), data.get("buffs")
 assert data["situations"] is True and data["evaluations"] == [], "the guide asks for situations, not for gear"
 assert data["fight"] == {"seconds": 90.0, "targetDelta": 2, "killsPerMinute": -1}
 assert data["character"]["classFile"] == "PRIEST" and data["character"]["spellbook"] == [139, 589, 2053]
@@ -288,6 +289,34 @@ def test_several_enemies(tmp: str):
     assert pack["title"] == "Mehrere Gegner" and pack["about"].startswith("3 Gegner zugleich, die 30 Sekunden leben")
     assert pack["steps"][1]["rule"] == "auf jedem Gegner halten"
     assert pack["steps"][5]["rule"].endswith("trifft alle Gegner und kostet dich 145 Leben pro Sekunde")
+
+
+def test_with_consumables(tmp: str):
+    """The best set of the consumables page goes to the engine as buffs, one set per guide's metric, and the
+    guide names it. Without the option the engine gets none (the stub checks both)."""
+    import consumables
+    write_fixture(tmp)
+    asked = []
+
+    def fight_buffs(wow, char, metric, fight_seconds, target_delta):
+        asked.append((char, metric, fight_seconds, target_delta))
+        return {"delta": {"spDamage": 35, "mp5": 20}, "names": ["Arcane Elixir", "Mana Potion"], "gain": 12.5,
+                "unit": "HPS" if metric == "hps" else "DPS", "metric": metric,
+                "text": "With consumables: Arcane Elixir, Mana Potion."}
+
+    real = consumables.fight_buffs
+    consumables.fight_buffs = fight_buffs
+    os.environ["TEST_EXPECT_BUFFS"] = '{"spDamage": 35, "mp5": 20}'
+    try:
+        r = run(tmp, with_consumables=True)
+    finally:
+        consumables.fight_buffs = real
+        del os.environ["TEST_EXPECT_BUFFS"]
+    assert asked == [("Tester", "hps", 90, 2), ("Tester", "dps", 90, 2)], asked
+    assert [g["consumables"] for g in r["guides"]] == [
+        {"names": ["Arcane Elixir", "Mana Potion"], "gain": 12.5, "unit": unit,
+         "text": "With consumables: Arcane Elixir, Mana Potion."} for unit in ("HPS", "DPS")]
+    assert all("consumables" not in g for g in run(tmp)["guides"])
 
 
 def test_german(tmp: str):

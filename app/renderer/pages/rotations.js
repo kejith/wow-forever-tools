@@ -76,12 +76,15 @@ export async function renderRotations() {
       <label><span class="label">${esc(t('Normal fight (s)'))} ${help(esc(t('Length of the fight called “Normal fight”: the same fight your gear is rated for on the upgrades page. The other fights have fixed lengths.')))}</span>
         <input type="number" id="r-fight" min="10" max="600" step="10" value="${o.fight}"></label>
       <label>${esc(t('Enemy level'))}<select id="r-target">${selectOption('', t('automatic'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
+      <label class="check"><input type="checkbox" id="r-cons" ${o.consumables ? 'checked' : ''}> <span class="label">${esc(t('with consumables'))} ${help(esc(t('Plays every fight with the best set of consumables for the normal fight active (the page “Consumables” shows it). What a potion gives per second is that of the normal fight in every fight.')))}</span></label>
       <span class="spacer"></span><div class="page-meta"><span id="r-meta"></span></div>
     </div><div id="r-body">${loading(t('Playing the fights with every rotation you could cast …'))}</div>`;
   $('#r-fight').addEventListener('change', (e) => { o.fight = Math.min(600, Math.max(10, Number(e.target.value) || 60)); renderRotations(); });
   $('#r-target').addEventListener('change', (e) => { o.target = e.target.value; renderRotations(); });
-  const d = await cached(`rotations:${state.char}:${o.fight}:${o.target}`, () => api.bridge('rotations', {
+  $('#r-cons').addEventListener('change', (e) => { o.consumables = e.target.checked; renderRotations(); });
+  const d = await cached(`rotations:${state.char}:${o.fight}:${o.target}:${o.consumables}`, () => api.bridge('rotations', {
     char: state.char, fightSeconds: Number(o.fight) || 60, targetDelta: o.target === '' ? -1 : Number(o.target),
+    consumables: o.consumables,
   }));
   const body = $('#r-body');
   if (!body) return;
@@ -90,5 +93,6 @@ export async function renderRotations() {
   body.innerHTML = `${d.engine.spellbookSource === 'assumed' ? `<div class="notice small">${t('No spellbook in the export: every trainer rank up to your level is assumed. Update the WoWMCP addon and type <code>/reload</code>, then the page knows your spells.')}</div>` : ''}
     ${d.guides.map((g, i) => `<div class="section rot-guide" id="r-${esc(g.metric)}"${i ? '' : ' style="margin-top:0"'}>
       <h2 class="heading">${esc(g.title)} ${help(guideTerms(g))}</h2>
+      ${g.consumables ? `<div class="notice small">${esc(g.consumables.text)}</div>` : ''}
       <div class="rot-grid">${g.situations.map((s) => card(s, g.metric === 'hps')).join('')}</div></div>`).join('')}`;
 }

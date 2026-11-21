@@ -317,6 +317,7 @@ assert data["character"]["talents"] == {"18174": 5}
 sheet = {k: data["character"]["stats"].get(k) for k in ("hastePct", "spiritRegen", "castingRegen")}
 assert sheet == {"hastePct": 15, "spiritRegen": 20, "castingRegen": 2}, "the sheet's haste and regeneration"
 import os
+assert data.get("buffs") == json.loads(os.environ.get("TEST_EXPECT_BUFFS") or "null"), data.get("buffs")
 cap = float(os.environ.get("STUB_SP_CAP") or 1e9)  # spell power above the cap adds nothing: gains stop adding up
 gain = lambda e: 2.0 * min(e["delta"].get("sp", 0), cap)
 res = {e["key"]: {"gain": gain(e), "value": 100 + gain(e), "gainPct": 0} for e in data["evaluations"]}
@@ -451,6 +452,25 @@ def test_compute_with_engine(tmp: str):
         r = u.compute(tmp, "Tester", prices=prices, top=5, engine="on", fight_seconds=45, target_delta=3)
         os.environ["STUB_SP_CAP"] = "10"
         capped = u.compute(tmp, "Tester", prices=prices, top=5, engine="on", fight_seconds=45, target_delta=3)
+        os.environ.pop("STUB_SP_CAP")
+        # With consumables: the best set of the consumables page is in every engine run as buffs (the stub
+        # checks the bundle), and the answer names it.
+        import consumables
+        asked, real_buffs = [], consumables.fight_buffs
+        consumables.fight_buffs = lambda *a: asked.append(a[1:]) or {
+            "delta": {"spShadow": 40}, "names": ["Elixir of Shadow Power"], "gain": 20.0, "unit": "DPS",
+            "metric": "dps", "text": "With consumables: Elixir of Shadow Power (+20.0 DPS)."}
+        os.environ["TEST_EXPECT_BUFFS"] = '{"spShadow": 40}'
+        try:
+            consumed = u.compute(tmp, "Tester", prices=prices, top=5, engine="on", fight_seconds=45, target_delta=3,
+                                 with_consumables=True)
+        finally:
+            consumables.fight_buffs = real_buffs
+            del os.environ["TEST_EXPECT_BUFFS"]
+        assert asked == [("Tester", "", 45, 3)], "the class's default metric, the fight as asked for"
+        assert consumed["engine"]["consumables"] == {
+            "names": ["Elixir of Shadow Power"], "gain": 20.0, "unit": "DPS",
+            "text": "With consumables: Elixir of Shadow Power (+20.0 DPS)."}
     finally:
         icons.table = real_table
         os.environ.pop("STUB_SP_CAP", None)
@@ -475,6 +495,7 @@ def test_compute_with_engine(tmp: str):
     assert "a shield" in r["scale"][3]["note"] and "9.2 mana per second" in r["scale"][4]["note"]
     # A debuff has no value of its own; its note says what it does to the others.
     assert r["scale"][5]["weight"] == 0 and "the other spells deal 10% more under it" in r["scale"][5]["note"]
+    assert "consumables" not in r["engine"]
     assert r["engine"]["killBuff"] is True  # a talent that needs kills: the window offers the option
 
     # The coverage report: every spell and talent with what the model does with it, the used ones first.

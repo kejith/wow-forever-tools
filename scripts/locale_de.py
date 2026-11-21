@@ -361,6 +361,57 @@ TEXT = {
     "{n} in bags": "{n} in den Taschen",
     "next: {name} from level {level}": "nächstes: {name} ab Stufe {level}",
     "next: {name} with {skill} {rank}": "nächstes: {name} mit {skill} {rank}",
+    "Elixirs": "Elixiere",
+    "Scrolls": "Rollen",
+    "Potions in the fight": "Tränke im Kampf",
+    "Runes and roots": "Runen und Wurzeln",
+    "Other buffs": "Andere Buffs",
+    "One flask at a time; its own text says so. It works next to elixirs, buff food and a weapon oil.":
+        "Immer nur ein Fläschchen; das steht in seinem eigenen Text. Es wirkt neben Elixieren, Buff-Essen und "
+        "einem Waffenöl.",
+    "Elixirs for different stats work together: the game has no battle and guardian elixirs here.":
+        "Elixiere für verschiedene Werte wirken zusammen: Kampf- und Wächterelixiere kennt das Spiel hier nicht.",
+    "Whether two elixirs for the same stat add up is not confirmed for Forever. The set takes one per stat.":
+        "Ob sich zwei Elixiere für denselben Wert addieren, ist für Forever nicht bestätigt. Das Set nimmt eins "
+        "pro Wert.",
+    "One Well Fed buff at a time: the next meal replaces it.":
+        "Immer nur ein Buff \"Satt\": Die nächste Mahlzeit ersetzt ihn.",
+    "One temporary enchantment per weapon. By their texts a warlock's Spellstone and Firestone take the same place.":
+        "Eine vorübergehende Verzauberung pro Waffe. Zauberstein und Feuerstein des Hexenmeisters belegen laut "
+        "ihren Texten denselben Platz.",
+    "One scroll per stat.": "Eine Rolle pro Wert.",
+    "In the original game a scroll did not add to the class buff of the same stat (Arcane Intellect, Divine "
+    "Spirit, Power Word: Fortitude). Not checked for Forever: the set counts the scroll in full.":
+        "Im ursprünglichen Spiel kam eine Rolle nicht zum Klassenbuff desselben Werts dazu (Arkane Intelligenz, "
+        "Göttlicher Willen, Machtwort: Seelenstärke). Für Forever nicht geprüft: Das Set zählt die Rolle voll.",
+    "All potions share one cooldown of 2 minutes. The gain is what the potion gives spread over the fight: its "
+    "mana or health, or its buff for the seconds it lasts.":
+        "Alle Tränke teilen sich eine Abklingzeit von 2 Minuten. Der Gewinn ist das, was der Trank gibt, über "
+        "den Kampf verteilt: sein Mana oder seine Gesundheit, oder sein Buff für die Sekunden, die er hält.",
+    "Runes and the roots from Felwood share a cooldown of 2 minutes of their own, next to the potions.":
+        "Runen und die Wurzeln aus dem Teufelswald teilen sich eine eigene Abklingzeit von 2 Minuten, neben den "
+        "Tränken.",
+    "The buffs from the Blasted Lands share a cooldown of an hour, and one Zanza potion works at a time.":
+        "Die Buffs aus den Verwüsteten Landen teilen sich eine Abklingzeit von einer Stunde, und es wirkt immer "
+        "nur ein Zanza-Trank.",
+    "For the others nothing says what they exclude: the set counts each of them on top.":
+        "Bei den anderen sagt nichts, was sie ausschließen: Das Set zählt jeden davon obendrauf.",
+    "costs about {n} health": "kostet etwa {n} Gesundheit",
+    "With consumables: {names} (+{gain:.1f} {unit}).": "Mit Verbrauchsgütern: {names} (+{gain:.1f} {unit}).",
+    "No consumable you can get now adds anything.": "Kein Verbrauchsgut, das du jetzt bekommst, bringt etwas.",
+    "No consumables for a fight: {why}": "Keine Verbrauchsgüter für einen Kampf: {why}",
+    "=== Consumables for a fight of {seconds:.0f} s: {title} ===":
+        "=== Verbrauchsgüter für einen Kampf von {seconds:.0f} s: {title} ===",
+    "{base:.1f} {unit} without, {value:.1f} {unit} with the best set ({gain:+.1f}, {pct:+.1f} %), to buy: {cost}":
+        "{base:.1f} {unit} ohne, {value:.1f} {unit} mit dem besten Set ({gain:+.1f}, {pct:+.1f} %), zu kaufen: {cost}",
+    "On you at the snapshot, so already in the numbers: {names}":
+        "Beim Snapshot auf dir, also schon in den Zahlen: {names}",
+    "on you": "auf dir",
+    "{name} is on you already": "{name} ist schon auf dir",
+    "not in the AH": "nicht im AH",
+    "instead: {name}": "stattdessen: {name}",
+    "costs more than half your health": "kostet mehr als die Hälfte deiner Gesundheit",
+    "… and {n} more": "… und {n} weitere",
 
     # ---- ingame.py ----
     "AH upgrades": "AH-Upgrades",

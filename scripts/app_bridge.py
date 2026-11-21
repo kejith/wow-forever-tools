@@ -154,6 +154,8 @@ def main() -> None:
                     help="upgrades: metric of the combat model (default: per class and spec)")
     ap.add_argument("--method", choices=["", "expectation", "montecarlo"], default="")
     ap.add_argument("--iterations", type=int, default=0)
+    ap.add_argument("--consumables", action="store_true",
+                    help="upgrades, rotations: with the best set of consumables active")
     ap.add_argument("--profession", default="", help="recipes: part of the profession name or its skill line ID")
     ap.add_argument("--ids", default="", help="icons: comma-separated item IDs")
     ap.add_argument("--write", action="store_true", help="ingame: write the data file into the addon folder")
@@ -182,10 +184,13 @@ def main() -> None:
             r = recipes.compute(a.wow, a.char, a.profession)
         elif a.command == "consumables":
             # Every buff group; the window hides the ones that do not help the class.
-            r = consumables.compute(a.wow, a.char, a.top, all_buffs=True)
+            # With the combat engine also the consumables for a fight, rated by what they add (`plans`).
+            r = consumables.compute(a.wow, a.char, a.top, all_buffs=True, engine=a.engine,
+                                    fight_seconds=a.fight_seconds, target_delta=a.target_delta)
         elif a.command == "rotations":
             # What to cast in which situation, from the combat engine: one guide per metric of the class.
-            r = rotations.compute(a.wow, a.char, a.fight_seconds, a.target_delta, a.kills_per_minute)
+            r = rotations.compute(a.wow, a.char, a.fight_seconds, a.target_delta, a.kills_per_minute,
+                                  a.consumables)
         elif a.command == "healing":
             # Every known heal rank with its numbers, the ranks to use and the stat weights.
             r = healing.compute(a.wow, a.char, a.fight_seconds, a.target_delta)
@@ -197,7 +202,8 @@ def main() -> None:
         else:
             r = upgrades.compute(a.wow, a.char, 0, a.preview, a.max_price, a.top, profile=a.profile, sort=a.sort,
                                  engine=a.engine, fight_seconds=a.fight_seconds, target_delta=a.target_delta,
-                                 kills_per_minute=a.kills_per_minute, metric=a.metric, method=a.method, iterations=a.iterations)
+                                 kills_per_minute=a.kills_per_minute, metric=a.metric, method=a.method,
+                                 iterations=a.iterations, with_consumables=a.consumables)
         r["generated"] = datetime.datetime.now().timestamp()
         r["language"] = language
     except (FileNotFoundError, LookupError, ValueError, RuntimeError) as e:

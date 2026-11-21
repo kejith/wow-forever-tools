@@ -283,17 +283,18 @@ def character(wow: str, char: str, fight_seconds: float = 60.0, target_delta: in
              "targetDelta": target_delta if 0 <= target_delta <= 3 else upgrades.PROFILES[profile]["target"],
              "killsPerMinute": kills_per_minute if kills_per_minute >= 0 else -1}
 
-    def start(metric: str, seconds: float | None = None) -> simengine.Engine:
+    def start(metric: str, seconds: float | None = None, buffs: dict | None = None) -> simengine.Engine:
         return simengine.start(c, totals.get("mp5", 0), totals.get("hp5", 0),
-                               dict(fight, seconds=seconds) if seconds else fight, metric, life_tap)
+                               dict(fight, seconds=seconds) if seconds else fight, metric, life_tap, buffs=buffs)
 
     return c, fight, start
 
 
 def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float = 60.0, target_delta: int = -1,
-            kills_per_minute: float = -1) -> dict:
+            kills_per_minute: float = -1, with_consumables: bool = False) -> dict:
     """The rotation guide of a character as plain data: one guide per metric the class has (damage, healing),
-    each with its situations."""
+    each with its situations. `with_consumables` plays every fight with the best set of consumables.py for
+    the metric as buffs (the set and a potion's share are those of the normal fight)."""
     c, fight, start = character(wow, char, fight_seconds, target_delta, kills_per_minute)
     ch = c.get("character") or {}
     class_file = ch.get("classFile") or ""
@@ -305,7 +306,11 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float =
     label = labeler(c)
     guides, version, source = [], "", ""
     for metric in metrics:
-        eng = start(metric)
+        consumed = None
+        if with_consumables:
+            import consumables  # imports this module's users
+            consumed = consumables.fight_buffs(wow, char, metric, fight_seconds, fight["targetDelta"])
+        eng = start(metric, None, (consumed or {}).get("delta"))
         situations = eng.situations()
         version, source = eng.version, eng.spellbook_source
         if not situations:
@@ -314,6 +319,8 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", fight_seconds: float =
         guides.append({"metric": metric, "unit": UNITS[metric], "title": tr(title), "about": tr(about),
                        "notes": [tr(n) for n in GUIDE_NOTES.get(metric, [])],
                        "situations": [situation_out(s, label, UNITS[metric]) for s in situations]})
+        if consumed:
+            guides[-1]["consumables"] = {k: consumed[k] for k in ("names", "gain", "unit", "text")}
     if not guides:
         raise LookupError(tr("The combat engine has no rotation guide for this character."))
     return {"name": ch.get("name") or char, "level": level, "class": ch.get("class") or class_file,
@@ -331,12 +338,14 @@ def main() -> None:
                     help="enemy levels above you in the normal fight (default: 2 below level 60, else 3)")
     ap.add_argument("--kills-per-minute", type=float, default=-1,
                     help="your killing blows per minute, for buffs like Spirit Tap (default: one per fight)")
+    ap.add_argument("--consumables", action="store_true",
+                    help="play every fight with the best set of consumables active (consumables.py)")
     ap.add_argument("--json", action="store_true", help="print the result as JSON (for the app)")
     i18n.add_argument(ap)
     a = ap.parse_args()
     i18n.set_language(a.lang, a.wow)
     try:
-        r = compute(a.wow, a.char, a.fight_seconds, a.target_delta, a.kills_per_minute)
+        r = compute(a.wow, a.char, a.fight_seconds, a.target_delta, a.kills_per_minute, a.consumables)
     except (FileNotFoundError, LookupError) as e:
         sys.exit(str(e))
     sys.stdout.reconfigure(encoding="utf-8")
@@ -351,6 +360,8 @@ def main() -> None:
         print(tr("No spellbook in the export: every trainer rank up to your level is assumed."))
     for g in r["guides"]:
         print(f"\n=== {g['title']} ===\n{g['about']}")
+        if g.get("consumables"):
+            print(g["consumables"]["text"])
         for s in g["situations"]:
             print(f"\n{s['title']}: {s['value']:.1f} {s['unit']}  ({s['about']})")
             print("  " + s["verdict"])

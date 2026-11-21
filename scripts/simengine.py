@@ -194,9 +194,11 @@ class Engine:
         self.spells: list = []  # per known spell rank what one cast does, as a tooltip shows it
         self.fight: dict = dict(bundle.get("fight") or {})  # as evaluated: the engine resolves automatic values
 
-    def batch(self, evals: list[tuple[str, dict]]) -> dict[str, float]:
-        """Evaluates deltas; returns the metric gain per key."""
-        out = self._run(dict(self.bundle, evaluations=[{"key": k, "delta": d} for k, d in evals]))
+    def batch(self, evals: list[tuple[str, dict]], reoptimize: bool = False) -> dict[str, float]:
+        """Evaluates deltas; returns the metric gain per key. With `reoptimize` the engine picks the best
+        rotation again for each delta instead of keeping the baseline's (for big deltas: consumables)."""
+        out = self._run(dict(self.bundle, evaluations=[{"key": k, "delta": d} for k, d in evals],
+                             reoptimize=reoptimize))
         return {k: (v.get("gain") or 0.0) for k, v in (out.get("results") or {}).items()}
 
     def situations(self) -> list:
@@ -251,13 +253,15 @@ def sheet_numbers(st: dict) -> dict:
 
 
 def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
-          life_tap: dict, binary: str | None = None, method: str = "", iterations: int = 0) -> Engine:
+          life_tap: dict, binary: str | None = None, method: str = "", iterations: int = 0,
+          buffs: dict | None = None) -> Engine:
     """Builds the bundle from a WoWMCP snapshot and returns a ready Engine.
 
     `life_tap` is {"healthPerCast", "manaPerCast"}, parsed from the spell text
     by the caller (upgrades.py owns the tooltip languages). `fight` is
     {"seconds", "targetDelta", "killsPerMinute"}; negative kills mean automatic
-    (the engine's answer has the fight as evaluated, Engine.fight)."""
+    (the engine's answer has the fight as evaluated, Engine.fight). `buffs` is a stat delta in the engine's
+    keys that every number is to include: the consumables of consumables.py."""
     binary = binary or find_binary()
     if not binary:
         raise LookupError(tr("The combat engine (simforever) was not found."))
@@ -318,4 +322,6 @@ def start(c: dict, gear_mp5: float, gear_hp5: float, fight: dict, metric: str,
         },
         "fight": fight, "metric": metric, "method": method, "iterations": iterations,
     }
+    if buffs:
+        bundle["buffs"] = buffs
     return Engine(binary, bundle)

@@ -31,6 +31,7 @@ The app brings everything it needs. On the first start it downloads Python and t
 - **Writs:** the cheapest crafting writ per tier, net of the coin pouch, and the trade crates by silver per Merchant's Favor (`scripts/writs.py`).
 - **AH upgrades:** upgrades per equipment slot with a budget, a preview of higher levels and a mark for items new in Forever (`scripts/upgrades.py`).
 - **Professions:** profit per craft of the recipes you know, and missing recipes that pay more, with the source and price of the recipe (`scripts/recipes.py`).
+- **Consumables:** what flasks, elixirs, buff food, weapon oils, scrolls, potions and runes add to your DPS or HPS in a fight, which of them exclude each other, and the best set of those you can get now; below that the strongest potions, food, drinks, bandages and buffs for the level (`scripts/consumables.py`). The Character page shows the same set, and the pages "AH upgrades" and "Rotations" can rate with it ("with consumables").
 - **Gold per hour:** the running session of the GoldPerHour addon (herbs and loot, per hour, items, zones, gold curve), start/stop/reset, the addon's settings and the history of finished sessions (`scripts/goldperhour.py`).
 
 The app watches `WTF\Account` and reloads as soon as the game writes SavedVariables.
@@ -79,7 +80,7 @@ The scripts need [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`
 | `uv run scripts/writs.py --char <name>` | best writ per tier and the trade crates (`--top 3`, `--owned-at-ah-price`) |
 | `uv run scripts/upgrades.py --char <name>` | equipment upgrades from the auction house (`--max-price <gold>`, `--profile leveling\|dungeon`, `--sort gain\|price`, `--preview 4`, `--top 3`) |
 | `uv run scripts/recipes.py --char <name>` | profit per recipe (`--profession Alchemy`, `--top 15`) |
-| `uv run scripts/consumables.py --char <name>` | the strongest potions, food, bandages and buffs for the level (`--top 5`, `--all-buffs`) |
+| `uv run scripts/consumables.py --char <name>` | the strongest potions, food, bandages and buffs for the level, and the best set of consumables for a fight (`--top 5`, `--all-buffs`, `--fight-seconds 60`) |
 | `uv run scripts/ingame.py` | what the WoWMCP addon shows in the game, per character; `--write` puts it into the addon folder |
 | `uv run scripts/goldperhour.py` | GoldPerHour sessions |
 | `uv run scripts/app_bridge.py status` | what the app sees, as JSON |

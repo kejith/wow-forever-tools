@@ -395,6 +395,14 @@ tr.detail > td { background: #18140f; }
 .cons-card h3 { color: var(--gold); }
 .cons-card table td { vertical-align: top; }
 .cons-next { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.cons-plan { margin-bottom: 16px; }
+.cons-plan h3 { color: var(--gold); margin: 14px 0 6px; }
+.cons-tiles { gap: 36px; align-items: flex-start; }
+.cons-set td { vertical-align: top; }
+.cons-set .gain { min-width: 150px; }
+.cons-set .gain b { width: 54px; }
+.cons-more { margin: 8px 0 0; }
+.cons-card h3 .badge { vertical-align: middle; font-weight: 400; }
 
 .learn { margin-top: 4px; }
 td.where { min-width: 210px; }

@@ -21,7 +21,8 @@ export async function renderUpgrades() {
         <input type="number" id="u-fight" min="10" max="600" step="10" value="${o.fight}"></label>
       <label>${esc(t('Enemy level'))}<select id="u-target">${selectOption('', t('from the scale (+2/+3)'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
       <label id="u-metric" style="display:none"></label>
-      <label id="u-kills" style="display:none"></label>`;
+      <label id="u-kills" style="display:none"></label>
+      <label class="check"><input type="checkbox" id="u-cons" ${o.consumables ? 'checked' : ''}> <span class="label">${esc(t('with consumables'))} ${help(esc(t('Rates the gear with the best set of consumables active (the page “Consumables” shows it). A flask’s spell power makes hit and crit worth more, a potion’s mana makes intellect worth less.')))}</span></label>`;
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Budget (gold)'))}<input type="number" id="u-max" class="wide" min="0" step="0.5" value="${esc(o.maxPrice)}" placeholder="${esc(t('your own gold'))}"></label>
       <label><span class="label">${esc(t('Rating'))} ${help(esc(t('The combat model simulates your rotation over the fight; when it cannot run, the weight scale answers instead. Monte-Carlo plays the rotation with real rolls: slower, adds the spread and replays the biggest gains. The weight scale rates stats with fixed weights.')))}</span>
@@ -41,13 +42,15 @@ export async function renderUpgrades() {
   bind('#u-sort', 'sort', (v) => v);
   bind('#u-pre', 'preview', (v) => Number(v) || 0);
   bind('#u-top', 'top', (v) => Number(v) || 3);
-  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}:${o.kills}`;
+  $('#u-cons')?.addEventListener('change', (e) => { o.consumables = e.target.checked; renderUpgrades(); });
+  const withConsumables = o.consumables && o.engine !== 'off';
+  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}:${o.kills}:${withConsumables}`;
   const d = await cached(key, () => api.bridge('upgrades', {
     char: state.char, maxPrice: o.maxPrice ? Number(o.maxPrice) : 0, preview: o.preview, top: o.top,
     profile: o.profile, sort: o.sort, engine: o.engine === 'mc' ? 'auto' : o.engine,
     method: o.engine === 'mc' ? 'montecarlo' : '', fightSeconds: Number(o.fight) || 60,
     targetDelta: o.target === '' ? -1 : Number(o.target), metric: o.metric,
-    killsPerMinute: o.kills === '' ? -1 : Number(o.kills),
+    killsPerMinute: o.kills === '' ? -1 : Number(o.kills), consumables: withConsumables,
   }));
   const body = $('#u-body');
   if (!body) return;
@@ -176,7 +179,7 @@ export async function renderUpgrades() {
       <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.')))}</h2>
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>
       <span class="spacer"></span></div>
-      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${eng?.buffs ? `<p class="small muted" style="margin:8px 0 0">${esc(eng.buffs.text)}</p>` : ''}${unknownNote}${healRanks}${coverage}</div>
+      ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${eng?.consumables ? `<div class="notice" style="margin-top:10px">${esc(eng.consumables.text)}</div>` : ''}${eng?.buffs ? `<p class="small muted" style="margin:8px 0 0">${esc(eng.buffs.text)}</p>` : ''}${unknownNote}${healRanks}${coverage}</div>
     ${packageHtml}
     ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
 }

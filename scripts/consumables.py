@@ -6,7 +6,8 @@
 and buffs (elixirs, flasks, scrolls, weapon oils, buff food) the character can use now, with the price in
 the auction house or at a vendor, what is in the bags and which ones the character can craft.
 
-    uv run scripts/consumables.py --char Malgruk [--top 5] [--all-buffs] [--json] [--lang en|de]
+    uv run scripts/consumables.py --char Malgruk [--top 5] [--all-buffs] [--engine auto|on|off]
+                                  [--fight-seconds 60] [--target-delta 2] [--json] [--lang en|de]
 
 Sources:
 - What an item does comes from Forever's DB2 tables (wago.tools, product wowf): Item (class 0 = consumable),
@@ -19,7 +20,12 @@ Sources:
   which profession makes an item.
 
 "Best" is the strongest item the character can use now and get: in the bags, in the AH, at a vendor or
-craftable with a learned recipe. Stacking rules between elixirs are not known for Forever and not checked.
+craftable with a learned recipe.
+
+With the combat engine (sim/, through rotations.py) the consumables that work during a fight are also rated
+by what they add to the character's DPS or HPS, sorted by kind (flask, elixirs, buff food, weapon oil,
+scrolls, potions, runes, other buffs), and the best set is put together: what can be active at once comes
+from the game's data where it says so (KINDS has the rule per kind and names what is an assumption).
 """
 
 from __future__ import annotations
@@ -39,7 +45,7 @@ import upgrades  # noqa: E402  (reads SavedVariables)
 import writs  # noqa: E402  (Auctionator)
 from i18n import mark, tr  # noqa: E402
 
-CATALOG_VERSION = 1
+CATALOG_VERSION = 2
 NEW_ID = 200000
 
 # Item subclasses of class 0 (consumable).
@@ -97,6 +103,11 @@ PROFESSION = {171: mark("Alchemy"), 185: mark("Cooking"), 129: mark("First Aid")
               333: mark("Enchanting"), 197: mark("Tailoring"), 165: mark("Leatherworking"),
               164: mark("Blacksmithing")}
 SKIP_WORDS = ("deprecated", "test", "[ph]", "qa ", "monster -", "unused", "zzold")
+# Consumables the game files under another item class: Demonic Rune and Dark Rune are trade goods.
+EXTRA_ITEMS = {12662, 20520}
+# Spell categories (SpellCategory) that say what shares a cooldown: eating, drinking, potions, the runes and
+# roots apart from the potions, the Zanza potions, the buffs from the Blasted Lands.
+CAT_FOOD, CAT_DRINK, CAT_POTION, CAT_RUNE, CAT_ZANZA, CAT_BLASTED = 11, 59, 4, 1153, 79, 103
 
 # Food and water every innkeeper or food vendor sells (bread, meat, fish, cheese, fruit, mushrooms, water).
 VENDOR_FOOD = {
@@ -123,10 +134,14 @@ def _float(x) -> float:
 
 # ---------- catalog ----------
 
-def decode(sid: int, effects: dict, durations: dict, enchants: dict, subclass: int, depth: int = 0) -> dict:
-    """What a spell does: {"restore": [...], "buffs": [...], "duration": seconds, "oil": bool}. Follows
-    triggered spells (Forever's "Nutritious Food" triggers the eating spell and, after 10 s, Well Fed)."""
-    out = {"restore": [], "buffs": [], "duration": durations.get(sid), "oil": False, "wellFed": False}
+def decode(sid: int, effects: dict, durations: dict, enchants: dict, subclass: int, depth: int = 0,
+           eating: bool = False) -> dict:
+    """What a spell does: {"restore": [...], "buffs": [...], "duration": seconds, "oil": bool, "auras": the
+    spells whose aura is a buff, "healthCost": damage to the user}. Follows triggered spells (Forever's
+    "Nutritious Food" triggers the eating spell and, after 10 s, Well Fed). `eating`: the spell is in the
+    cooldown category of food or drink, whatever the item's subclass says."""
+    out = {"restore": [], "buffs": [], "duration": durations.get(sid), "oil": False, "wellFed": False,
+           "auras": [], "healthCost": 0}
     if depth > 2:
         return out
     for e in effects.get(sid, []):
@@ -135,10 +150,13 @@ def decode(sid: int, effects: dict, durations: dict, enchants: dict, subclass: i
             out["restore"].append({"kind": "healing", "amount": bp, "var": e["var"]})
         elif kind == 30 and misc == 0 and bp > 0:  # ENERGIZE mana
             out["restore"].append({"kind": "mana", "amount": bp, "var": e["var"]})
+        elif kind == 2 and bp > 0 and depth == 0:  # SCHOOL_DAMAGE of an item's own spell: a rune burns its user
+            out["healthCost"] += bp
         elif kind == 64 and e["trigger"]:  # TRIGGER_SPELL
-            sub = decode(e["trigger"], effects, durations, enchants, subclass, depth + 1)
+            sub = decode(e["trigger"], effects, durations, enchants, subclass, depth + 1, eating)
             out["restore"] += sub["restore"]
             out["buffs"] += sub["buffs"]
+            out["auras"] += sub["auras"]
             out["duration"] = out["duration"] or sub["duration"]
             out["wellFed"] = out["wellFed"] or sub["wellFed"]
         elif kind == 54 and misc in enchants:  # ENCHANT_ITEM_TEMPORARY: weapon oil
@@ -152,7 +170,7 @@ def decode(sid: int, effects: dict, durations: dict, enchants: dict, subclass: i
                 out["oil"], out["duration"] = True, ench["duration"]
         elif kind == 6:  # APPLY_AURA
             seconds = (durations.get(sid) or 0)
-            if subclass == FOOD and aura in (84, 85) and depth <= 1:
+            if (subclass == FOOD or eating) and aura in (84, 85) and depth <= 1:
                 # Eating and drinking: the aura holds the amount per 5 seconds.
                 total = bp * seconds / 5 if seconds else bp
                 out["restore"].append({"kind": "food" if aura == 84 else "drink", "amount": round(total),
@@ -168,24 +186,37 @@ def decode(sid: int, effects: dict, durations: dict, enchants: dict, subclass: i
                 if sub["buffs"]:
                     out["wellFed"] = True
                     out["buffDuration"] = sub["duration"]
+                    out["auras"] += sub["auras"]
             elif aura in AURA and bp > 0:
                 stat = AURA[aura](misc)
                 if stat:
                     out["buffs"].append({"stat": stat, "amount": bp})
+                    out["auras"].append(sid)
+    if not out["restore"]:
+        out["healthCost"] = 0  # damage that pays for nothing is no cost
     return out
 
 
 def build_catalog(build: str | None, locale: str | None = None) -> dict:
     """{"items": {itemId: consumable}} from the DB2 tables, names in `locale`."""
     t = lambda name: icons.table(name, build, locale)  # noqa: E731
-    base = {_int(r["ID"]): _int(r["SubclassID"]) for r in t("Item") if _int(r["ClassID"]) == 0}
+    base = {_int(r["ID"]): _int(r["SubclassID"]) if _int(r["ClassID"]) == 0 else OTHER for r in t("Item")
+            if _int(r["ClassID"]) == 0 or _int(r["ID"]) in EXTRA_ITEMS}
     sparse = {_int(r["ID"]): r for r in t("ItemSparse") if _int(r["ID"]) in base}
-    effect_spell = {_int(r["ID"]): _int(r["SpellID"]) for r in t("ItemEffect")}
+    # The cooldown category of an item's spell: on the item effect or, when that has none, on the spell.
+    spell_category = {_int(r["SpellID"]): _int(r.get("Category")) for r in t("SpellCategories")}
+    effect_spell, effect_category = {}, {}
+    for r in t("ItemEffect"):
+        effect_spell[_int(r["ID"])] = _int(r["SpellID"])
+        effect_category[_int(r["ID"])] = _int(r.get("SpellCategoryID"))
     spell_of: dict[int, list[int]] = {}
+    categories: dict[int, list[int]] = {}
     for r in t("ItemXItemEffect"):
-        iid = _int(r["ItemID"])
-        if iid in sparse and effect_spell.get(_int(r["ItemEffectID"])):
-            spell_of.setdefault(iid, []).append(effect_spell[_int(r["ItemEffectID"])])
+        iid, eid = _int(r["ItemID"]), _int(r["ItemEffectID"])
+        if iid in sparse and effect_spell.get(eid):
+            spell_of.setdefault(iid, []).append(effect_spell[eid])
+            categories.setdefault(iid, []).extend(
+                x for x in (effect_category.get(eid), spell_category.get(effect_spell[eid])) if x)
     effects: dict[int, list[dict]] = {}
     for r in t("SpellEffect"):
         effects.setdefault(_int(r["SpellID"]), []).append({
@@ -211,17 +242,22 @@ def build_catalog(build: str | None, locale: str | None = None) -> dict:
         if not name or any(w in name.lower() for w in SKIP_WORDS) or _int(s["Flags_0"]) & 0x2:  # conjured
             continue
         sub = base[iid]
-        info = {"restore": [], "buffs": [], "duration": None, "oil": False, "wellFed": False}
-        for sid in spell_of.get(iid, []):
-            d = decode(sid, effects, durations, enchants, sub)
+        cats = categories.get(iid, [])
+        eating = any(x in (CAT_FOOD, CAT_DRINK) for x in cats)
+        info = {"restore": [], "buffs": [], "duration": None, "oil": False, "wellFed": False,
+                "auras": [], "healthCost": 0, "cat": cats[0] if cats else 0}
+        for sid in dict.fromkeys(spell_of.get(iid, [])):
+            d = decode(sid, effects, durations, enchants, sub, eating=eating)
             info["restore"] += d["restore"]
             info["buffs"] += d["buffs"]
             info["duration"] = info["duration"] or d.get("buffDuration") or d["duration"]
             info["oil"] = info["oil"] or d["oil"]
             info["wellFed"] = info["wellFed"] or d["wellFed"]
+            info["auras"] = sorted(set(info["auras"]) | set(d["auras"]))
+            info["healthCost"] += d["healthCost"]
         if sub == BANDAGE:
             info["restore"] = [r for r in info["restore"] if r["kind"] == "bandage"]
-        elif sub != FOOD:
+        elif sub != FOOD and not eating:
             info["restore"] = [r for r in info["restore"] if r["kind"] in ("healing", "mana")]
         if not info["restore"] and not info["buffs"]:
             continue
@@ -399,19 +435,26 @@ def next_better(candidates: list[dict], best_amount: int) -> dict | None:
             "reqSkill": r["reqSkill"], "amount": r["amount"], "effect": r["effect"]}
 
 
-def evaluate(c: dict, catalog: dict, recipe_catalog: dict, prices: dict, vendor: dict, top: int = 5,
-             all_buffs: bool = False) -> dict:
-    """The page for one character export `c`."""
+def context(c: dict, recipe_catalog: dict, prices: dict, vendor: dict) -> dict:
+    """What row_of needs to know about the character and the market."""
     ch = c.get("character") or {}
-    level = ch.get("level") or 1
     made_by, learned = craft_sources(recipe_catalog, c)
     professions = (c.get("skills") or {}).get("professions") or []
-    ctx = {
+    return {
         "market": recipes.Market(prices, vendor, {}), "vendor": vendor, "owned": recipes.owned_counts(c),
         "madeBy": made_by, "learned": learned, "classFile": ch.get("classFile"),
         "skills": {p.get("skillLine"): p.get("rank") or 0 for p in professions},
         "profNames": {p.get("skillLine"): p.get("name") for p in professions if p.get("name")},
     }
+
+
+def evaluate(c: dict, catalog: dict, recipe_catalog: dict, prices: dict, vendor: dict, top: int = 5,
+             all_buffs: bool = False, start=None, seconds: float = 60.0, metrics: list | None = None) -> dict:
+    """The page for one character export `c`. With `start` (a function that starts the combat engine for a
+    metric, see rotations.character) also the consumables for a fight of `seconds`, rated by the engine."""
+    ch = c.get("character") or {}
+    level = ch.get("level") or 1
+    ctx = context(c, recipe_catalog, prices, vendor)
 
     now: dict[str, list] = {k: [] for k, _ in CATEGORIES}
     later: dict[str, list] = {k: [] for k, _ in CATEGORIES}
@@ -442,13 +485,278 @@ def evaluate(c: dict, catalog: dict, recipe_catalog: dict, prices: dict, vendor:
              for key, label in STATS.items()
              if (buffs_now[key] or buffs_later[key]) and (all_buffs or key in relevant)]
     sd = writs.scan_date(prices) if prices else None
-    return {"name": ch.get("name"), "level": level, "class": ch.get("class"), "classFile": ch.get("classFile"),
-            "updated": c.get("updated"), "scanDate": sd.isoformat() if sd else None, "build": catalog.get("build"),
-            "locale": catalog.get("locale"), "vendorPrices": len(vendor), "recipesScanned": bool(c.get("recipes")),
-            "categories": categories, "buffs": buffs}
+    out = {"name": ch.get("name"), "level": level, "class": ch.get("class"), "classFile": ch.get("classFile"),
+           "updated": c.get("updated"), "scanDate": sd.isoformat() if sd else None, "build": catalog.get("build"),
+           "locale": catalog.get("locale"), "vendorPrices": len(vendor), "recipesScanned": bool(c.get("recipes")),
+           "categories": categories, "buffs": buffs}
+    if start:
+        out["plans"] = fight_plans(c, catalog, ctx, start, seconds, top, metrics)
+    return out
 
 
-def compute(wow: str = writs.DEFAULT_WOW, char: str = "", top: int = 5, all_buffs: bool = False) -> dict:
+# ---------- consumables in a fight, rated by the combat engine ----------
+
+MAX_HEALTH_COST = 0.5  # of the health pool: what costs more is never part of the set
+POTION_COOLDOWN = 120  # seconds; the potions share one, the runes and roots another
+EPS = 0.05  # a consumable that adds less to the metric is not worth a place in the set
+
+# The kinds in the order of the page: key, title, what can be active at once, and what of that is an
+# assumption (None: the game's data says it). Sources: the flasks' spell text ("You can only have the effect
+# of one flask at a time"), the cooldown categories of the item effects (potions 4, runes and roots 1153,
+# Zanza 79, Blasted Lands 103, food 11), no "Battle Elixir"/"Guardian Elixir" wording in any elixir text,
+# and two guides that disagree about the rest (rankedboost.com, checked 2026-11-10: several elixirs, no
+# battle or guardian slots, a flask next to them, one elixir per stat "not confirmed"; method.gg, written
+# from the beta: flasks now stack with elixirs).
+KINDS = [
+    ("flask", mark("Flask"),
+     mark("One flask at a time; its own text says so. It works next to elixirs, buff food and a weapon oil."), None),
+    ("elixir", mark("Elixirs"),
+     mark("Elixirs for different stats work together: the game has no battle and guardian elixirs here."),
+     mark("Whether two elixirs for the same stat add up is not confirmed for Forever. The set takes one per stat.")),
+    ("food", mark("Buff food"), mark("One Well Fed buff at a time: the next meal replaces it."), None),
+    ("weapon", mark("Weapon oil"),
+     mark("One temporary enchantment per weapon. By their texts a warlock's Spellstone and Firestone take the "
+          "same place."), None),
+    ("scroll", mark("Scrolls"), mark("One scroll per stat."),
+     mark("In the original game a scroll did not add to the class buff of the same stat (Arcane Intellect, "
+          "Divine Spirit, Power Word: Fortitude). Not checked for Forever: the set counts the scroll in full.")),
+    ("potion", mark("Potions in the fight"),
+     mark("All potions share one cooldown of 2 minutes. The gain is what the potion gives spread over the "
+          "fight: its mana or health, or its buff for the seconds it lasts."), None),
+    ("rune", mark("Runes and roots"),
+     mark("Runes and the roots from Felwood share a cooldown of 2 minutes of their own, next to the potions."), None),
+    ("other", mark("Other buffs"),
+     mark("The buffs from the Blasted Lands share a cooldown of an hour, and one Zanza potion works at a time."),
+     mark("For the others nothing says what they exclude: the set counts each of them on top.")),
+]
+# A consumable's stat -> the combat engine's keys (simengine, engine.ApplyDelta). "sp" is "damage done by
+# spells" here (aura 13), which does not heal; "crit" is melee crit and has no key.
+ENGINE_KEYS = {
+    "sp": ("spDamage",), "sp_holy": ("spHoly",), "sp_fire": ("spFire",), "sp_nature": ("spNature",),
+    "sp_frost": ("spFrost",), "sp_shadow": ("spShadow",), "sp_arcane": ("spArcane",), "healing": ("healing",),
+    "spell_crit": ("crit",), "intellect": ("int",), "spirit": ("spi",), "stamina": ("sta",), "mp5": ("mp5",),
+    "hp5": ("hp5",), "all_stats": ("int", "sta", "spi"),
+}
+PLAN_TITLES = {"dps": mark("Damage"), "hps": mark("Healing")}
+PLAN_UNITS = {"dps": "DPS", "hps": "HPS"}
+
+
+def fight_kind(it: dict) -> str | None:
+    """The kind (KINDS) of a consumable that works during a fight; None for eating, drinking, bandages and
+    items whose buff has no end the tables know (they are no consumables: runes that stay on the gear)."""
+    cat, sub = it.get("cat") or 0, it["subclass"]
+    restores = any(r["kind"] in ("healing", "mana") for r in it["restore"])
+    if cat == CAT_RUNE:
+        return "rune" if restores else None
+    if cat == CAT_POTION or sub == POTION:
+        return "potion" if restores or (it["buffs"] and it.get("duration")) else None
+    if not it["buffs"] or not it.get("duration"):
+        return None
+    if it.get("wellFed") or sub == FOOD:
+        return "food"
+    if it.get("oil"):
+        return "weapon"
+    return {FLASK: "flask", ELIXIR: "elixir", SCROLL: "scroll"}.get(sub, "other")
+
+
+def fight_slots(iid: int, it: dict, kind: str) -> list[str]:
+    """What the item occupies: two consumables that share a slot cannot both be in the set."""
+    if kind in ("flask", "food", "weapon", "potion", "rune"):
+        return [kind]
+    if kind in ("elixir", "scroll"):
+        return sorted({f"{kind}:{b['stat']}" for b in it["buffs"]})
+    if it.get("cat") in (CAT_ZANZA, CAT_BLASTED):
+        return [f"cat:{it['cat']}"]
+    return [f"item:{iid}"]
+
+
+def uses_in(seconds: float) -> int:
+    """How often something with the potion cooldown fits into a fight: at its start and every 2 minutes."""
+    return 1 + int(max(0.0, seconds - 0.001) // POTION_COOLDOWN)
+
+
+def fight_delta(it: dict, kind: str, seconds: float, hp_per_stamina: float = 10) -> dict:
+    """What the item adds over a fight of `seconds`, in the combat engine's stat keys. A buff shorter than
+    the fight counts for its share of the time; mana and health from a potion or a rune count as mana and
+    health per 5 seconds over the fight (to the engine's mana budget that is the same), a rune's damage to
+    its user as health lost."""
+    out: dict[str, float] = {}
+
+    def add(key: str, value: float) -> None:
+        out[key] = out.get(key, 0.0) + value
+
+    seconds = max(1.0, seconds)
+    duration = it.get("duration") or 0
+    share = min(1.0, duration / seconds) if duration else 1.0
+    if kind in ("potion", "rune"):
+        uses = uses_in(seconds)
+        share = sum(min(duration, seconds - n * POTION_COOLDOWN) for n in range(uses)) / seconds
+        for r in it["restore"]:
+            if r["kind"] in ("healing", "mana"):
+                add("mp5" if r["kind"] == "mana" else "hp5", r["amount"] * uses * 5 / seconds)
+        if it.get("healthCost"):
+            add("hp5", -it["healthCost"] * uses * 5 / seconds)
+    for stat, amount in dict.fromkeys((b["stat"], b["amount"]) for b in it["buffs"]):
+        if stat == "health":
+            add("sta", amount * share / (hp_per_stamina or 10))
+        for key in ENGINE_KEYS.get(stat, ()):
+            add(key, amount * share)
+    return {k: round(v, 3) for k, v in out.items() if round(v, 3)}
+
+
+def add_delta(a: dict, b: dict) -> dict:
+    out = dict(a)
+    for k, v in b.items():
+        out[k] = round(out.get(k, 0.0) + v, 3)
+    return out
+
+
+def fight_candidates(c: dict, catalog: dict, ctx: dict, seconds: float) -> list[dict]:
+    """Every consumable for a fight the character can use and get, as a row with its kind, slots and delta.
+    A buff that was on the character when the snapshot was taken is in the sheet's numbers already, so it
+    holds its slot (`onYou` = the buff's name). If one item gives that buff, the item is "active" and adds
+    nothing; a buff many items give (Well Fed) does not say which one it was, so those rows keep what they
+    would add alone. One that costs more than half of the character's health (a Dark Rune at a low level)
+    is "tooCostly" and never part of the set."""
+    ch = c.get("character") or {}
+    level = ch.get("level") or 1
+    hp_per_stamina = (ch.get("stats") or {}).get("hpPerStamina") or 10
+    health = (ch.get("stats") or {}).get("healthMax") or 0
+    on = {b.get("id"): b.get("name") or "" for b in ch.get("buffs") or [] if isinstance(b, dict)}
+    givers: dict[int, int] = {}  # buff spell -> how many consumables give it
+    for it in catalog["items"].values():
+        if fight_kind(it):
+            for aura in it.get("auras") or []:
+                givers[aura] = givers.get(aura, 0) + 1
+    rows = []
+    for key, it in catalog["items"].items():
+        iid, kind = int(key), fight_kind(it)
+        if not kind or not class_allowed(it["classes"], ctx["classFile"]):
+            continue
+        mine = [a for a in it.get("auras") or [] if a in on]
+        active = any(givers[a] == 1 for a in mine)
+        if not mine and not usable(it, level, ctx):
+            continue
+        effect = buff_text(list({(b["stat"], b["amount"]): b for b in it["buffs"]}.values())) if it["buffs"] else \
+            ", ".join(restore_text(r) for r in it["restore"] if r["kind"] in ("healing", "mana"))
+        if it.get("healthCost"):
+            effect += ", " + tr("costs about {n} health", n=it["healthCost"])
+        row = row_of(iid, it, 0, effect, ctx)
+        if not active and not obtainable(row):
+            continue
+        if mine:
+            row["onYou"] = on[mine[0]] or row["name"]
+        del row["amount"], row["alternatives"]
+        row.update(kind=kind, slots=fight_slots(iid, it, kind), active=active, gain=0.0,
+                   delta={} if active else fight_delta(it, kind, seconds, hp_per_stamina))
+        if kind in ("potion", "rune"):
+            row["uses"] = uses_in(seconds)
+        if it.get("healthCost"):
+            row["healthPerSec"] = round(it["healthCost"] * row.get("uses", 1) / max(1.0, seconds), 2)
+            row["tooCostly"] = bool(health) and it["healthCost"] > MAX_HEALTH_COST * health
+        rows.append(row)
+    return rows
+
+
+def choose(eng, rows: list[dict], healer: bool = False) -> tuple[list[dict], dict, float]:
+    """The best set: what each row adds alone (`gain`), then greedy by what a row adds on top of the ones
+    chosen before it (`adds`; gains do not add up: once the mana lasts, more mana is worth nothing), among
+    the rows the character can get now whose slots are free. Of rows that add the same, the one in the bags
+    wins, then the cheaper one. The engine picks the best rotation again for every set it is asked about
+    (more mana can make another heal rank or filler the best). For a `healer` the health an item costs is
+    taken off what it adds: somebody has to heal it (the engine does the same with Dark Sacrifice; for a
+    damage dealer the cost is in the delta as health lost). Returns the chosen rows in order, their summed
+    delta and what they add together."""
+    def cost(r: dict) -> float:
+        return r.get("healthPerSec", 0.0) if healer else 0.0
+
+    alone = eng.batch([(str(r["id"]), r["delta"]) for r in rows if r["delta"]], reoptimize=True)
+    used: dict[str, str] = {}  # slot -> name of what holds it
+    for r in rows:
+        r["gain"] = round(alone.get(str(r["id"]), 0.0) - (cost(r) if r["delta"] else 0.0), 2)
+        if r.get("onYou"):
+            used.update({s: r["onYou"] for s in r["slots"]})
+    held = dict(used)  # the slots a buff of the snapshot holds
+    chosen, total, gained, paid = [], {}, 0.0, 0.0  # paid: the health the set costs, per second
+    pool = [r for r in rows if r["available"] and r["delta"] and not r["active"] and not r.get("tooCostly")]
+    while True:
+        pool = [r for r in pool if not any(s in used for s in r["slots"])]
+        if not pool:
+            break
+        gains = eng.batch([(str(r["id"]), add_delta(total, r["delta"])) for r in pool], reoptimize=True)
+
+        def more(r: dict) -> float:
+            return gains.get(str(r["id"]), 0.0) - paid - cost(r) - gained
+
+        best = max(pool, key=lambda r: (round(more(r), 1), bool(r["owned"]), -(r["price"] or 0), -r["id"]))
+        adds = more(best)
+        if adds < EPS:
+            break
+        best["chosen"], best["adds"] = len(chosen) + 1, round(adds, 2)
+        chosen.append(best)
+        total, gained, paid = add_delta(total, best["delta"]), gained + adds, paid + cost(best)
+        used.update({s: best["name"] for s in best["slots"]})
+    for r in rows:
+        if r.get("chosen") or r["active"]:
+            continue
+        buff = next((held[s] for s in r["slots"] if s in held), None)
+        holder = next((used[s] for s in r["slots"] if s in used), None)
+        if buff:
+            r["onYou"] = buff
+        elif holder:
+            r["blockedBy"] = holder
+    return chosen, total, gained
+
+
+def fight_plan(metric: str, start, rows: list[dict], seconds: float, top: int) -> dict:
+    """The consumables for one metric: the rows per kind with their gain, the best set and the metric with
+    it (what a calculation started with the set's `delta` as buffs has as its baseline)."""
+    rows = [dict(r) for r in rows]
+    eng = start(metric)
+    chosen, total, gained = choose(eng, rows, healer=metric == "hps")
+    base = eng.baseline.get("value") or 0.0
+    value = base + gained
+    kinds = []
+    for key, title, rule, assumed in KINDS:
+        mine = sorted((r for r in rows if r["kind"] == key),
+                      key=lambda r: (-r["gain"], not r["available"], r["price"] or 0, r["id"]))
+        if not mine:
+            continue
+        keep = [r for i, r in enumerate(mine) if not top or i < top or r.get("chosen") or r["active"]]
+        kinds.append({"key": key, "label": tr(title), "rule": tr(rule), "assumed": tr(assumed) if assumed else None,
+                      "items": keep, "more": len(mine) - len(keep)})
+    unit = PLAN_UNITS.get(metric, "")
+    return {"metric": metric, "unit": unit, "title": tr(PLAN_TITLES.get(metric, metric)),
+            "seconds": eng.fight.get("seconds") or seconds, "targetDelta": eng.fight.get("targetDelta"),
+            "base": round(base, 2), "value": round(value, 2), "gain": round(value - base, 2),
+            "gainPct": round((value - base) / base * 100, 1) if base else 0.0,
+            "cost": sum(r["price"] or 0 for r in chosen if not r["owned"]),
+            "unpriced": sum(1 for r in chosen if not r["owned"] and not r["price"]),
+            "chosen": chosen, "kinds": kinds, "delta": total, "engine": eng.version,
+            "active": list(dict.fromkeys(r["onYou"] for r in rows if r.get("onYou")))}
+
+
+def fight_plans(c: dict, catalog: dict, ctx: dict, start, seconds: float = 60.0, top: int = 5,
+                metrics: list | None = None) -> list[dict]:
+    """One plan per metric of the class (the spec's own first; the time until the mana is gone only when
+    asked for by name)."""
+    import simengine  # the engine's metrics; rotations.py and upgrades.py import this module's users
+    ch = c.get("character") or {}
+    class_file = ch.get("classFile") or ""
+    first = simengine.default_metric(class_file, simengine.spec_of(c))
+    if not metrics:
+        metrics = sorted((m for m in simengine.METRICS.get(class_file) or [] if m != "ttoom"),
+                         key=lambda m: m != first)
+    rows = fight_candidates(c, catalog, ctx, seconds)
+    return [fight_plan(m or first, start, rows, seconds, top) for m in metrics]
+
+
+def compute(wow: str = writs.DEFAULT_WOW, char: str = "", top: int = 5, all_buffs: bool = False,
+            engine: str = "off", fight_seconds: float = 60.0, target_delta: int = -1,
+            metrics: list | None = None) -> dict:
+    """The page as plain data. `engine` "on" or "auto" adds the consumables for a fight, rated by the combat
+    engine (`plans`); "auto" leaves them out when the engine does not run or does not model the class and
+    says why in `planNote`."""
     files = writs.find_chars(wow, char)
     if not files:
         raise FileNotFoundError(tr("No WoWMCP export found for \"{char}\".", char=char))
@@ -468,9 +776,38 @@ def compute(wow: str = writs.DEFAULT_WOW, char: str = "", top: int = 5, all_buff
     if not catalog["items"]:
         raise RuntimeError(tr("The item data could not be loaded from wago.tools. Check the network connection "
                               "and refresh."))
-    out = evaluate(c, catalog, recipes.load_catalog(build, locale), prices, vendor, top, all_buffs)
+    start, note = None, None
+    if engine != "off":
+        import rotations  # imports upgrades and the engine; this module is imported by neither
+        try:
+            _, _, start = rotations.character(wow, char, fight_seconds, target_delta)
+        except LookupError as e:
+            if engine == "on":
+                raise
+            note = str(e)
+    recipe_catalog = recipes.load_catalog(build, locale)
+    try:
+        out = evaluate(c, catalog, recipe_catalog, prices, vendor, top, all_buffs, start, fight_seconds, metrics)
+    except LookupError as e:  # the engine did not run
+        if engine == "on" or not start:
+            raise
+        out, note = evaluate(c, catalog, recipe_catalog, prices, vendor, top, all_buffs), str(e)
+    if note:
+        out["planNote"] = note
     out["character"] = os.path.basename(os.path.dirname(os.path.dirname(files[0])))
     return out
+
+
+def fight_buffs(wow: str, char: str, metric: str = "", fight_seconds: float = 60.0, target_delta: int = -1) -> dict:
+    """The best set for one metric as what the other calculations need (upgrades.py, rotations.py): the
+    engine's stat delta, the names and what the set adds. Raises LookupError when the engine does not run."""
+    plan = compute(wow, char, engine="on", fight_seconds=fight_seconds, target_delta=target_delta,
+                   metrics=[metric])["plans"][0]
+    names = [r["name"] for r in plan["chosen"]]
+    text = tr("With consumables: {names} (+{gain:.1f} {unit}).", names=", ".join(names), gain=plan["gain"],
+              unit=plan["unit"]) if names else tr("No consumable you can get now adds anything.")
+    return {"delta": plan["delta"], "names": names, "gain": plan["gain"], "unit": plan["unit"],
+            "metric": plan["metric"], "text": text}
 
 
 # ---------- CLI ----------
@@ -481,12 +818,17 @@ def main() -> None:
     ap.add_argument("--char", default="")
     ap.add_argument("--top", type=int, default=5, help="items per category (0 = all)")
     ap.add_argument("--all-buffs", action="store_true", help="also buffs that do not help the class")
+    ap.add_argument("--engine", choices=["auto", "on", "off"], default="auto",
+                    help="rate the consumables for a fight with the combat engine (auto: when it runs)")
+    ap.add_argument("--fight-seconds", type=float, default=60, help="length of the fight the engine plays")
+    ap.add_argument("--target-delta", type=int, default=-1, choices=[-1, 0, 1, 2, 3],
+                    help="enemy levels above you (default: +2 while leveling, +3 at 60)")
     ap.add_argument("--json", action="store_true")
     i18n.add_argument(ap)
     a = ap.parse_args()
     i18n.set_language(a.lang, a.wow)
     try:
-        r = compute(a.wow, a.char, a.top, a.all_buffs)
+        r = compute(a.wow, a.char, a.top, a.all_buffs, a.engine, a.fight_seconds, a.target_delta)
     except (FileNotFoundError, LookupError, RuntimeError) as e:
         sys.exit(str(e))
     sys.stdout.reconfigure(encoding="utf-8")
@@ -513,6 +855,42 @@ def main() -> None:
 
     for group in r["categories"] + r["buffs"]:
         show(group)
+    if r.get("planNote"):
+        print("\n" + tr("No consumables for a fight: {why}", why=r["planNote"]))
+    for plan in r.get("plans") or []:
+        show_plan(plan, g)
+
+
+def show_plan(plan: dict, g) -> None:
+    """One plan of the combat engine: the best set, then every kind with its rows."""
+    unit = plan["unit"]
+    print("\n" + tr("=== Consumables for a fight of {seconds:.0f} s: {title} ===", seconds=plan["seconds"],
+                    title=plan["title"]))
+    print(tr("{base:.1f} {unit} without, {value:.1f} {unit} with the best set ({gain:+.1f}, {pct:+.1f} %), "
+             "to buy: {cost}", base=plan["base"], value=plan["value"], unit=unit, gain=plan["gain"],
+             pct=plan["gainPct"], cost=g(plan["cost"])))
+    if plan["active"]:
+        print(tr("On you at the snapshot, so already in the numbers: {names}", names=", ".join(plan["active"])))
+    labels = {k["key"]: k["label"] for k in plan["kinds"]}
+    for x in plan["chosen"]:
+        print(f" {x['chosen']:>2}. {x['name'][:36]:<36} {labels[x['kind']][:20]:<20} {x['adds']:>+7.1f} {unit}  "
+              f"{g(x['price']):>10}  {have(x)}")
+    for kind in plan["kinds"]:
+        print(f"\n-- {kind['label']}: {kind['rule']}" + (f" ({kind['assumed']})" if kind["assumed"] else ""))
+        for x in kind["items"]:
+            flag = "*" if x.get("chosen") else " "
+            note = tr("on you") if x["active"] else tr("{name} is on you already", name=x["onYou"]) if x.get("onYou") \
+                else tr("not in the AH") if not x["available"] \
+                else tr("costs more than half your health") if x.get("tooCostly") \
+                else tr("instead: {name}", name=x["blockedBy"]) if x.get("blockedBy") else ""
+            print(f" {flag}{x['name'][:36]:<36} {x['effect'][:40]:<40} {x['gain']:>+7.1f} {unit}  {g(x['price']):>10}  "
+                  f"{have(x)}  {note}")
+        if kind["more"]:
+            print("   " + tr("… and {n} more", n=kind["more"]))
+
+
+def have(x: dict) -> str:
+    return tr("{n} in bags", n=x["owned"]) if x["owned"] else ""
 
 
 if __name__ == "__main__":
