@@ -4,18 +4,21 @@ import (
 	"math"
 	"reflect"
 	"testing"
+
+	"github.com/kejith/wow-forever-tools/sim/internal/pycsv"
+	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
 )
 
 func TestCSVLikePython(t *testing.T) {
 	for _, c := range csvCases {
-		var r csvReader
+		var r pycsv.Reader
 		var got [][]string
 		for _, l := range c.lines {
-			if row, ok := r.feed(l); ok {
+			if row, ok := r.Feed(l); ok {
 				got = append(got, row)
 			}
 		}
-		if row, ok := r.end(); ok {
+		if row, ok := r.End(); ok {
 			got = append(got, row)
 		}
 		if len(got) == 0 && len(c.want) == 0 {
@@ -29,12 +32,12 @@ func TestCSVLikePython(t *testing.T) {
 
 func TestNumbersLikePython(t *testing.T) {
 	for _, c := range intCases {
-		if got, ok := pyInt(c.text); ok != c.ok || got != c.want {
+		if got, ok := pyfmt.ParseInt(c.text); ok != c.ok || got != c.want {
 			t.Errorf("int(%q) = %v %v, Python says %v %v", c.text, got, ok, c.want, c.ok)
 		}
 	}
 	for _, c := range floatCases {
-		got, ok := pyFloat(c.text)
+		got, ok := pyfmt.ParseFloat(c.text)
 		same := got == c.want || (math.IsNaN(got) && math.IsNaN(c.want))
 		if ok != c.ok || (ok && !same) {
 			t.Errorf("float(%q) = %v %v, Python says %v %v", c.text, got, ok, c.want, c.ok)
@@ -53,7 +56,7 @@ func TestNumbersLikePython(t *testing.T) {
 }
 
 func TestSplitLines(t *testing.T) {
-	got := splitLines("a\r\nb\nc\rd")
+	got := pycsv.SplitLines("a\r\nb\nc\rd")
 	want := []string{"a\r\n", "b\n", "c\r", "d"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("splitLines = %q, want %q", got, want)

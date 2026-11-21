@@ -4,6 +4,8 @@
 package game
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -136,3 +138,15 @@ func FindChars(wow, char string) []string {
 
 // CharKey is app_bridge.char_key: the character's folder name ("Brakk-Düsterfels").
 func CharKey(path string) string { return filepath.Base(filepath.Dir(filepath.Dir(path))) }
+
+// Money is writs.fmt: copper as "1g 05s" from one gold on, else "5s 03c"; rounded half to even first.
+func Money(copper float64) string {
+	c := int64(math.RoundToEven(copper))
+	if c < 0 {
+		return "-" + Money(float64(-c))
+	}
+	if c >= 10000 {
+		return fmt.Sprintf("%dg %02ds", c/10000, c%10000/100)
+	}
+	return fmt.Sprintf("%ds %02dc", c/100, c%100)
+}

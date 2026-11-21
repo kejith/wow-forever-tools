@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // Str is Python's str() of a value: ints in decimal, floats like repr(), True/False, None.
@@ -549,4 +550,42 @@ func Median(xs []float64) float64 {
 		return s[n/2]
 	}
 	return (s[n/2-1] + s[n/2]) / 2
+}
+
+// ParseInt is Python's int() of a text: white space around it, an optional sign, digits with single
+// underscores between them.
+func ParseInt(s string) (int64, bool) {
+	s = strings.TrimFunc(s, unicode.IsSpace)
+	body := strings.TrimLeft(s, "+-")
+	if len(s)-len(body) > 1 || body == "" || body[0] == '_' || body[len(body)-1] == '_' ||
+		strings.Contains(body, "__") {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(s[:len(s)-len(body)]+strings.ReplaceAll(body, "_", ""), 10, 64)
+	return n, err == nil
+}
+
+// ParseFloat is Python's float() of a text.
+func ParseFloat(s string) (float64, bool) {
+	s = strings.TrimFunc(s, unicode.IsSpace)
+	low := strings.ToLower(strings.TrimLeft(s, "+-"))
+	if strings.HasPrefix(low, "0x") || strings.HasPrefix(low, "0b") || strings.HasPrefix(low, "0o") || low == "" {
+		return 0, false
+	}
+	switch low {
+	case "inf", "infinity", "nan":
+	default:
+		if strings.ContainsAny(low, "abcdfghijklmnopqrstuvwxyz") || strings.Contains(s, "__") ||
+			strings.HasPrefix(low, "_") || strings.HasSuffix(low, "_") {
+			return 0, false
+		}
+	}
+	f, err := strconv.ParseFloat(strings.ReplaceAll(s, "_", ""), 64)
+	if err != nil {
+		if ne, ok := err.(*strconv.NumError); ok && ne.Err == strconv.ErrRange {
+			return f, true
+		}
+		return 0, false
+	}
+	return f, true
 }

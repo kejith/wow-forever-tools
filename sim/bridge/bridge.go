@@ -28,6 +28,10 @@ var handlers = map[string]handler{
 	"combatlog": combatlogCmd,
 }
 
+// register adds a command; the files of the ported scripts call it from init, so that ports done side by
+// side do not edit one list.
+func register(name string, h handler) { handlers[name] = h }
+
 // notPorted is the answer to a command, or a variant of one, that only the Python bridge has so far:
 // main.js then asks app_bridge.py instead, and the parity check counts the case as not ported.
 type notPorted string
