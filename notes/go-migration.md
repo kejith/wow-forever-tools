@@ -1,7 +1,7 @@
 # Migration of the Python scripts to Go
 
-Status: phases 0 to 2 done (2026-11-21): fixture, parity check, the foundations, `status`, `character`,
-`rotations`, `healing`, `damage` and `combatlog` in Go. Next: phase 3.
+Status: phases 0 to 3 done (2026-11-22): every bridge command but `icons` and `ingame` is in Go and
+answers like Python on the fixture and the real data. Next: phase 4.
 
 Goal: the app computes everything with one Go binary. uv, Python, lupa and Pillow leave the installer and the
 user's machine, and the answers stay the same as today, field for field.
@@ -195,6 +195,39 @@ Malgruk and Siegfried; `GO_COMMANDS` has them. Expect the biggest relative gain 
 
 Done when: all of them pass parity, `GO_COMMANDS` has them, and the upgrades page, the consumables page and
 the Character page are compared once as captures (`npm run capture`) against the Python version.
+
+**Done (2026-11-22).** What came of it:
+
+- Four ports ran side by side, each in its own git worktree and branch (`writs`, `recipes`, `goldperhour` with
+  `pricehistory`, then `consumables`), `upgrades` on main; a command registers itself from its own file in
+  `sim/bridge`, so the branches merged without conflicts. Shared groundwork first: `internal/tables` (DB2 rows as
+  `csv.DictReader` gives them, compared with Python on all 69 cached tables), `internal/pycsv`, `game.Money`.
+- **Found: Python's order of integer keys is Lua's, and it is fixed.** lupa randomizes string hashes per process,
+  but integer and boolean keys hash the same in every Lua 5.4 process: a table like `WoWMCP_Items.items` comes
+  out in the node order of Lua's hash part, which depends on the constructor (it sizes the part for its record
+  fields) and on the insertion order. Sorts with ties keep that order (the package of `upgrades` sorted by a
+  rounded gain per gold), so the Go reader lays out such tables the way `luaH_newkey` would
+  (`sv/luaorder.go`; equal to lupa on 177 tables of the real game folder). Tables with string keys stay in file
+  order: Python's is random there.
+- `STAT_LINE`'s two negative lookaheads became a match plus a check of the text after the prefix
+  (`upgrades/owned.go`); Python's `\d` is `\p{Nd}` in Go.
+- `upgrades --consumables` and `rotations --consumables` run in Go: `tools/rotations` gets the consumables as a
+  function from the bridge, so it does not import `tools/consumables` (which imports it).
+- The shared caches (`recipes-…json`, `consumables-…json`, `itemnames-…json`) are written byte for byte as Python
+  writes them; each port checked both directions from a cache with only the CSVs.
+- The Python side of the engine commands needs `sim/simforever` (gitignored): CI builds it before the parity
+  check, and the DB2 cache key in CI now changes with the code (restoring the last set, adding what is new).
+- Equal on the fixture (all ported cases) and on the real data. Times in WSL, Python → Go, averages over the
+  parity cases on the real data: `upgrades` 1.4 s → 0.5 s, `consumables` 1.5 s → 0.5 s (with the engine
+  2–3 s → 0.8 s), `rotations` 2.1 s → 0.65 s (with consumables 2.6–4.2 s → 1.1 s), `writs` 0.43 s → 0.26 s,
+  `recipes` 0.36 s → 0.21 s, `pricehistory` 0.58 s → 0.32 s, `goldperhour` 73 → 22 ms. What is left on the
+  real data is mostly reading the files under /mnt/c (the account `WoWMCP.lua` is parsed by several steps) and,
+  for the consumables, the engine re-optimizing the rotation for every candidate of every round.
+- Known differences, all on inputs the game does not write (a non-numeric client build, non-ASCII digits, two
+  accounts that saw the same vendor item: Go takes the files in name order, Python in file-system order).
+- The app rendered every page in capture mode through `wowtools` without a page error (`report.json`), and the
+  upgrades, consumables and professions pages were looked at. They were not compared image by image with the
+  Python version: the parity check compares the JSON they are drawn from.
 
 ## Phase 4: icons and the lists for the game
 

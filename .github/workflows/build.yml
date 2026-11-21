@@ -50,18 +50,24 @@ jobs:
           done
       - name: Game tables for the Go bridge check
         # The engine commands read the DB2 tables of the test folder's client build; the first run downloads
-        # them from wago.tools (about 60 MB), later runs take them from the cache.
+        # them from wago.tools (about 100 MB), later runs take them from the cache.
         if: runner.os == 'Linux'
         uses: actions/cache@v6
         with:
           path: scripts/cache/*.csv
-          key: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}
+          # A new code version may read another table: it restores the last cache, downloads what is missing
+          # and saves the whole set under its own key.
+          key: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}-${{ hashFiles('sim/**/*.go', 'scripts/*.py') }}
+          restore-keys: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}-
       - name: Go bridge against the Python bridge (notes/go-migration.md)
         # Every command wowtools has must answer like app_bridge.py on the test folder scripts/fixtures/forever.
         # Linux only: under Windows Python reads file times a little differently than Go.
+        # The Python side of the engine commands runs the engine binary next to the scripts (sim/simforever).
         if: runner.os == 'Linux'
         working-directory: sim
-        run: go run ./cmd/parity --ported
+        run: |
+          go build -o simforever ./cmd/simforever
+          go run ./cmd/parity --ported
 
   package:
     name: Windows installer
