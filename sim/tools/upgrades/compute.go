@@ -44,7 +44,23 @@ type Options struct {
 	// Consumables is the best set of consumables for the fight (consumables.fight_buffs), nil without:
 	// every number is then rated on top of it.
 	Consumables *Consumed
+	// FightBuffs, when set, is consumables.fight_buffs: called with the metric asked for and the fight once the
+	// engine is asked for and models the class, it gives the set every number is rated on top of (it replaces
+	// Consumables). An error falls back to the weight scale with engine "auto", as Python's LookupError does,
+	// unless it is a *Fatal.
+	FightBuffs FightBuffsFunc
 }
+
+// FightBuffsFunc is consumables.fight_buffs for one character: the best set of consumables for a metric ("" =
+// the spec's own) over a fight of seconds against enemies targetDelta levels above.
+type FightBuffsFunc func(metric string, seconds float64, targetDelta int) (*Consumed, error)
+
+// Fatal wraps an error of FightBuffs that Python raises as something else than a LookupError: upgrades
+// returns it whatever the engine option says.
+type Fatal struct{ Err error }
+
+func (f *Fatal) Error() string { return f.Err.Error() }
+func (f *Fatal) Unwrap() error { return f.Err }
 
 // Consumed is what consumables.fight_buffs returns.
 type Consumed struct {
@@ -352,9 +368,14 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	var eng *enginebundle.Engine
 	classFile := ch.Str("classFile")
 	if o.Engine != "off" {
-		eng, err = startEngine(c, classFile, totals, scale, o)
+		var consumed *Consumed
+		eng, consumed, err = startEngine(c, classFile, totals, scale, o)
+		if consumed != nil {
+			o.Consumables = consumed
+		}
+		var fatal *Fatal
 		if err != nil {
-			if o.Engine == "on" {
+			if o.Engine == "on" || errors.As(err, &fatal) {
 				return nil, err
 			}
 			eng = nil
@@ -883,13 +904,15 @@ func lessSlots(a, b []int64) bool {
 }
 
 // startEngine is the engine part of upgrades.compute: the bundle from the snapshot, with the fight asked for.
-func startEngine(c *sv.Table, classFile string, totals Stats, scale *Scale, o Options) (*enginebundle.Engine, error) {
+// The second result is the set of consumables (Options.FightBuffs) when one was asked for and found.
+func startEngine(c *sv.Table, classFile string, totals Stats, scale *Scale, o Options) (*enginebundle.Engine,
+	*Consumed, error) {
 	if !enginebundle.Supported(classFile) {
 		cls := classFile
 		if cls == "" {
 			cls = "?"
 		}
-		return nil, errors.New(i18n.T("The combat engine does not model this class yet ({cls}).", "cls", cls))
+		return nil, nil, errors.New(i18n.T("The combat engine does not model this class yet ({cls}).", "cls", cls))
 	}
 	st := c.Tab("character").Tab("stats")
 	lifeTap := engine.LifeTap{}
@@ -904,10 +927,18 @@ func startEngine(c *sv.Table, classFile string, totals Stats, scale *Scale, o Op
 	if o.KillsPerMinute >= 0 {
 		fight.KillsPerMinute = o.KillsPerMinute
 	}
-	var buffs map[string]float64
-	if o.Consumables != nil {
-		buffs = o.Consumables.Delta
+	consumed := o.Consumables
+	if o.FightBuffs != nil {
+		var err error
+		if consumed, err = o.FightBuffs(o.Metric, fight.Seconds, fight.TargetDelta); err != nil {
+			return nil, nil, err
+		}
 	}
-	return enginebundle.Start(c, totals["mp5"], totals["hp5"], fight, o.Metric, lifeTap,
+	var buffs map[string]float64
+	if consumed != nil {
+		buffs = consumed.Delta
+	}
+	eng, err := enginebundle.Start(c, totals["mp5"], totals["hp5"], fight, o.Metric, lifeTap,
 		enginebundle.Options{Method: o.Method, Iterations: o.Iterations, Buffs: buffs})
+	return eng, consumed, err
 }

@@ -600,9 +600,13 @@ func Class(ch *sv.Table) string {
 	return ch.Str("classFile")
 }
 
-// Compute is rotations.compute without the consumables: the rotation guide of a character, one guide per
-// metric the class has (damage, healing), each with its situations.
-func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMinute float64) (*pyjson.Obj, error) {
+// Compute is rotations.compute: the rotation guide of a character, one guide per metric the class has
+// (damage, healing), each with its situations. fightBuffs, when set, is consumables.fight_buffs (the bridge
+// passes it for --consumables; this package cannot import consumables): every fight of a guide is then
+// played with the best set for its metric as buffs (the set and a potion's share are those of the normal
+// fight), and the guide names the set.
+func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMinute float64,
+	fightBuffs upgrades.FightBuffsFunc) (*pyjson.Obj, error) {
 	setup, err := Character(wow, char, fightSeconds, targetDelta, killsPerMinute, nil)
 	if err != nil {
 		return nil, err
@@ -624,7 +628,15 @@ func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMi
 	var out []any
 	version, source := "", ""
 	for _, metric := range metrics {
-		eng, err := setup.Start(metric, 0, nil)
+		var consumed *upgrades.Consumed
+		var buffs map[string]float64
+		if fightBuffs != nil {
+			if consumed, err = fightBuffs(metric, fightSeconds, setup.Fight.TargetDelta); err != nil {
+				return nil, err
+			}
+			buffs = consumed.Delta
+		}
+		eng, err := setup.Start(metric, 0, buffs)
 		if err != nil {
 			return nil, err
 		}
@@ -645,8 +657,17 @@ func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMi
 		for i, s := range sits {
 			list[i] = SituationOut(s, label, Units[metric]).Obj()
 		}
-		out = append(out, pyjson.New("metric", metric, "unit", Units[metric], "title", i18n.T(g.title),
-			"about", i18n.T(g.about), "notes", notes, "situations", list))
+		guide := pyjson.New("metric", metric, "unit", Units[metric], "title", i18n.T(g.title),
+			"about", i18n.T(g.about), "notes", notes, "situations", list)
+		if consumed != nil {
+			names := make([]any, len(consumed.Names))
+			for i, n := range consumed.Names {
+				names[i] = n
+			}
+			guide.Set("consumables", pyjson.New("names", names, "gain", consumed.Gain, "unit", consumed.Unit,
+				"text", consumed.Text))
+		}
+		out = append(out, guide)
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("%s", i18n.T("The combat engine has no rotation guide for this character."))

@@ -6,15 +6,17 @@ import (
 	"github.com/kejith/wow-forever-tools/sim/tools/damage"
 	"github.com/kejith/wow-forever-tools/sim/tools/healing"
 	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
+	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
 )
 
-// rotationsCmd is app_bridge's rotations: the rotation guide. With --consumables it needs the consumables
-// of a fight, which only the Python side has so far (phase 3 of the migration).
+// rotationsCmd is app_bridge's rotations: the rotation guide. With --consumables every fight is played with
+// the best set of consumables for the guide's metric.
 func rotationsCmd(a *Args) (*pyjson.Obj, error) {
+	var buffs upgrades.FightBuffsFunc
 	if a.Consumables {
-		return nil, notPorted("rotations --consumables")
+		buffs = fightBuffs(a)
 	}
-	return rotations.Compute(a.Wow, a.Char, a.FightSeconds, a.TargetDelta, a.KillsPerMinute)
+	return rotations.Compute(a.Wow, a.Char, a.FightSeconds, a.TargetDelta, a.KillsPerMinute, buffs)
 }
 
 // healingCmd is app_bridge's healing: every heal and shield rank with its numbers, which rank to use when,
