@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"time"
 )
 
 // Table is one loaded CSV table: a header index and the raw rows.
@@ -35,6 +37,10 @@ func Path(cacheDir, name, build, locale string) string {
 
 // Load reads a table from the cache. The error names the missing file so the
 // Python side can download it and try again.
+//
+// A process that runs the engine more than once (the Go bridge does it in-process) reads each file once:
+// loaded tables are kept, keyed by the file with its size and time, and a table is never changed after
+// it is read.
 func Load(cacheDir, name, build, locale string) (*Table, error) {
 	path := Path(cacheDir, name, build, locale)
 	f, err := os.Open(path)
@@ -42,8 +48,35 @@ func Load(cacheDir, name, build, locale string) (*Table, error) {
 		return nil, fmt.Errorf("table %s not in cache (%s): %w", name, path, err)
 	}
 	defer f.Close()
-	return Read(name, f)
+	key := loaded{path: path}
+	if st, err := f.Stat(); err == nil {
+		key.size, key.mtime = st.Size(), st.ModTime()
+		memoMu.Lock()
+		t := memo[key]
+		memoMu.Unlock()
+		if t != nil {
+			return t, nil
+		}
+	}
+	t, err := Read(name, f)
+	if err == nil && !key.mtime.IsZero() {
+		memoMu.Lock()
+		memo[key] = t
+		memoMu.Unlock()
+	}
+	return t, err
 }
+
+type loaded struct {
+	path  string
+	size  int64
+	mtime time.Time
+}
+
+var (
+	memoMu sync.Mutex
+	memo   = map[loaded]*Table{}
+)
 
 // Read parses CSV content into a Table (exported for tests).
 func Read(name string, r io.Reader) (*Table, error) {

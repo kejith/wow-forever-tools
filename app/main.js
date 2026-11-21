@@ -170,7 +170,8 @@ async function runBridge(command, opts = {}) {
     try {
       const result = await execJson(go.bin, ['bridge', ...args.slice(3)], 300000);
       workingWowtools = go.bin;
-      return result;
+      // A variant of a ported command that only the Python bridge has yet (rotations --consumables).
+      if (!result || !result.notPorted) return result;
     } catch (err) {
       return { error: err.message };
     }

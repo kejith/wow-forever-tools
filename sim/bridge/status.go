@@ -8,6 +8,7 @@ import (
 	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
 	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
 	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
 )
 
 // orNull is a value as Python's `x or None` would leave it for JSON: nil stays nil.
@@ -107,8 +108,8 @@ func status(a *Args) (*pyjson.Obj, error) {
 	return out, nil
 }
 
-// loadChar is upgrades.load_char: the WoWMCP_Char table of a snapshot, empty if the file has none.
-func loadChar(path string) (*sv.Table, error) { return sv.LoadTable(path, "WoWMCP_Char") }
+// loadChar is upgrades.load_char.
+func loadChar(path string) (*sv.Table, error) { return upgrades.LoadChar(path) }
 
 // tableOr is `x or {}` for a value that should be a table.
 func tableOr(v any) *sv.Table {

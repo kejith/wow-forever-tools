@@ -9,6 +9,7 @@ package pyfmt
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -489,4 +490,63 @@ func Format(text string, values map[string]any) string {
 		}
 	}
 	return b.String()
+}
+
+// Fsum is math.fsum: the correctly rounded sum (Shewchuk partials, as CPython computes it). statistics.fmean
+// is Fsum(xs) / len(xs).
+func Fsum(xs []float64) float64 {
+	var partials []float64
+	for _, x := range xs {
+		i := 0
+		for _, y := range partials {
+			if math.Abs(x) < math.Abs(y) {
+				x, y = y, x
+			}
+			hi := x + y
+			lo := y - (hi - x)
+			if lo != 0 {
+				partials[i] = lo
+				i++
+			}
+			x = hi
+		}
+		partials = append(partials[:i], x)
+	}
+	n := len(partials)
+	if n == 0 {
+		return 0
+	}
+	n--
+	hi, lo := partials[n], 0.0
+	for n > 0 {
+		x := hi
+		n--
+		y := partials[n]
+		hi = x + y
+		lo = y - (hi - x)
+		if lo != 0 {
+			break
+		}
+	}
+	// Round half to even across the remaining partials, as CPython does.
+	if n > 0 && ((lo < 0 && partials[n-1] < 0) || (lo > 0 && partials[n-1] > 0)) {
+		y := lo * 2
+		x := hi + y
+		if y == x-hi {
+			hi = x
+		}
+	}
+	return hi
+}
+
+// Median is statistics.median: the middle of the sorted values, the mean of the two middle ones for an even
+// count. xs must not be empty; it is not changed.
+func Median(xs []float64) float64 {
+	s := append([]float64(nil), xs...)
+	sort.Float64s(s)
+	n := len(s)
+	if n%2 == 1 {
+		return s[n/2]
+	}
+	return (s[n/2-1] + s[n/2]) / 2
 }

@@ -328,16 +328,21 @@ func contains(list []string, s string) bool {
 func runPython(o options, cmd string, args []string, lang string) ([]byte, time.Duration, error) {
 	full := append([]string{"run", "--quiet", filepath.Join(o.root, "scripts", "app_bridge.py"), cmd}, args...)
 	full = append(full, "--wow", o.wow, "--lang", lang)
-	return timed(exec.Command(o.uv, full...))
+	return timed(o, exec.Command(o.uv, full...))
 }
 
 func runGo(o options, cmd string, args []string, lang string) ([]byte, time.Duration, error) {
 	full := append([]string{"bridge", cmd}, args...)
 	full = append(full, "--wow", o.wow, "--lang", lang)
-	return timed(exec.Command(o.goBin, full...))
+	return timed(o, exec.Command(o.goBin, full...))
 }
 
-func timed(c *exec.Cmd) ([]byte, time.Duration, error) {
+// timed runs one side. Both read the game tables from the same cache, as the app sets it for them: the
+// repo's scripts/cache unless WOW_TOOLS_CACHE names another.
+func timed(o options, c *exec.Cmd) ([]byte, time.Duration, error) {
+	if os.Getenv("WOW_TOOLS_CACHE") == "" {
+		c.Env = append(os.Environ(), "WOW_TOOLS_CACHE="+filepath.Join(o.root, "scripts", "cache"))
+	}
 	var stderr bytes.Buffer
 	c.Stderr = &stderr
 	start := time.Now()
@@ -399,6 +404,11 @@ func runCase(o options, c testCase, ported bool) result {
 	g, err := parseJSON(out)
 	if err != nil {
 		r.Status, r.Detail = "go failed", "not JSON: "+err.Error()
+		return r
+	}
+	if np := g.get("notPorted"); np != nil && np.kind == 'b' && np.b {
+		// The command is ported, this variant of it not yet: the app asks Python for it.
+		r.Status = "not ported"
 		return r
 	}
 	r.Diffs = diffAnswers(py, g, o.tol, o.ignore, skip)

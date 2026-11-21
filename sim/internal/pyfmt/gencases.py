@@ -78,5 +78,24 @@ for n in range(300):
             xs.append(random.choice([0.1, 0.2, 0.3, 1e16, -1e16, 1.0, 0.7, 2.675, 0.01, 0.6]) * random.choice([1, 3, 7]))
     lines.append("\t{[]any{%s}, %s}," % (", ".join(go_num(x) for x in xs), go_num(sum(xs))))
 lines.append("}")
+
+# math.fsum and statistics.median (combatlog's averages and tick times).
+import math  # noqa: E402
+import statistics  # noqa: E402
+
+lines += ["", "var fsumCases = []struct {", "\txs     []float64", "\tfsum   float64", "\tmedian float64", "}{"]
+for n in range(200):
+    xs = []
+    for _ in range(random.randint(1, 12)):
+        r = random.random()
+        if r < 0.4:
+            xs.append(random.uniform(-1e3, 1e3))
+        elif r < 0.7:
+            xs.append(float(random.randint(1, 900)))
+        else:
+            xs.append(random.choice([0.1, 0.2, 0.3, 1e16, -1e16, 1e-16, 2.675, 0.01, 1.5]) * random.choice([1, -1, 3]))
+    lines.append("\t{[]float64{%s}, %s, %s}," % (", ".join(json.dumps(x) for x in xs), json.dumps(math.fsum(xs)),
+                                                  json.dumps(statistics.median(xs))))
+lines.append("}")
 open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "cases_test.go"), "w").write("\n".join(lines) + "\n")
 print(len(lines), "lines")

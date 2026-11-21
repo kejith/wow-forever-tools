@@ -77,3 +77,14 @@ func TestFields(t *testing.T) {
 		}
 	}
 }
+
+func TestFsumAndMedianLikePython(t *testing.T) {
+	for _, c := range fsumCases {
+		if got := Fsum(c.xs); got != c.fsum {
+			t.Errorf("fsum(%v) = %v, Python says %v", c.xs, got, c.fsum)
+		}
+		if got := Median(c.xs); got != c.median {
+			t.Errorf("median(%v) = %v, Python says %v", c.xs, got, c.median)
+		}
+	}
+}

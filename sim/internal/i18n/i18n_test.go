@@ -15,6 +15,29 @@ import (
 	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
 )
 
+// literal is the text of a string literal, or of string literals joined with + (a long text over several
+// lines).
+func literal(e ast.Expr) (string, bool) {
+	switch x := e.(type) {
+	case *ast.BasicLit:
+		if x.Kind != token.STRING {
+			return "", false
+		}
+		text, err := strconv.Unquote(x.Value)
+		return text, err == nil
+	case *ast.ParenExpr:
+		return literal(x.X)
+	case *ast.BinaryExpr:
+		if x.Op != token.ADD {
+			return "", false
+		}
+		a, ok1 := literal(x.X)
+		b, ok2 := literal(x.Y)
+		return a + b, ok1 && ok2
+	}
+	return "", false
+}
+
 // goTexts walks the syntax tree of every Go file of the module (tests and this package left out) for
 // i18n.T("…") and i18n.Mark("…") and returns each text with where it is.
 func goTexts(t *testing.T) map[string]string {
@@ -58,21 +81,16 @@ func goTexts(t *testing.T) map[string]string {
 			if !ok || pkg.Name != "i18n" || (sel.Sel.Name != "T" && sel.Sel.Name != "Mark") {
 				return true
 			}
-			lit, ok := call.Args[0].(*ast.BasicLit)
-			if !ok || lit.Kind != token.STRING {
+			text, ok := literal(call.Args[0])
+			if !ok {
 				if sel.Sel.Name == "Mark" {
 					t.Errorf("%s: i18n.Mark needs a string literal", fset.Position(call.Pos()))
 				}
 				return true
 			}
-			text, err := strconv.Unquote(lit.Value)
-			if err != nil {
-				t.Errorf("%s: %v", fset.Position(lit.Pos()), err)
-				return true
-			}
 			if _, seen := out[text]; !seen {
 				rel, _ := filepath.Rel(root, path)
-				out[text] = rel + ":" + strconv.Itoa(fset.Position(lit.Pos()).Line)
+				out[text] = rel + ":" + strconv.Itoa(fset.Position(call.Args[0].Pos()).Line)
 			}
 			return true
 		})

@@ -1,7 +1,7 @@
 # Migration of the Python scripts to Go
 
-Status: phases 0 and 1 done (2026-11-21): fixture, parity check, the foundations, `status` and `character`
-in Go. Next: phase 2.
+Status: phases 0 to 2 done (2026-11-21): fixture, parity check, the foundations, `status`, `character`,
+`rotations`, `healing`, `damage` and `combatlog` in Go. Next: phase 3.
 
 Goal: the app computes everything with one Go binary. uv, Python, lupa and Pillow leave the installer and the
 user's machine, and the answers stay the same as today, field for field.
@@ -155,6 +155,33 @@ Done when: `wowtools bridge status` and `character` pass parity; `GO_COMMANDS = 
 
 Done when: `rotations`, `healing`, `damage`, `combatlog` pass parity against the fixture and locally against
 Malgruk and Siegfried; `GO_COMMANDS` has them. Expect the biggest relative gain on `damage` here.
+
+**Done (2026-11-21).** What came of it:
+
+- `sim/tools/enginebundle` builds `run.Input` from the snapshot and calls `run.Run` in the same process; it works
+  on the engine's own structs, not on its JSON. The DB2 download (`icons.table`) is `sim/internal/tables`.
+  Instead of a catalog cache in `run`, `sim/db2` keeps every table it read (keyed by file, size and time):
+  `warlock.Prepare` changes the catalog, the tables are never changed.
+- `rotations --consumables` needs `consumables.fight_buffs`, which is phase 3. A command can therefore answer
+  `{"error": "not ported to Go yet: …", "notPorted": true}`; `main.js` then asks the Python bridge, and the
+  parity check counts the case as not ported. Once `consumables` is in Go the variant goes too.
+- `combatlog` replays Python's readers exactly: the csv module (CPython's state machine: a quoted field may run
+  into the next line), universal newlines, `int()`, `float()`, `int(x, 16)`, `date.toordinal()`, `math.fsum`
+  (`statistics.fmean`) and `statistics.median`. `gencases.py` next to each writes Python's own answers as Go
+  test tables. Found on the real log: a day count from year 1 overflows Go's `time.Duration`; it is computed
+  from Unix seconds now.
+- The parity check sets `WOW_TOOLS_CACHE` for both sides to the repo's `scripts/cache` (the Go binary of the check
+  lives in a temporary folder and found no cache of its own). CI keeps the DB2 tables of the fixture's build in
+  `actions/cache` (`scripts/cache/*.csv`), the first run downloads them.
+- `i18n.Mark` and `i18n.T` take a text written as literals joined with `+`; both translation tests read them.
+- Equal on the fixture (16 cases) and on the real data (Malgruk and Siegfried, both languages; the real combat
+  log of 113 fights included). Times in WSL, Python → Go, on the real data: `rotations` 2.1 s → 0.2 s, `healing`
+  0.99 s → 0.20 s, `damage` 1.0 s → 0.27 s (three engine runs), `combatlog` 1.0 s → 0.47 s (most of it reading
+  the 2 MB log from /mnt/c and the engine's catalog).
+- Not done here, on purpose: the Python modules, their CLIs (`uv run scripts/rotations.py …`) and their tests
+  stay. `app_bridge.py` still needs `rotations.py` for the variant above, and the CLIs are documented tools; the
+  tests move to Go when a module is deleted (ground rule 4), at the latest in phase 5. `simengine.tooltip_check`
+  is not ported yet: only `upgrades` uses it (phase 3).
 
 ## Phase 3: the big calculations
 

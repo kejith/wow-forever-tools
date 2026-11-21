@@ -78,7 +78,7 @@ var PctLine = []struct {
 	{"crit", regexp.MustCompile(`(?:Improves your chance to get a critical strike by|Erhöht Eure kritische Trefferchance um) ([0-9.,]+)` + pyS + `*%`)},
 }
 
-var lifeTapText = regexp.MustCompile(`([0-9.,]+)` + pyS + `*(?:Health|Gesundheit)[^0-9]+?([0-9.,]+)` + pyS + `*Mana`)
+var LifeTapText = regexp.MustCompile(`([0-9.,]+)` + pyS + `*(?:Health|Gesundheit)[^0-9]+?([0-9.,]+)` + pyS + `*Mana`)
 var thousands = regexp.MustCompile(`[.,]`)
 
 // SlotName holds the names of the inventory slots (upgrades.SLOT_NAME).
@@ -87,6 +87,9 @@ var SlotName = map[int64]string{1: i18n.Mark("Head"), 2: i18n.Mark("Neck"), 3: i
 	9: i18n.Mark("Wrist"), 10: i18n.Mark("Hands"), 11: i18n.Mark("Finger"), 12: i18n.Mark("Finger"),
 	13: i18n.Mark("Trinket"), 14: i18n.Mark("Trinket"), 15: i18n.Mark("Back"), 16: i18n.Mark("Main Hand"),
 	17: i18n.Mark("Off Hand"), 18: i18n.Mark("Wand")}
+
+// LoadChar is upgrades.load_char: the WoWMCP_Char table of a snapshot, empty if the file has none.
+func LoadChar(path string) (*sv.Table, error) { return sv.LoadTable(path, "WoWMCP_Char") }
 
 // SlotLabel is upgrades.slot_name: the slot's name in the selected language.
 func SlotLabel(slot int64) string { return i18n.T(SlotName[slot]) }
@@ -295,7 +298,7 @@ func lifeTapRatio(st *sv.Table, level float64, iltRank int64) (float64, string) 
 	text := ltTab.Str("text")
 	var ratio float64
 	var source string
-	if m := lifeTapText.FindStringSubmatch(text); m != nil && Number(m[1]) > 0 {
+	if m := LifeTapText.FindStringSubmatch(text); m != nil && Number(m[1]) > 0 {
 		ratio = Number(m[2]) / Number(m[1])
 		source = i18n.T("from the spell text")
 	} else if lt == nil && st.Has("hpPerStamina") { // addon 1.3 exports and knows no Life Tap

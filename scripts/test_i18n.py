@@ -28,7 +28,9 @@ import locale_de  # noqa: E402
 
 # The first argument of i18n.T or i18n.Mark in Go: an interpreted string literal (JSON's escapes cover the
 # ones the texts use) or a raw one in backquotes.
-GO_TEXT = re.compile(r'\bi18n\.(?:T|Mark)\(\s*(?:"((?:[^"\\\n]|\\.)*)"|`([^`]*)`)')
+GO_STRING = r'"(?:[^"\\\n]|\\.)*"|`[^`]*`'
+# A text is a string literal, or several joined with + (a long text over several lines).
+GO_TEXT = re.compile(r'\bi18n\.(?:T|Mark)\(\s*((?:%s)(?:\s*\+\s*(?:%s))*)' % (GO_STRING, GO_STRING))
 
 
 def texts_in(path):
@@ -73,7 +75,8 @@ def go_texts():
         with open(path, encoding="utf-8") as f:
             src = f.read()
         for m in GO_TEXT.finditer(src):
-            text = json.loads('"' + m.group(1) + '"') if m.group(1) is not None else m.group(2)
+            text = "".join(json.loads(part) if part.startswith('"') else part[1:-1]
+                           for part in re.findall(GO_STRING, m.group(1)))
             line = src.count("\n", 0, m.start()) + 1
             out.setdefault(text, f"{os.path.relpath(path, SIM)}:{line}")
     return out

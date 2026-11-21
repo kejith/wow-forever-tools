@@ -5,6 +5,7 @@
 package bridge
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -21,6 +22,20 @@ type handler func(a *Args) (*pyjson.Obj, error)
 var handlers = map[string]handler{
 	"status":    status,
 	"character": character,
+	"rotations": rotationsCmd,
+	"healing":   healingCmd,
+	"damage":    damageCmd,
+	"combatlog": combatlogCmd,
+}
+
+// notPorted is the answer to a command, or a variant of one, that only the Python bridge has so far:
+// main.js then asks app_bridge.py instead, and the parity check counts the case as not ported.
+type notPorted string
+
+func (n notPorted) Error() string { return "not ported to Go yet: " + string(n) }
+
+func notPortedAnswer(what string) *pyjson.Obj {
+	return pyjson.New("error", notPorted(what).Error(), "notPorted", true)
 }
 
 // Commands lists the bridge commands the Go side answers, sorted.
@@ -39,7 +54,7 @@ func Commands() []string {
 func Run(command string, argv []string) (*pyjson.Obj, error) {
 	h, ok := handlers[command]
 	if !ok {
-		return pyjson.New("error", "not ported to Go yet: "+command), nil
+		return notPortedAnswer(command), nil
 	}
 	a, err := ParseArgs(argv)
 	if err != nil {
@@ -47,6 +62,10 @@ func Run(command string, argv []string) (*pyjson.Obj, error) {
 	}
 	language := i18n.SetLanguage(a.Lang, a.Wow)
 	r, err := safely(h, a)
+	var np notPorted
+	if errors.As(err, &np) {
+		return notPortedAnswer(string(np)), nil
+	}
 	if err != nil {
 		return pyjson.New("error", err.Error()), nil
 	}
