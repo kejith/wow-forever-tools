@@ -1,6 +1,7 @@
 # Migration of the Python scripts to Go
 
-Status: phase 0 done (2026-11-21): fixture, parity check, the empty `wowtools`. Next: phase 1.
+Status: phases 0 and 1 done (2026-11-21): fixture, parity check, the foundations, `status` and `character`
+in Go. Next: phase 2.
 
 Goal: the app computes everything with one Go binary. uv, Python, lupa and Pillow leave the installer and the
 user's machine, and the answers stay the same as today, field for field.
@@ -118,6 +119,32 @@ most of the gain of `consumables`, `upgrades` and `ingame` comes from.
 
 Done when: `wowtools bridge status` and `character` pass parity; `GO_COMMANDS = {status, character}`.
 
+**Done (2026-11-21).** What came of it:
+
+- `GO_COMMANDS` is not a list in `main.js`: the app asks `wowtools bridge --list` once per run, so a port
+  only touches Go. Without a `wowtools` binary everything still goes to Python.
+- The catalog is `sim/internal/i18n/locale_de.json` (one object per script), embedded in Go and read by
+  `scripts/locale_de.py`; the installed app gets it as `resources/scripts/i18n/locale_de.json`.
+  `test_i18n.py` counts a text Go uses as used; the Go test checks the Go texts.
+- `sim/internal/sv` reads SavedVariables without Lua. Against lupa: all 82 SavedVariables files of the real
+  account agree (every addon's, not only ours), and Auctionator's price database is byte for byte what
+  `writs.load_prices` makes of it (7321 entries). One file is not comparable: EllesmereUI writes a table with
+  both `[168]` and `["168"]`, which are the same key in JSON.
+- **Found: Python's `sum()` is compensated.** Since Python 3.12, `sum()` of floats is a Neumaier sum, so it
+  differs from adding one after the other in the last bits; a score rounded to one decimal then flips at its
+  half (Ilse's legs: 14.65 → Python 14.7, a plain Go loop 14.6). `pyfmt.Sum` and `pyfmt.SumAny` do what
+  CPython 3.12 and 3.13 do, tested against 300 Python sums. Python 3.14 also compensates the ints among floats,
+  so the installed app (uv downloads the newest Python) and WSL (3.12) can already disagree in the last bit
+  today. Every `sum(` of the scripts must become `pyfmt.Sum` in Go.
+- `sim/internal/pyfmt` formats as Python does (str(), the format specs the catalog uses, round()), tested
+  against 800 outputs of Python itself (`gencases.py`).
+- Speed: on the fixture `status` 144 → 36 ms, `character` 60 → 4 ms. On the real data under /mnt/c the files
+  dominate: `status` 456 → 216 ms, `character` 104 → 49 ms (a first version was slower than Python, because
+  its glob opened every file as a folder: each try is a round trip to Windows).
+- CI (`build.yml`): the Linux test job runs `go run ./cmd/parity --ported` (needs no DB2 tables for these two
+  commands); the installer job builds `wowtools.exe` into the app and the smoke test checks that the bundled
+  one answered.
+
 ## Phase 2: the engine in-process, and its direct users
 
 1. `simengine.py` → `tools/enginebundle`: `sheet_numbers`, `spec_of`, `norm_item`, `KEY_MAP`, `tooltip_check`,
@@ -181,7 +208,9 @@ Done when: every bridge command is in `GO_COMMANDS`.
 ## Risks to watch in the parity diffs
 
 - **Rounding:** Python's `round()` rounds half to even (`round(2.5) == 2`); use `math.RoundToEven` and the same
-  number of digits. About 150 `round(` calls in the scripts.
+  number of digits. About 150 `round(` calls in the scripts. Use `pyfmt.Round`.
+- **Sums:** Python's `sum()` of floats is compensated (see phase 1); use `pyfmt.Sum` for every `sum(`, and add
+  in the order Python does.
 - **Order:** Python dicts keep insertion order, Go maps do not. Use structs or ordered slices wherever the window
   or a list shows the order; `encoding/json` sorts map keys, which is fine only for lookups (`icons`, `tips`).
   Where Python builds a list by walking a table read from SavedVariables and sorts it with ties, its order is

@@ -3,3 +3,5 @@
 *.png binary
 # Auctionator keeps its price database as CBOR inside a Lua string: raw bytes, not text.
 scripts/fixtures/**/Auctionator.lua binary
+# A combat log keeps the game's CRLF line endings.
+scripts/fixtures/**/Logs/*.txt -text

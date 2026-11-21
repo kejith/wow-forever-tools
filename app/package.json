@@ -48,13 +48,22 @@
         ]
       },
       {
+        "from": "../sim/internal/i18n",
+        "to": "scripts/i18n",
+        "filter": [
+          "*.json"
+        ]
+      },
+      {
         "from": "build/bin",
         "to": "bin",
         "filter": [
           "uv",
           "uv.exe",
           "simforever",
-          "simforever.exe"
+          "simforever.exe",
+          "wowtools",
+          "wowtools.exe"
         ]
       }
     ],

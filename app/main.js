@@ -1,7 +1,8 @@
 // WoW Forever Tools, the desktop app: main process.
 // Talks to the game only through files: it reads the SavedVariables the WoWMCP and GoldPerHour addons and
 // Auctionator write on /reload or logout, and it writes AppRequest.lua into the installed addons, which the
-// client loads on the next /reload. All calculations run in the Python scripts via scripts/app_bridge.py.
+// client loads on the next /reload. All calculations run in the bridge: the Go binary wowtools for the commands
+// it has (`wowtools bridge --list`), the Python scripts via scripts/app_bridge.py for the rest.
 // The bridge also writes AppData.lua into the WoWMCP addon: the lists the addon shows in the game.
 // The addons themselves come from their GitHub releases (addon.js, releases.js), cached in the app's data
 // folder; settings.addonSources = { wowmcp: <folder>, goldperhour: <folder> } installs from a checkout instead.
@@ -90,10 +91,28 @@ function uvCandidates() {
   return list;
 }
 
-function execUv(uv, args) {
+// The first call may take long: uv downloads Python, lupa and Pillow.
+const execUv = (uv, args) => execJson(uv, args, 300000);
+
+// ---------- Go bridge ----------
+// The scripts move into one Go binary, command by command (notes/go-migration.md). `wowtools bridge --list`
+// names the commands it has; those run there, every other one through the Python bridge. Both take the same
+// arguments and answer the same JSON.
+
+function wowtoolsCandidates() {
+  const exe = process.platform === 'win32' ? 'wowtools.exe' : 'wowtools';
+  const list = [];
+  if (settings.wowtoolsPath) list.push(settings.wowtoolsPath);
+  if (process.env.WOWTOOLS_BIN) list.push(process.env.WOWTOOLS_BIN);
+  if (app.isPackaged) list.push(path.join(process.resourcesPath, 'bin', exe));
+  list.push(path.join(ROOT, 'sim', exe)); // a local build: cd sim && go build -o wowtools ./cmd/wowtools
+  return list.filter((p) => fs.existsSync(p));
+}
+
+function execJson(file, args, timeout) {
   return new Promise((resolve, reject) => {
-    execFile(uv, args, {
-      cwd: ROOT, timeout: 300000, maxBuffer: 64 * 1024 * 1024, windowsHide: true,
+    execFile(file, args, {
+      cwd: ROOT, timeout, maxBuffer: 64 * 1024 * 1024, windowsHide: true,
       env: { ...process.env, PYTHONIOENCODING: 'utf-8', WOW_TOOLS_CACHE: cacheDir() },
     }, (err, stdout, stderr) => {
       if (err && err.code === 'ENOENT') return reject(err);
@@ -108,7 +127,23 @@ function execUv(uv, args) {
   });
 }
 
+// The binary and the commands it has, found once per run of the app.
+let goBridge;
+function findGoBridge() {
+  goBridge ||= (async () => {
+    for (const bin of wowtoolsCandidates()) {
+      try {
+        const list = await execJson(bin, ['bridge', '--list'], 10000);
+        if (Array.isArray(list)) return { bin, commands: new Set(list) };
+      } catch { /* not runnable: try the next one */ }
+    }
+    return { bin: null, commands: new Set() };
+  })();
+  return goBridge;
+}
+
 let workingUv;
+let workingWowtools;
 async function runBridge(command, opts = {}) {
   const args = ['run', '--quiet', BRIDGE, command, '--wow', settings.wowDir, '--lang', language];
   if (opts.char) args.push('--char', opts.char);
@@ -130,6 +165,16 @@ async function runBridge(command, opts = {}) {
   if (Array.isArray(opts.ids)) args.push('--ids', opts.ids.map(Number).filter((n) => n > 0).join(','));
   // Screenshots only look: nothing is written into the game folder in capture mode.
   if (command === 'ingame' && opts.write === true && !argValue('capture')) args.push('--write');
+  const go = await findGoBridge();
+  if (go.bin && go.commands.has(command)) {
+    try {
+      const result = await execJson(go.bin, ['bridge', ...args.slice(3)], 300000);
+      workingWowtools = go.bin;
+      return result;
+    } catch (err) {
+      return { error: err.message };
+    }
+  }
   const candidates = workingUv ? [workingUv] : uvCandidates();
   let lastErr;
   for (const uv of candidates) {
@@ -321,7 +366,7 @@ async function capturePages(out, required) {
   fs.mkdirSync(out, { recursive: true });
   const pages = ['connection', 'character', 'writs', 'upgrades', 'rotations', 'recipes', 'consumables', 'pricehistory', 'goldperhour'];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const report = { language, version: app.getVersion(), packaged: app.isPackaged, uv: null, pages: {} };
+  const report = { language, version: app.getVersion(), packaged: app.isPackaged, uv: null, wowtools: null, pages: {} };
   // The Connection page shows the lists for the game. They arrive after the page; wait for them like for
   // any other page's data (the window hears the finished sync through "game-data").
   await (gameDataRun || syncGameData());
@@ -374,6 +419,7 @@ async function capturePages(out, required) {
     }
   }
   report.uv = workingUv || null; // the uv that answered: the bundled one in an installed app
+  report.wowtools = workingWowtools || null; // the Go bridge that answered the commands it has
   fs.writeFileSync(path.join(out, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   const failed = [];
   for (const page of required) {

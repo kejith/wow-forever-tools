@@ -48,6 +48,12 @@ jobs:
             uv run "$test"
             echo "::endgroup::"
           done
+      - name: Go bridge against the Python bridge (notes/go-migration.md)
+        # Every command wowtools has must answer like app_bridge.py on the test folder scripts/fixtures/forever.
+        # Linux only: under Windows Python reads file times a little differently than Go.
+        if: runner.os == 'Linux'
+        working-directory: sim
+        run: go run ./cmd/parity --ported
 
   package:
     name: Windows installer
@@ -78,6 +84,12 @@ jobs:
         run: |
           go build -C sim -o ../app/build/bin/simforever.exe ./cmd/simforever
           app/build/bin/simforever.exe --version
+      - name: Build the Go bridge into the app
+        # main.js runs the bridge commands resources/bin/wowtools.exe has (notes/go-migration.md) there,
+        # the others through the Python bridge.
+        run: |
+          go build -C sim -o ../app/build/bin/wowtools.exe ./cmd/wowtools
+          app/build/bin/wowtools.exe bridge --list
       - name: Install the app's dependencies
         working-directory: app
         run: npm ci
@@ -102,6 +114,7 @@ jobs:
             const report = require('./smoke/report.json');
             if (!report.packaged) throw new Error('not the packaged app');
             if (!/resources[\\\\/]bin[\\\\/]uv\.exe$/.test(report.uv || '')) throw new Error('the bundled uv was not used: ' + report.uv);
+            if (!/resources[\\\\/]bin[\\\\/]wowtools\.exe$/.test(report.wowtools || '')) throw new Error('the bundled wowtools was not used: ' + report.wowtools);
           "
       - uses: actions/upload-artifact@v7
         with:

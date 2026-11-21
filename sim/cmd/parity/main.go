@@ -69,6 +69,7 @@ func main() {
 	flag.StringVar(&o.out, "out", "", "folder for the answers; default: scripts/cache/parity/<fixture|wow>")
 	flag.StringVar(&langs, "lang", "en,de", "languages, comma-separated")
 	flag.StringVar(&only, "only", "", "only these commands, comma-separated")
+	portedOnly := flag.Bool("ported", false, "only the commands the Go side has (CI)")
 	flag.StringVar(&ignore, "ignore", `^generated$`, "regular expression of answer paths to leave out")
 	flag.Float64Var(&o.tol, "tol", 1e-9, "relative tolerance for numbers")
 	flag.BoolVar(&o.once, "once", false, "run the Python bridge only once (no check for volatile fields)")
@@ -124,6 +125,16 @@ func main() {
 	ported, err := portedCommands(o.goBin)
 	if err != nil {
 		fail("%v", err)
+	}
+	if *portedOnly {
+		o.only = nil
+		for c := range ported {
+			o.only = append(o.only, c)
+		}
+		if len(o.only) == 0 {
+			fmt.Println("parity: the Go side has no bridge command yet")
+			return
+		}
 	}
 
 	cases, err := buildCases(o)

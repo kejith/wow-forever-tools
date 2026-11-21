@@ -2,23 +2,33 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Checks that the German catalog (locale_de.py) covers every text of the scripts: uv run scripts/test_i18n.py
+"""Checks that the German catalog (sim/internal/i18n/locale_de.json, read through locale_de.py) covers every
+text of the scripts: uv run scripts/test_i18n.py
 
 Walks the syntax tree of every script for `tr("...")` and `mark("...")`. Each of these texts needs a German
-entry with the same placeholders, and the catalog must not hold entries no script uses any more.
+entry with the same placeholders, and the catalog must not hold entries no script uses any more. While the
+scripts move to Go, a text counts as used also when Go code hands it to `i18n.T(...)` or `i18n.Mark(...)`; the
+Go test (sim/internal/i18n) checks the Go texts against the same catalog.
 """
 
 import ast
 import glob
+import json
 import os
+import re
 import string
 import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+SIM = os.path.join(os.path.dirname(HERE), "sim")
 sys.path.insert(0, HERE)
 import i18n  # noqa: E402
 import locale_de  # noqa: E402
+
+# The first argument of i18n.T or i18n.Mark in Go: an interpreted string literal (JSON's escapes cover the
+# ones the texts use) or a raw one in backquotes.
+GO_TEXT = re.compile(r'\bi18n\.(?:T|Mark)\(\s*(?:"((?:[^"\\\n]|\\.)*)"|`([^`]*)`)')
 
 
 def texts_in(path):
@@ -54,14 +64,39 @@ def source_texts():
     return out
 
 
+def go_texts():
+    """Texts the Go code hands to i18n.T or i18n.Mark, with file and line."""
+    out = {}
+    for path in sorted(glob.glob(os.path.join(SIM, "**", "*.go"), recursive=True)):
+        if path.endswith("_test.go"):
+            continue
+        with open(path, encoding="utf-8") as f:
+            src = f.read()
+        for m in GO_TEXT.finditer(src):
+            text = json.loads('"' + m.group(1) + '"') if m.group(1) is not None else m.group(2)
+            line = src.count("\n", 0, m.start()) + 1
+            out.setdefault(text, f"{os.path.relpath(path, SIM)}:{line}")
+    return out
+
+
 def test_catalog_is_complete():
     used = source_texts()
     assert len(used) > 100, len(used)
     missing = [f"{where}: {text!r}" for text, where in used.items() if text not in locale_de.TEXT]
     assert not missing, "no German text for:\n" + "\n".join(missing)
-    unused = [text for text in locale_de.TEXT if text not in used]
+    in_go = go_texts()
+    unused = [text for text in locale_de.TEXT if text not in used and text not in in_go]
     assert not unused, "catalog entries no script uses:\n" + "\n".join(unused)
-    print(f"ok test_catalog_is_complete ({len(used)} texts)")
+    print(f"ok test_catalog_is_complete ({len(used)} texts, {len(in_go)} of them also or only in Go)")
+
+
+def test_no_text_twice():
+    seen = {}
+    for section, texts in locale_de.sections().items():
+        for text in texts:
+            assert text not in seen, f"{text!r} is in {seen[text]!r} and in {section!r}"
+            seen[text] = section
+    print("ok test_no_text_twice")
 
 
 def test_placeholders_match():
@@ -102,5 +137,6 @@ def test_language_selection():
 
 if __name__ == "__main__":
     test_catalog_is_complete()
+    test_no_text_twice()
     test_placeholders_match()
     test_language_selection()

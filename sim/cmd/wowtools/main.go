@@ -6,18 +6,20 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/kejith/wow-forever-tools/sim/bridge"
+	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
 	"github.com/kejith/wow-forever-tools/sim/run"
 )
+
+const usage = "usage: wowtools bridge --list | wowtools bridge <command> [args] | wowtools --version"
 
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: wowtools bridge --list | wowtools bridge <command> [args] | wowtools --version")
+		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -25,14 +27,23 @@ func main() {
 		fmt.Println(run.Version)
 	case "bridge":
 		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "usage: wowtools bridge --list | wowtools bridge <command> [args]")
+			fmt.Fprintln(os.Stderr, usage)
 			os.Exit(2)
 		}
 		if args[1] == "--list" {
-			emit(bridge.Commands())
+			list := []any{}
+			for _, c := range bridge.Commands() {
+				list = append(list, c)
+			}
+			emit(list)
 			return
 		}
-		emit(bridge.Run(args[1], args[2:]))
+		r, err := bridge.Run(args[1], args[2:])
+		if err != nil { // wrong arguments: argparse stops with a message and exit code 2
+			fmt.Fprintln(os.Stderr, "wowtools bridge "+args[1]+": "+err.Error())
+			os.Exit(2)
+		}
+		emit(r)
 	default:
 		fmt.Fprintln(os.Stderr, "unknown command: "+args[0])
 		os.Exit(2)
@@ -40,10 +51,10 @@ func main() {
 }
 
 func emit(v any) {
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
+	data, err := pyjson.Encode(v)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	os.Stdout.Write(append(data, '\n'))
 }

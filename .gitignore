@@ -13,6 +13,9 @@ app/build/bin/
 # The combat engine's local build (go build -o simforever ./cmd/simforever)
 sim/simforever
 sim/simforever.exe
+# The Go bridge's local build (go build -o wowtools ./cmd/wowtools); main.js uses it in a checkout
+sim/wowtools
+sim/wowtools.exe
 
 # Local Claude settings
 .claude/settings.local.json
