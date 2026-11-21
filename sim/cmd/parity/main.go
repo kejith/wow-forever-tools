@@ -291,7 +291,7 @@ func buildCases(o options) ([]testCase, error) {
 		{"writs", nil}, {"writs", []string{"--owned-at-ah-price"}},
 		{"upgrades", nil}, {"upgrades", []string{"--engine", "off"}}, {"upgrades", []string{"--consumables"}},
 		{"upgrades", []string{"--max-price", "1", "--sort", "price"}},
-		{"recipes", nil},
+		{"recipes", nil}, {"recipes", []string{"--profession", "alch"}}, {"recipes", []string{"--profession", "185"}},
 		{"consumables", nil}, {"consumables", []string{"--engine", "off"}},
 		{"rotations", nil}, {"rotations", []string{"--consumables"}},
 		{"healing", nil}, {"damage", nil}, {"combatlog", nil},
