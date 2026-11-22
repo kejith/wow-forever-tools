@@ -2,6 +2,6 @@
 signed, so Windows SmartScreen asks once ("More info", then "Run anyway"). `SHA256SUMS.txt` holds the checksum
 of the file.
 
-The app brings everything it needs. On the first start it downloads Python and two libraries through its
-bundled [uv](https://docs.astral.sh/uv/), which takes a moment and needs a network connection. The addons
-WoWMCP and GoldPerHour are installed from the "Connection" page.
+The app brings everything it needs; nothing else is installed or downloaded on the first start. It fetches
+game tables and item icons from wago.tools when a page first needs them. The addons WoWMCP and GoldPerHour
+are installed from the "Connection" page.

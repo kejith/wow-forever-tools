@@ -107,17 +107,16 @@ func decodeJSON(t *testing.T, data []byte) any {
 	return v
 }
 
-// placeholders writes the copy's folder and the cache as <wow> and <cache>, with forward slashes after them,
-// as the answers were recorded.
+// placeholders writes the copy's folder and the cache as <wow> and <cache>, wherever a text names them, with
+// forward slashes in that text, as the answers were recorded (under Linux).
 func placeholders(v any, wow, cache string) any {
 	switch x := v.(type) {
 	case string:
-		for _, p := range [][2]string{{wow, "<wow>"}, {cache, "<cache>"}} {
-			if strings.HasPrefix(x, p[0]) {
-				return p[1] + filepath.ToSlash(x[len(p[0]):])
-			}
+		if !strings.Contains(x, wow) && !strings.Contains(x, cache) {
+			return x
 		}
-		return x
+		x = strings.ReplaceAll(strings.ReplaceAll(x, wow, "<wow>"), cache, "<cache>")
+		return strings.ReplaceAll(x, string(filepath.Separator), "/") // an error text may name a path, too
 	case map[string]any:
 		for k, val := range x {
 			x[k] = placeholders(val, wow, cache)

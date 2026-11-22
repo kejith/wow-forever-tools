@@ -1,11 +1,11 @@
-// Package bridge is the Go side of scripts/app_bridge.py: one command in, one JSON object out, errors as
-// {"error": "…"} with exit code 0. During the migration (notes/go-migration.md) it grows one command at a
-// time; a command it does not have yet is still answered by the Python bridge, and the parity check
-// (cmd/parity) compares the two wherever both answer.
+// Package bridge answers the desktop app: one command in, one JSON object out, errors as {"error": "…"} with
+// exit code 0 (`wowtools bridge <command>`). It took over from scripts/app_bridge.py, field for field; the
+// comments still name the Python functions a command was ported from (removed in phase 5 of
+// notes/go-migration.md, see the git history before it), and golden_test.go holds the Python bridge's
+// answers on the test folder.
 package bridge
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -32,17 +32,7 @@ var handlers = map[string]handler{
 // side do not edit one list.
 func register(name string, h handler) { handlers[name] = h }
 
-// notPorted is the answer to a command, or a variant of one, that only the Python bridge has so far:
-// main.js then asks app_bridge.py instead, and the parity check counts the case as not ported.
-type notPorted string
-
-func (n notPorted) Error() string { return "not ported to Go yet: " + string(n) }
-
-func notPortedAnswer(what string) *pyjson.Obj {
-	return pyjson.New("error", notPorted(what).Error(), "notPorted", true)
-}
-
-// Commands lists the bridge commands the Go side answers, sorted.
+// Commands lists the bridge commands, sorted.
 func Commands() []string {
 	out := make([]string, 0, len(handlers))
 	for name := range handlers {
@@ -52,13 +42,12 @@ func Commands() []string {
 	return out
 }
 
-// Run answers one bridge command. argv are the arguments after the command, as app_bridge.py takes them.
-// The second result is false when the arguments are wrong: argparse answers that with a usage message and
-// exit code 2, not with JSON.
+// Run answers one bridge command. argv are the arguments after the command, as app_bridge.py took them. An
+// error means the command or its arguments are wrong: that is a usage message and exit code 2, not JSON.
 func Run(command string, argv []string) (*pyjson.Obj, error) {
 	h, ok := handlers[command]
-	if !ok {
-		return notPortedAnswer(command), nil
+	if !ok { // argparse refuses a command it does not know
+		return nil, fmt.Errorf("unknown command %q", command)
 	}
 	a, err := ParseArgs(argv)
 	if err != nil {
@@ -66,10 +55,6 @@ func Run(command string, argv []string) (*pyjson.Obj, error) {
 	}
 	language := i18n.SetLanguage(a.Lang, a.Wow)
 	r, err := safely(h, a)
-	var np notPorted
-	if errors.As(err, &np) {
-		return notPortedAnswer(string(np)), nil
-	}
 	if err != nil {
 		return pyjson.New("error", err.Error()), nil
 	}

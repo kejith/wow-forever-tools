@@ -4,8 +4,7 @@ module.exports = {
   // main.js
   'no output': 'keine Ausgabe',
   'Invalid answer from the bridge: {text}': 'Ungültige Antwort der Bridge: {text}',
-  'uv was not found. Install it with: winget install astral-sh.uv': 'uv wurde nicht gefunden. Installieren: winget install astral-sh.uv',
-  'The bridge failed': 'Bridge fehlgeschlagen',
+  'The bridge wowtools was not found. Reinstall the app, or build it: cd sim, go build -o wowtools ./cmd/wowtools': 'Die Bridge wowtools wurde nicht gefunden. Installiere die App neu oder baue sie: cd sim, go build -o wowtools ./cmd/wowtools',
 
   // addon.js
   'Unknown addon: {key}': 'Unbekanntes Addon: {key}',

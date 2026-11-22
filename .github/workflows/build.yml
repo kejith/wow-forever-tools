@@ -21,13 +21,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: astral-sh/setup-uv@v10.3.3 # only for the MCP server (server/), which stays in Python
         with:
-          enable-cache: false # the scripts carry their dependencies in the header, there is no lock file to key a cache on
+          enable-cache: false # the server carries its dependencies in the header, there is no lock file to key a cache on
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-          cache: false # the engine has no dependencies, so there is no go.sum to key a cache on
+          cache: false # the module has no dependencies, so there is no go.sum to key a cache on
       - name: Install the app's dependencies
         # The tests need no Electron binary; this checks that package-lock.json fits package.json.
         working-directory: app
@@ -35,39 +35,31 @@ jobs:
       - name: App tests (addon install, releases, translations)
         working-directory: app
         run: npm test
-      - name: Combat engine tests (sim/)
-        working-directory: sim
-        run: |
-          go vet ./...
-          go test ./...
-      - name: Script and MCP server tests
-        shell: bash
-        run: |
-          for test in scripts/test_*.py server/test_*.py; do
-            echo "::group::$test"
-            uv run "$test"
-            echo "::endgroup::"
-          done
-      - name: Game tables for the Go bridge check
-        # The engine commands read the DB2 tables of the test folder's client build; the first run downloads
-        # them from wago.tools (about 100 MB), later runs take them from the cache.
-        if: runner.os == 'Linux'
+      - name: Game tables for the Go tests
+        # The bridge's golden test and the tool packages read the DB2 tables of the test folder's client build;
+        # the first run downloads them from wago.tools (about 100 MB), later runs take them from the cache.
         uses: actions/cache@v6
         with:
           path: scripts/cache/*.csv
           # A new code version may read another table: it restores the last cache, downloads what is missing
           # and saves the whole set under its own key.
-          key: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}-${{ hashFiles('sim/**/*.go', 'scripts/*.py') }}
+          key: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}-${{ hashFiles('sim/**/*.go') }}
           restore-keys: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}-
-      - name: Go bridge against the Python bridge (notes/go-migration.md)
-        # Every command wowtools has must answer like app_bridge.py on the test folder scripts/fixtures/forever.
-        # Linux only: under Windows Python reads file times a little differently than Go.
-        # The Python side of the engine commands runs the engine binary next to the scripts (sim/simforever).
-        if: runner.os == 'Linux'
+      - name: Go tests (sim/)
+        # Includes the bridge's golden test: every command on the test folder against the answers the Python
+        # bridge gave before it was removed (notes/go-migration.md).
         working-directory: sim
         run: |
-          go build -o simforever ./cmd/simforever
-          go run ./cmd/parity --ported
+          go vet ./...
+          go test ./...
+      - name: MCP server tests
+        shell: bash
+        run: |
+          for test in server/test_*.py; do
+            echo "::group::$test"
+            uv run "$test"
+            echo "::endgroup::"
+          done
 
   package:
     name: Windows installer
@@ -80,27 +72,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: astral-sh/setup-uv@v10.3.3
-        with:
-          enable-cache: false # the scripts carry their dependencies in the header, there is no lock file to key a cache on
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-          cache: false # the engine has no dependencies, so there is no go.sum to key a cache on
-      - name: Put uv into the app
-        # The installed app runs its Python scripts with this uv, so nobody has to install anything else.
-        run: |
-          mkdir -p app/build/bin
-          cp "$(command -v uv)" app/build/bin/uv.exe
-          app/build/bin/uv.exe --version
-      - name: Build the combat engine into the app
-        # upgrades.py runs resources/bin/simforever.exe for the simulated rating (scripts/simengine.py).
-        run: |
-          go build -C sim -o ../app/build/bin/simforever.exe ./cmd/simforever
-          app/build/bin/simforever.exe --version
-      - name: Build the Go bridge into the app
-        # main.js runs the bridge commands resources/bin/wowtools.exe has (notes/go-migration.md) there,
-        # the others through the Python bridge.
+          cache: false # the module has no dependencies, so there is no go.sum to key a cache on
+      - name: Build the bridge into the app
+        # main.js runs every calculation through resources/bin/wowtools.exe.
         run: |
           go build -C sim -o ../app/build/bin/wowtools.exe ./cmd/wowtools
           app/build/bin/wowtools.exe bridge --list
@@ -111,8 +88,8 @@ jobs:
         working-directory: app
         run: npm run dist
       - name: Start the built app once
-        # Renders every page against the test data and fails when the app, its bundled uv or the scripts
-        # do not work. The screenshots are uploaded below.
+        # Renders every page against the test data and fails when the app or its bundled wowtools do not
+        # work. The screenshots are uploaded below.
         working-directory: app
         env:
           WOW_FOREVER_DIR: ${{ github.workspace }}\scripts\fixtures\goldperhour
@@ -127,7 +104,6 @@ jobs:
           node -e "
             const report = require('./smoke/report.json');
             if (!report.packaged) throw new Error('not the packaged app');
-            if (!/resources[\\\\/]bin[\\\\/]uv\.exe$/.test(report.uv || '')) throw new Error('the bundled uv was not used: ' + report.uv);
             if (!/resources[\\\\/]bin[\\\\/]wowtools\.exe$/.test(report.wowtools || '')) throw new Error('the bundled wowtools was not used: ' + report.wowtools);
           "
       - uses: actions/upload-artifact@v7

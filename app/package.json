@@ -42,26 +42,13 @@
         "from": "../scripts",
         "to": "scripts",
         "filter": [
-          "*.py",
-          "data/**",
-          "!test_*.py"
-        ]
-      },
-      {
-        "from": "../sim/internal/i18n",
-        "to": "scripts/i18n",
-        "filter": [
-          "*.json"
+          "data/**"
         ]
       },
       {
         "from": "build/bin",
         "to": "bin",
         "filter": [
-          "uv",
-          "uv.exe",
-          "simforever",
-          "simforever.exe",
           "wowtools",
           "wowtools.exe"
         ]
