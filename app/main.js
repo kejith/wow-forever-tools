@@ -28,12 +28,12 @@ const DEFAULT_WOW = process.platform === 'win32'
 
 // The data folder keeps the name it had before the app was renamed, so settings and downloaded addons stay.
 app.setPath('userData', path.join(app.getPath('appData'), 'wowmcp-app'));
-// Downloaded game data and icons (scripts/icons.py). The installed app cannot write next to its scripts, and
+// Downloaded game data and icons (the bridge command icons). The installed app cannot write next to its scripts, and
 // "cache" is taken: Chromium keeps its own Cache folder in userData and Windows ignores case.
 const cacheDir = () => (app.isPackaged ? path.join(app.getPath('userData'), 'game-data') : path.join(ROOT, 'scripts', 'cache'));
 const argValue = (name) => (process.argv.find((a) => a.startsWith(`--${name}=`)) || '').split('=')[1] || '';
 
-// Item icons reach the page as wowicon://<FileDataID>.png, served from the cache scripts/icons.py fills.
+// Item icons reach the page as wowicon://<FileDataID>.png, served from the cache the bridge command icons fills.
 protocol.registerSchemesAsPrivileged([{ scheme: 'wowicon', privileges: { standard: true, secure: true } }]);
 
 let win;
@@ -230,7 +230,7 @@ function serveIcons() {
 
 // ---------- Lists in the game ----------
 // The WoWMCP addon shows the app's results in the game: a window with the lists, Auctionator shopping lists,
-// tooltip lines and vendor hints (scripts/ingame.py). The bridge computes them for every character and writes
+// tooltip lines and vendor hints (the bridge command ingame). The bridge computes them for every character and writes
 // AppData.lua into the installed addon, which the client loads on the next /reload. That happens at the
 // start, whenever the game has saved (the watcher) and after an addon install, unless settings.sendToGame is
 // false; the file is only rewritten when its content changed. One run at a time.

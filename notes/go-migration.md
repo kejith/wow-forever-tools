@@ -1,7 +1,7 @@
 # Migration of the Python scripts to Go
 
-Status: phases 0 to 3 done (2026-11-22): every bridge command but `icons` and `ingame` is in Go and
-answers like Python on the fixture and the real data. Next: phase 4.
+Status: phases 0 to 4 done (2026-11-22): every bridge command is in Go and answers like Python on the
+fixture and the real data. Next: phase 5.
 
 Goal: the app computes everything with one Go binary. uv, Python, lupa and Pillow leave the installer and the
 user's machine, and the answers stay the same as today, field for field.
@@ -241,6 +241,25 @@ the Character page are compared once as captures (`npm run capture`) against the
    own canonical form.
 
 Done when: every bridge command is in `GO_COMMANDS`.
+
+**Done (2026-11-22).** What came of it:
+
+- `tools/ingame` writes `AppData.lua` byte for byte as Python does (compared on the fixture and the real data:
+  `INGAME_WOW=… INGAME_DUMP=… go test ./tools/ingame -run DumpLua` against `ingame.to_lua` with the time fixed),
+  and the `hash` is Python's: `json.dumps(sort_keys=True)` reproduced (int keys of `tips` and `vendor` sort as
+  numbers). So the recommendation above was not needed: an update rewrites nothing, and the game is not asked to
+  reload a file whose content did not change. The tests of `test_ingame.py` are repeated in Go, with the four
+  calculations as package variables the tests replace.
+- `tools/icons`: the FileDataID lookup and a BLP2 decoder that follows Pillow's `BlpImagePlugin` step by step
+  (the palette's own alpha, DXT1 with and without its alpha bit, DXT3, DXT5, and the flat buffer Pillow hands to
+  `set_as_raw`, so its odd cases come out alike). `gencases.py` has Pillow decode 15 made-up files of every kind
+  (and the ones it refuses); all 578 icons of the local cache were fetched again as BLPs and decode to the pixels of
+  Pillow's PNGs (`BLP_DIR=… ICON_DIR=scripts/cache/icons go test ./tools/icons -run CacheLikePillow`).
+  Not supported, as in Pillow for BLP2: the raw BGRA encoding; BLP1 (Warcraft III) is refused,
+  where Pillow would decode it (wago.tools serves BLP2 for icons). Fetched for the comparison, wago.tools answered
+  eight parallel requests with 429 after a few dozen; the bridge fetches eight at a time as Python did, and an
+  icon that fails shows the question mark until the app restarts (main.js remembers it for the session).
+- Parity: `ingame` and `icons` equal on both folders.
 
 ## Phase 5: remove Python from the app
 
