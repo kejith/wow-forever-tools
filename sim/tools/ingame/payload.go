@@ -104,6 +104,24 @@ func (p *Payload) value() *pyjson.Obj {
 	return out
 }
 
+// Obj is the payload as ingame.compute returns it (what `ingame --json` prints), tips and vendor hints as
+// objects in the order they were added.
+func (p *Payload) Obj() *pyjson.Obj {
+	dict := func(d *intDict) *pyjson.Obj {
+		o := pyjson.New()
+		for _, k := range d.keys {
+			o.Set(strconv.FormatInt(k, 10), d.vals[k])
+		}
+		return o
+	}
+	chars := pyjson.New()
+	for _, n := range p.Names {
+		c := p.Chars[n]
+		chars.Set(n, c.value().Set("tips", dict(c.Tips)).Set("vendor", dict(c.Vendor)))
+	}
+	return p.value().Set("chars", chars)
+}
+
 // characterData is (first name, data) for one character export; "" when the export cannot be read.
 func characterData(wow, path string, prices *sv.Table) (name string, data *Char) {
 	defer func() {

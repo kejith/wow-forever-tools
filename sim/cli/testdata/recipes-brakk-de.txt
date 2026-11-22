@@ -1,0 +1,103 @@
+Brakk-Düsterfels  |  AH-Scan 2026-11-21  |  Build 1.60.1.71037  |  Händlerpreise 279
+
+== Alchimie 300/300 (Berufsfenster gelesen 2026-11-21 06:11) ==
+  Gelernt:
+   Transmutieren: Arkanit                   Gewinn    33g 79s  Kosten   13g 67s  AH    60x  
+   Geisterfarbstoff                         Gewinn    35s 86c  Kosten    1g 02s  AH    54x  Gewinn fällt (am 19.11. noch +0.51g)
+   Elixier der schwachen Stärke             Gewinn    13s 81c  Kosten    3s 30c  AH   159x  
+   Viridiangrüner Farbstoff                 Gewinn    10s 16c  Kosten   32s 44c  AH  1361x  
+   Geringes Klerikerelixier                 Gewinn     9s 80c  Kosten    9s 10c  AH   928x  
+   Elixier der Schattenmacht                Gewinn     9s 04c  Kosten    1g 18s  AH   331x  
+   Großes Klerikerelixier                   Gewinn     8s 44c  Kosten   54s 87c  AH   275x  Gewinn fällt (am 19.11. noch +0.32g)
+   Himmelblauer Farbstoff                   Gewinn     7s 19c  Kosten   88s 74c  AH   109x  
+   Frostschutztrank                         Gewinn     5s 89c  Kosten   18s 71c  AH   118x  
+   Geringes Magierblutelixier               Gewinn     3s 45c  Kosten    4s 09c  AH   432x  
+   Geringes Arkanelixier                    Gewinn     2s 31c  Kosten    5s 76c  AH  2111x  
+   Schwefelsäure                            Gewinn     1s 86c  Kosten    8s 02c  AH   557x  
+   Trollblutelixier                         Gewinn     1s 62c  Kosten    4s 08c  AH   313x  
+   Magentafarbener Farbstoff                Gewinn     1s 40c  Kosten   20s 64c  AH   488x  Gewinn fällt (am 19.11. noch +0.02g)
+   Steinschuppenöl                          Gewinn     0s 85c  Kosten    2s 00c  AH 14129x  
+  Noch nicht gelernt:
+   Transmutieren: Legionit                  Gewinn    27g 36s  lernbar ja    ab 275  AH 8g 95s
+   Fläschchen mit chromatischem Widerstand  Gewinn     5g 46s  lernbar ja    ab 300  AH 10g 87s
+   Transmutieren: Leben zu Erde             Gewinn     4g 00s  lernbar ja    ab 275  AH 45g 99s
+   Transmutieren: Untod zu Wasser           Gewinn     3g 83s  lernbar ja    ab 275  AH 85g 22s
+   Transmutieren: Feuer zu Erde             Gewinn     3g 07s  lernbar ja    ab 275  Rezept-Item
+   Fläschchen mit destillierter Weisheit    Gewinn     1g 44s  lernbar ja    ab 300  AH 35g 98s
+   Trank des Dämonentötens                  Gewinn     1g 40s  lernbar ja    ab 250  Rezept-Item
+   Großer Naturschutztrank                  Gewinn     1g 31s  lernbar ja    ab 290  AH 30g 00s
+   Fläschchen mit oberster Macht            Gewinn     1g 11s  lernbar ja    ab 300  AH 50g 49s
+   Erheblicher Trank des Zauberschlags      Gewinn     1g 00s  lernbar ja    ab 285  Rezept-Item
+   Trank des giftigen Blutes                Gewinn    98s 60c  lernbar ja    ab 275  Rezept-Item
+   Fläschchen der Titanen                   Gewinn    78s 49c  lernbar ja    ab 300  AH 59g 69s
+   Elementarfeuer transmutieren             Gewinn    64s 22c  lernbar ja    ab 300  Rezept-Item
+   Alchemielaboratorium                     Gewinn    58s 97c  lernbar ja    ab 300  AH 33g 99s
+   Großer Schattenschutztrank               Gewinn    56s 56c  lernbar ja    ab 290  AH 45g 89s
+
+== Erste Hilfe 300/300 (Berufsfenster gelesen 2026-11-21 06:02) ==
+  Gelernt:
+   Erheblicher Heiltrank                    Gewinn     4s 20c  Kosten   22s 49c  AH  2384x  
+   Verbandtasche                            Gewinn     0s 85c  Kosten    0s 38c  AH   134x  
+   Schwerer Seidenverband                   Gewinn     0s 06c  Kosten    3s 74c  AH  2388x  
+   Einfache Schlammpackung                  Gewinn     0s 05c  Kosten    0s 75c  AH  1431x  
+   Seidenverband                            Gewinn    -0s 06c  Kosten    1s 87c  AH  5934x  
+   Leinenverband                            Gewinn    -0s 19c  Kosten    0s 29c  AH  1600x  
+   Magiestoffverband                        Gewinn    -0s 35c  Kosten    4s 15c  AH  1356x  Gewinn fällt (am 19.11. noch -0.00g)
+   Schwerer Leinenverband                   Gewinn    -0s 39c  Kosten    0s 58c  AH  6137x  
+   Heiltrank                                Gewinn    -0s 47c  Kosten    1s 42c  AH  2652x  
+   Runenstoffverband                        Gewinn    -0s 62c  Kosten    5s 47c  AH   314x  Gewinn fällt (am 19.11. noch +0.00g)
+   Gegengift                                Gewinn    -0s 90c  Kosten    1s 70c  AH   505x  Gewinn fällt (am 19.11. noch -0.00g)
+   Schwacher Heiltrank                      Gewinn    -1s 71c  Kosten    1s 80c  AH  2018x  
+   Geringer Heiltrank                       Gewinn    -1s 82c  Kosten    2s 06c  AH  1685x  
+   Wollverband                              Gewinn    -2s 12c  Kosten    2s 39c  AH  5431x  
+   Schwerer Magiestoffverband               Gewinn    -2s 60c  Kosten    8s 30c  AH   293x  Gewinn fällt (am 19.11. noch -0.01g)
+  Noch nicht gelernt:
+  *Mächtiges Gegengift                      Gewinn     1g 58s  lernbar ja    ab 300  Rezept-Item
+  *Starke Schlammpackung                    Gewinn    64s 16c  lernbar ja    ab 280  AH 2g 98s
+  *Labor des Seuchenarztes                  Gewinn    32s 57c  lernbar ja    ab 300  AH 30g 98s
+  *Studierzimmer für Gifte                  Gewinn     8s 11c  lernbar ja    ab 140  AH 1g 07s
+   Schwerer Runenstoffverband               Gewinn     0s 36c  lernbar ja    ab ?    Lehrer
+   Überragende Schlammpackung               Gewinn    -0s 16c  lernbar ja    ab 210  AH 17s 79c
+   Starkes Gegengift                        Gewinn    -0s 22c  lernbar ja    ab 130  AH 27s 00c
+   Großer Heiltrank                         Gewinn    -1s 61c  lernbar ja    ab 155  AH 3s 98c
+   Dichter Runenstoffverband                Gewinn    -3s 78c  lernbar ja    ab 300  Rezept-Item
+   Wirksames Gegengift                      Gewinn    -6s 04c  lernbar ja    ab 215  AH 31s 00c
+   Überragender Heiltrank                   Gewinn   -13s 05c  lernbar ja    ab 215  AH 20s 00c
+   Lederabschnürbinde                       Gewinn   -20s 11c  lernbar ja    ab 200  AH 2g 49s
+   Chirurgische Abschnürbinde               Gewinn   -66s 67c  lernbar ja    ab 265  AH 2g 25s
+   Schlaue Schlammpackung                   Gewinn          –  lernbar ja    ab 140  AH 3g 99s
+   Kristalldurchdrungener Verband           Gewinn          –  lernbar ?     ab ?    Rezept-Item
+
+== Kochkunst 300/300 (Berufsfenster gelesen 2026-11-21 04:09) ==
+  Gelernt:
+   Triagetee                                Gewinn     1s 52c  Kosten   12s 63c  AH   629x  Gewinn fällt (am 19.11. noch +0.06g)
+   Bärenbraten                              Gewinn     1s 14c  Kosten    3s 88c  AH   147x  Gewinn fällt (am 19.11. noch +0.02g)
+   Gegrillter Bussardflügel                 Gewinn     0s 46c  Kosten    3s 36c  AH   461x  Gewinn fällt (am 19.11. noch +0.02g)
+   Nachtflossensuppe                        Gewinn     0s 36c  Kosten    3s 38c  AH  3708x  
+   Kräutergebackenes Ei                     Gewinn     0s 26c  Kosten    1s 90c  AH   801x  
+   Einfaches Lagerfeuer                     Gewinn     0s 21c  Kosten    0s 35c  AH  3926x  
+   Geräucherter Weisenfisch                 Gewinn     0s 20c  Kosten    0s 47c  AH   703x  
+   Rotkiemenfilet                           Gewinn     0s 19c  Kosten    0s 07c  AH  5031x  
+   Glitschhautmakrele                       Gewinn     0s 16c  Kosten    0s 45c  AH  1967x  
+   Tüpfelgelbschwanz                        Gewinn     0s 12c  Kosten    0s 65c  AH  6229x  
+   Langzahniger Matschschnapper             Gewinn     0s 09c  Kosten    0s 09c  AH  9312x  
+   Spinnenwurst                             Gewinn     0s 06c  Kosten    3s 36c  AH   530x  
+   Scharfe Muscheln nach Goblin-Art         Gewinn     0s 04c  Kosten    0s 86c  AH  3627x  
+   Weisenfisch Supreme                      Gewinn     0s 00c  Kosten    1s 95c  AH  2100x  
+   Stoppelfühlerwels                        Gewinn    -0s 08c  Kosten    0s 18c  AH  2867x  
+  Noch nicht gelernt:
+  *Rückenflossenheilbutt                    Gewinn    81s 01c  lernbar ja    ab ?    Lehrer
+  *Fledermausragout                         Gewinn    20s 96c  lernbar ja    ab 275  Rezept-Item
+  *Undermine-Muschelsuppe                   Gewinn    17s 31c  lernbar ja    ab 225  Rezept-Item
+  *Dampfendes Hirschsteak                   Gewinn    17s 30c  lernbar ja    ab 275  Rezept-Item
+  *Pikanter Schildkröteneintopf             Gewinn    13s 61c  lernbar ja    ab 275  Rezept-Item
+  *Krokiliskensteak                         Gewinn    10s 14c  lernbar ja    ab 80   AH 1g 10s
+  *Langsam gegarter prähistorischer Raptor  Gewinn     8s 40c  lernbar ja    ab 275  Rezept-Item
+  *Verkalkter Smoothie                      Gewinn     7s 68c  lernbar ja    ab 180  Rezept-Item
+  *Raptorrouladen                           Gewinn     6s 42c  lernbar ja    ab 225  Rezept-Item
+  *Eisenofen                                Gewinn     5s 45c  lernbar ja    ab 300  AH 95g 49s
+  *Pikante Hirschfrikadelle                 Gewinn     4s 96c  lernbar ja    ab 225  Rezept-Item
+  *Schmackhaftes Löwensteak                 Gewinn     4s 71c  lernbar ja    ab 150  AH 1g 19s
+  *Mageres Wildbret                         Gewinn     4s 63c  lernbar ja    ab 110  Rezept-Item
+  *Dschungeleintopf                         Gewinn     4s 42c  lernbar ja    ab 175  Rezept-Item
+  *Flinkschlagsteak                         Gewinn     4s 08c  lernbar ja    ab 275  Rezept-Item

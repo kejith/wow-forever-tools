@@ -1,0 +1,346 @@
+
+== Ilse (Level 28) ==
+
+[AH-Upgrades] Budget 47g 17s 28c · Kampfmodell: 134,4 HPS jetzt · heile mit Heilen (Rang 1)
+  Bestes Paket fürs Budget  +5,0 HPS für 1g 38s 96c
+    Ring der Machtregulierung  Finger +1,6 · in deinen Taschen  
+    Messerpoliertuch  Handgelenk +1,3 · in deinen Taschen  
+   *Spinnenseidenstiefel  Füße +2,2  1g 38s 96c
+  Hals  jetzt: Selbstvertrauen des Wegwächters
+    Halskette der Harmonie  +1,3 · ab Stufe 31  1g 81s 98c
+    Kaleidoskopkette  +1,3 · ab Stufe 30  4g 52s 20c
+  Schulter  jetzt: Grünzwirnmantel der Eule
+    Steinstoffschulterklappen  +0,9 · ab Stufe 31  24s 99c
+  Brust  jetzt: Robe von Arugal
+    Täuscher-Roben  +1,0 · ab Stufe 29  3g 40s 99c
+  Beine  jetzt: Gazeträumer-Hose
+    Gamaschen des Violetten Zauberers  +3,8 · ab Stufe 29  18g 50s
+  Füße  jetzt: Feuerwandler-Stiefel
+    Spinnenseidenstiefel  +2,2  1g 38s 96c
+  Handgelenk  jetzt: Tabithas Manschetten
+    Messerpoliertuch  +1,3 · in deinen Taschen  
+    Silberfadenmanschetten  +0,6  12s 70c
+    Steinstoffbindungen  +0,6 · ab Stufe 29  19s 95c
+  Finger  jetzt: Schädelring
+    Ring der Machtregulierung  +1,6 · in deinen Taschen  
+    Voodooband  +1,5 · ab Stufe 32  19s
+    Azoras Testament  +0,6  16s 90c
+  Mit Spezialeffekt  die Skala kann sie nicht bewerten
+    Spinnengürtel  Taille  35s
+
+[Verfügungen] 
+  Geselle (75 Ruf)  
+   *Handwerksverfügung: Verschnörkeltes Handfernrohr  netto 22s · 29c pro Ruf  30s
+   *  Verschnörkeltes Handfernrohr  Ingenieurskunst  25s
+    Handwerksverfügung: Silberdietrich  netto 30s 31c · 40c pro Ruf  62s 46c
+      Silberdietrich  Schmiedekunst  85c
+    Handwerksverfügung: Gefertigtes robustes Geschoss  netto 31s 99c · 43c pro Ruf  58s 99c
+      Gefertigtes robustes Geschoss x200  Ingenieurskunst  6s
+  Experte (125 Ruf)  
+   *Handwerksverfügung: Mechanisches Reparierset  netto 14s 93c · 12c pro Ruf  54s 44c
+   *  Mechanisches Reparierset  Ingenieurskunst  30s 49c
+    Handwerksverfügung: Robuster Wetzstein  netto 22s 76c · 18c pro Ruf  90s 49c
+      Robuster Wetzstein  Schmiedekunst  2s 27c
+    Handwerksverfügung: Mithrilschrapnellbombe  netto 26s 5c · 21c pro Ruf  88s 55c
+      Mithrilschrapnellbombe  Ingenieurskunst  7s 50c
+  Fachmann (200 Ruf)  
+   *Handwerksverfügung: Erheblicher Verjüngungstrank  netto 97s 19c · 49c pro Ruf  98s 99c
+   *  Erheblicher Verjüngungstrank  Alchimie  73s 20c
+    Handwerksverfügung: Destilliertes Feuerwasser  netto 1g 5s 20c · 53c pro Ruf  80s 98c
+      Destilliertes Feuerwasser  Alchimie  99s 22c
+    Handwerksverfügung: Begrenzter Unverwundbarkeitstrank  netto 1g 5s 28c · 53c pro Ruf  1g 8s 98c
+      Begrenzter Unverwundbarkeitstrank  Alchimie  71s 30c
+
+[Handelskisten] Händlergunst: 0
+  Günstigste Händlergunst  
+   *Abgefangene Kiste: Textilien des Experten  3s 3c pro Gunst  1s 39c
+   *  Schweres Leder x20    44s
+   *Abgefangene Kiste: Kuriositäten des Lehrlings  3s 40c pro Gunst  98c
+   *  Große Magieessenz x4    16s
+   *Abgefangene Kiste: Weltliche Kräuter des Experten  3s 47c pro Gunst  2s
+   *  Khadgars Schnurrbart x10    50s
+  Lehrling  je 5 Gunst
+    Abgefangene Kiste: Kuriositäten des Lehrlings  3s 40c pro Gunst  98c
+      Große Magieessenz x4    16s
+    Abgefangene Kiste: Kräuter des Lehrlings  4s 32c pro Gunst  9s 98c
+      Silberblatt x20    11s 60c
+    Abgefangene Kiste: Textilien des Lehrlings  4s 70c pro Gunst  11s 88c
+      Leinenstoff x40    11s 60c
+  Geselle  je 10 Gunst
+    Abgefangene Kiste: Kräuter des Gesellen  3s 53c pro Gunst  28s 27c
+      Beulengras x10    7s
+    Abgefangene Kiste: Textilien des Gesellen  4s 4c pro Gunst  11s 80c
+      Mittleres Leder x20    28s 60c
+    Abgefangene Kiste: Erz des Gesellen  hast du · 5s 9c pro Gunst  
+      Silbererz x10    50s 90c
+  Experte  je 15 Gunst
+    Abgefangene Kiste: Textilien des Experten  3s 3c pro Gunst  1s 39c
+      Schweres Leder x20    44s
+    Abgefangene Kiste: Weltliche Kräuter des Experten  3s 47c pro Gunst  2s
+      Khadgars Schnurrbart x10    50s
+    Abgefangene Kiste: Bauteile des Experten  4s 86c pro Gunst  18s
+      Eisenstrebe x8    54s 96c
+  Fachmann  ab Stufe 35
+    Abgefangene Kiste: Erz des Fachmanns  6s 1c pro Gunst  34c
+      Echtsilbererz x10    1g 19s 80c
+    Abgefangene Kiste: Textilien des Fachmanns  6s 20c pro Gunst  1s 2c
+      Dickes Leder x20    1g 23s
+    Abgefangene Kiste: Weltliche Kräuter des Fachmanns  6s 86c pro Gunst  57c
+      Goldener Sansam x10    1g 36s 70c
+
+[Berufe] 
+  Kochkunst: lohnt sich zu holen  Gewinn pro Herstellung
+    Rezept: Glitschhautmakrele  Gewinn 16c · bezahlt nach 30.9x herstellen  4s 95c
+
+[Verbrauchsgüter] Stufe 28
+  Heiltränke  
+   *Großer verfärbter Heiltrank  stellt 975–1105 Gesundheit wieder her  6s 78c
+    Verfärbter Heiltrank  stellt 600–680 Gesundheit wieder her  5s 4c
+    Großer Heiltrank  stellt 455–585 Gesundheit wieder her  3s
+  Manatränke  
+   *Dunkelrune  stellt 900–1500 Mana wieder her  2g 2s 7c
+    Manatrank  7 in den Taschen · stellt 455–585 Mana wieder her  1s 76c
+    Geringer Manatrank  1 in den Taschen · stellt 280–360 Mana wieder her  36c
+  Essen  
+   *Blutbauchfisch  1392 Gesundheit in 30 Sek.  2s 75c
+    Steinschuppenkabeljau  875 Gesundheit in 27 Sek.  10c
+    Langzahniger Matschschnapper  552 Gesundheit in 24 Sek.  4c
+  Getränke  
+   *Verzaubertes Wasser  1345 Mana in 27 Sek.  1s 40c
+    Triagetee  19 in den Taschen · 1345 Mana in 27 Sek.  14s 90c
+    Blubberwasser  835 Mana in 24 Sek.  50c
+  Zaubermacht  
+   *Trank des Zauberschlags  +16 Zaubermacht (30 Sek.)  8s
+    Geringes Arkanelixier  1 in den Taschen · +15 Zaubermacht (30 Min.)  8s 49c
+    Salziger Meeresfrüchteeintopf  +14 Zaubermacht (15 Min.)  10s 97c
+  Heilung  
+   *Trank des Heilers  +31 Heilung (30 Sek.)  39s 99c
+    Triagetee  19 in den Taschen · +22 Heilung (15 Min.)  14s 90c
+    Geringer Trank des Heilers  +20 Heilung (30 Sek.)  12s 97c
+  Intelligenz  
+   *Gegrillter Bussardflügel  +10 Intelligenz (15 Min.)  4s 2c
+    Rolle der Intelligenz II  +8 Intelligenz (30 Min.)  1s 19c
+    Elixier der geringen Intelligenz  5 in den Taschen · +6 Intelligenz (30 Min.)  4s
+  Willenskraft  
+   *Verkalkter Smoothie  +10 Willenskraft (15 Min.)  11s 99c
+    Rolle der Willenskraft II  +7 Willenskraft (30 Min.)  99c
+    Scharfe Muscheln nach Goblin-Art  +6 Ausdauer, +6 Willenskraft (15 Min.)  95c
+  Mana pro 5 Sek.  
+    Geringes Magierblutelixier  1 in den Taschen · +6 Mana pro 5 Sek. (30 Min.)  7s 93c
+    Schwaches Manaöl  3 in den Taschen · +5 Mana pro 5 Sek., +10 Heilung (30 Min.)  5s
+    Schwaches Magierblutelixier  +3 Mana pro 5 Sek. (30 Min.)  7s 87c
+  Ausdauer  
+   *Schwarzer Rumsey Rum  +15 Ausdauer (15 Min.)  5s 85c
+    Riesenmuschelrisotto  +10 Ausdauer (15 Min.)  5s 15c
+    Rolle der Ausdauer II  +8 Ausdauer (30 Min.)  3s 49c
+  Maximale Gesundheit  
+   *Elixier der geringen Seelenstärke  +120 Maximale Gesundheit (1 Std.)  7s 47c
+    Elixier der schwachen Seelenstärke  +27 Maximale Gesundheit (1 Std.)  3s 26c
+
+  227 items with a tooltip line, 60 vendor hints
+
+== Brakk (Level 53) ==
+
+[AH-Upgrades] Budget 221g 65s 8c · Kampfmodell: 326,4 DPS jetzt
+  Bestes Paket fürs Budget  +31,0 DPS für 94g 31s 94c
+    Schnallengürtel des Kuriers  Hals +5,4 · in deinen Taschen  
+   *Kleiner ewiger Zauberstab  Zauberstab +3,4  1g 32s 99c
+   *Kultistenmanschetten  Handgelenk +3,9  4g 99s 98c
+   *Geisterzwirnhose  Beine +3,2  5g 99s 98c
+   *Robe der Winternacht  Brust +12,8  53g 99s 99c
+   *Spitze des Steinformers  Waffenhand +2,4  27g 99s
+  Hals  jetzt: Halsschmuck des Hochschamanen
+    Schnallengürtel des Kuriers  +5,4 · in deinen Taschen  
+  Schulter  jetzt: Schattenzwirnschultern
+    Teufelsstoffschultern  +5,7 · ab Stufe 57  6g 45s
+  Brust  jetzt: Elementargewandung
+    Robe der Winternacht  +12,8  53g 99s 99c
+  Beine  jetzt: Schattenzwirnhose
+    Geisterzwirnhose  +3,2  5g 99s 98c
+  Handgelenk  jetzt: Blutbandarmschienen
+    Kultistenmanschetten  +3,5  4g 99s 98c
+    Gepeinigte Stulpen  +1,5  19g
+  Waffenhand  jetzt: Hypnoseklinge
+    Spitze des Steinformers  +2,4  27g 99s
+  Zauberstab  jetzt: Zauberstab des Gezeitenlieds
+    Kleiner ewiger Zauberstab  +3,4  1g 32s 99c
+    Verwirbelter Netherzauberstab  +2,1 · in deinen Taschen  
+  Mit Spezialeffekt  die Skala kann sie nicht bewerten
+    Katerinas Messer  Waffenhand  
+    Lapidis Tidesippe-Humpen  Schildhand  3g 5s 67c
+    Sandbedeckte Seidenschärpe  Taille  4g 90s
+
+[Verfügungen] Versorgung und Logistik Durotar: Wohlwollend 9125/21000
+  Geselle (75 Ruf)  
+    Handwerksverfügung: Spinnenseidenslipper  hast du · Gewinn 7s 12c · -9c pro Ruf  
+   *  Spinnenseidenslipper  Schneiderei  25s 88c
+    Handwerksverfügung: Verschnörkeltes Handfernrohr  netto 22s · 29c pro Ruf  30s
+      Verschnörkeltes Handfernrohr  Ingenieurskunst  25s
+    Handwerksverfügung: Silberdietrich  netto 30s 31c · 40c pro Ruf  62s 46c
+      Silberdietrich  Schmiedekunst  85c
+  Experte (125 Ruf)  
+   *Handwerksverfügung: Mechanisches Reparierset  netto 14s 93c · 12c pro Ruf  54s 44c
+   *  Mechanisches Reparierset  Ingenieurskunst  30s 49c
+    Handwerksverfügung: Blitzbombe  netto 15s · 12c pro Ruf  85s
+      Blitzstrahlbombe  hast du · Ingenieurskunst  
+    Handwerksverfügung: Robuster Wetzstein  netto 22s 76c · 18c pro Ruf  90s 49c
+      Robuster Wetzstein  Schmiedekunst  2s 27c
+  Fachmann (200 Ruf)  
+   *Handwerksverfügung: Erheblicher Verjüngungstrank  netto 97s 19c · 49c pro Ruf  98s 99c
+   *  Erheblicher Verjüngungstrank  Alchimie  73s 20c
+    Handwerksverfügung: Destilliertes Feuerwasser  netto 1g 5s 20c · 53c pro Ruf  80s 98c
+      Destilliertes Feuerwasser  Alchimie  99s 22c
+    Handwerksverfügung: Begrenzter Unverwundbarkeitstrank  netto 1g 5s 28c · 53c pro Ruf  1g 8s 98c
+      Begrenzter Unverwundbarkeitstrank  Alchimie  71s 30c
+
+[Handelskisten] Händlergunst: 10
+  Günstigste Händlergunst  
+   *Abgefangene Kiste: Kräuter des Lehrlings  2s pro Gunst  9s 98c
+      Silberblatt x20  hast du  
+   *Abgefangene Kiste: Textilien des Experten  3s 3c pro Gunst  1s 39c
+   *  Schweres Leder x20    44s
+   *Abgefangene Kiste: Kuriositäten des Lehrlings  3s 40c pro Gunst  98c
+   *  Große Magieessenz x4    16s
+  Lehrling  je 5 Gunst
+    Abgefangene Kiste: Kräuter des Lehrlings  2s pro Gunst  9s 98c
+      Silberblatt x20  hast du  
+    Abgefangene Kiste: Kuriositäten des Lehrlings  3s 40c pro Gunst  98c
+      Große Magieessenz x4    16s
+    Abgefangene Kiste: Textilien des Lehrlings  4s 70c pro Gunst  11s 88c
+      Leinenstoff x40    11s 60c
+  Geselle  je 10 Gunst
+    Abgefangene Kiste: Kräuter des Gesellen  3s 53c pro Gunst  28s 27c
+      Beulengras x10    7s
+    Abgefangene Kiste: Textilien des Gesellen  4s 4c pro Gunst  11s 80c
+      Mittleres Leder x20    28s 60c
+    Abgefangene Kiste: Erz des Gesellen  5s 16c pro Gunst  67c
+      Silbererz x10    50s 90c
+  Experte  je 15 Gunst
+    Abgefangene Kiste: Textilien des Experten  3s 3c pro Gunst  1s 39c
+      Schweres Leder x20    44s
+    Abgefangene Kiste: Weltliche Kräuter des Experten  3s 47c pro Gunst  2s
+      Khadgars Schnurrbart x10    50s
+    Abgefangene Kiste: Bauteile des Experten  4s 86c pro Gunst  18s
+      Eisenstrebe x8    54s 96c
+  Fachmann  je 20 Gunst
+    Abgefangene Kiste: Erz des Fachmanns  6s 1c pro Gunst  34c
+      Echtsilbererz x10    1g 19s 80c
+    Abgefangene Kiste: Textilien des Fachmanns  6s 20c pro Gunst  1s 2c
+      Dickes Leder x20    1g 23s
+    Abgefangene Kiste: Weltliche Kräuter des Fachmanns  6s 86c pro Gunst  57c
+      Goldener Sansam x10    1g 36s 70c
+
+[Berufe] 
+  Alchimie: beste Herstellungen  
+    Arkanitbarren  Gewinn 33g 79s 29c · 47 h  
+   *  Thoriumbarren    21s 87c
+   *  Arkankristall    13g 45s 99c
+    Geisterfarbstoff x2  Gewinn 35s 86c · fallend  
+      Geisterpilz x2    75s 84c
+      Lila Farbstoff  Händler  22s 50c
+      Kristallphiole  hast du · Händler  4s 50c
+    Elixier der schwachen Stärke  Gewinn 13s 81c · steigend  
+      Erdwurzel    2s 68c
+      Silberblatt  hast du  58c
+      Leere Phiole  hast du · Händler  4c
+    Viridiangrüner Farbstoff  Gewinn 10s 16c · steigend  
+      Würgerebe x2    27s 94c
+      Kristallphiole  hast du · Händler  4s 50c
+    Geringes Klerikerelixier  Gewinn 9s 80c · steigend  
+      Königsblut x2    2s 70c
+      Lebenswurz x2    6s 4c
+      Verbleite Phiole  hast du · Händler  36c
+  Alchimie: lohnt sich zu holen  Gewinn pro Herstellung
+    Rezept: Legionit transmutieren  Gewinn 27g 36s 59c · bezahlt nach 0.3x herstellen  8g 95s
+    Rezept: Fläschchen mit chromatischem Widerstand  Gewinn 5g 46s 57c · bezahlt nach 2x herstellen  10g 87s
+    Rezept: Leben in Erde transmutieren  Gewinn 4g 54c · bezahlt nach 11.5x herstellen  45g 99s 99c
+    Rezept: Untod zu Wasser transmutieren  Gewinn 3g 83s 12c · bezahlt nach 22.2x herstellen  85g 22s 50c
+    Rezept: Fläschchen mit destillierter Weisheit  Gewinn 1g 44s 22c · bezahlt nach 25x herstellen  35g 98s 95c
+    Rezept: Großer Naturschutztrank  Gewinn 1g 31s 38c · bezahlt nach 22.8x herstellen  30g
+  Erste Hilfe: beste Herstellungen  
+    Erheblicher Heiltrank  Gewinn 4s 20c · steigend  
+      Kristallphiole  hast du · Händler  4s 50c
+      Feine Gewürze x3  hast du · Händler  4s 32c
+   *  Goldener Sansam    13s 67c
+    Verbandtasche  Gewinn 85c · steigend  
+      Leinenverband x3    33c
+      Erfrischendes Quellwasser  Händler  5c
+    Schwerer Seidenverband  Gewinn 6c  
+      Seidenstoff x2  hast du  3s 74c
+    Einfache Schlammpackung x3  Gewinn 5c  
+      Spinnensekret    28c
+      Milde Gewürze  Händler  2c
+      Flasche Dalaran Noir  Händler  45c
+  Erste Hilfe: lohnt sich zu holen  Gewinn pro Herstellung
+   *Handbuch: Starke Schlammpackung  Gewinn 64s 16c · bezahlt nach 4.6x herstellen  2g 98s
+    Bauplan: Labor des Seuchenarztes  Gewinn 32s 57c · bezahlt nach 95.1x herstellen  30g 98s 97c
+    Bauplan: Toxinstudie  Gewinn 8s 11c · bezahlt nach 13.3x herstellen  1g 7s 99c
+  Kochkunst: beste Herstellungen  
+    Triagetee  Gewinn 1s 52c · fallend  
+   *  Süßer Nektar    1s 75c
+   *  Blassblatt x2    10s 88c
+    Bärenbraten  Gewinn 1s 14c · fallend  
+      Großbärenfleisch x2    2s 80c
+      Scharfe Gewürze x3  Händler  1s 8c
+    Gegrillter Bussardflügel  Gewinn 46c · fallend  
+      Bussardflügel    3s
+      Scharfe Gewürze  Händler  36c
+    Nachtflossensuppe  Gewinn 36c · steigend  
+      Roher Nachtflossenschnapper    3s 33c
+      Erfrischendes Quellwasser  Händler  5c
+    Kräutergebackenes Ei  Gewinn 26c · steigend  
+      Kleines Ei    1s 88c
+      Milde Gewürze  Händler  2c
+  Kochkunst: lohnt sich zu holen  Gewinn pro Herstellung
+    Rezept: Krokiliskensteak  Gewinn 10s 14c · bezahlt nach 10.9x herstellen  1g 10s 9c
+    Bauplan: Eisenofen  Gewinn 5s 45c · bezahlt nach 1752.3x herstellen  95g 49s 99c
+    Rezept: Schmackhaftes Löwensteak  Gewinn 4s 71c · bezahlt nach 25.4x herstellen  1g 19s 75c
+    Rezept: Westfall-Eintopf  Gewinn 4s 1c · bezahlt nach 19.9x herstellen  79s 88c
+    Rezept: Gebackener Lachs  Gewinn 3s 4c · bezahlt nach 91.9x herstellen  2g 79s 40c
+    Rezept: Murlocflossensuppe  Gewinn 2s 36c · bezahlt nach 38.1x herstellen  89s 92c
+
+[Verbrauchsgüter] Stufe 53
+  Heiltränke  
+   *Überragender verfärbter Heiltrank  stellt 1500–1700 Gesundheit wieder her  35s 60c
+    Erheblicher Verjüngungstrank  stellt 1440–1760 Gesundheit wieder her  73s 20c
+    Erheblicher Heiltrank  4 in den Taschen · stellt 1050–1750 Gesundheit wieder her  28s 10c
+  Manatränke  
+   *Erheblicher Manatrank  stellt 1350–2250 Mana wieder her  74s 95c
+    Erheblicher Verjüngungstrank  stellt 1440–1760 Mana wieder her  73s 20c
+    Überragender Manatrank  1 in den Taschen · stellt 900–1500 Mana wieder her  36s 99c
+  Essen  
+   *Frittierte Kochbanane  2148 Gesundheit in 30 Sek.  2s 88c
+  Getränke  
+   *Angereicherter Manakeks  4410 Mana in 30 Sek.  20s 99c
+    Trichterwindentau  24 in den Taschen · 2934 Mana in 30 Sek.  5s
+    Mondbeerensaft  1 in den Taschen · 1992 Mana in 30 Sek.  3s
+  Verbände  
+   *Schwerer Runenstoffverband  2000 Gesundheit in 8 Sek.  11s 89c
+    Runenstoffverband  5 in den Taschen · 1360 Gesundheit in 8 Sek.  5s 10c
+  Zaubermacht  
+   *Fläschchen mit oberster Macht  +150 Zaubermacht (2 Std.)  19g 75s 99c
+    Großes Arkanelixier  +35 Zaubermacht (1 Std.)  89s 19c
+  Schattenzaubermacht  
+   *Elixier der Schattenmacht  +40 Schattenzaubermacht (30 Min.)  1g 34s
+  Feuerzaubermacht  
+   *Elixier der Feuermacht  +10 Feuerzaubermacht (30 Min.)  35c
+  Intelligenz  
+    Elixier der großen Intelligenz  3 in den Taschen · +25 Intelligenz (1 Std.)  12s 90c
+    Langsam gegarter prähistorischer Raptor  +20 Intelligenz (15 Min.)  24s 98c
+  Willenskraft  
+   *Heftiger Smoothie  +20 Willenskraft (15 Min.)  19s 64c
+    Elixier der Weisen  +18 Intelligenz, +18 Willenskraft (1 Std.)  52s 99c
+    Rolle der Willenskraft IV  +15 Willenskraft (30 Min.)  3s 43c
+  Mana pro 5 Sek.  
+   *Geringes Magierblutelixier  +6 Mana pro 5 Sek. (30 Min.)  7s 93c
+  Ausdauer  
+   *Pikanter Schildkröteneintopf  +20 Ausdauer (15 Min.)  27s 27c
+    Elixier der rohen Gewalt  +18 Stärke, +18 Ausdauer (1 Std.)  56s
+  Maximale Gesundheit  
+   *Fläschchen der Titanen  +1200 Maximale Gesundheit (2 Std.)  21g 99s 86c
+    Elixier der Seelenstärke  +200 Maximale Gesundheit (30 Min.)  24s
+    Elixier der geringen Seelenstärke  +120 Maximale Gesundheit (1 Std.)  7s 47c
+
+  343 items with a tooltip line, 111 vendor hints
+
+AH scan 2026-11-21, computed HH:MM. * = goes into the Auctionator shopping list.

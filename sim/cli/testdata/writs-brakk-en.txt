@@ -1,0 +1,39 @@
+AH data: last scan day 2026-11-21  |  character: Brakk-Düsterfels
+Reputation Versorgung und Logistik Durotar: Wohlwollend 9125/21000 (11875 to the next standing)
+Note: prices are the lowest buyout at the last scan, not live auctions.
+
+== Journeyman (75 reputation) ==
+ >> Spider Silk Slippers                 Tailoring        writ   0s 00c + item  25s 88c - pouch 33s 00c = net  -7s 12c  -0.09 s/rep  [93 writs in the AH] you own the writ
+    Ornate Spyglass                      Engineering      writ  30s 00c + item  25s 00c - pouch 33s 00c = net  22s 00c  0.29 s/rep  [92 writs in the AH] 
+    Silver Skeleton Key                  Blacksmithing    writ  62s 46c + item   0s 85c - pouch 33s 00c = net  30s 31c  0.40 s/rep  [36 writs in the AH] 
+
+== Expert (125 reputation) ==
+ >> Mechanical Repair Kit                Engineering      writ  54s 44c + item  30s 49c - pouch 70s 00c = net  14s 93c  0.12 s/rep  [129 writs in the AH] 
+    Flash Bomb                           Engineering      writ  85s 00c + item   0s 00c - pouch 70s 00c = net  15s 00c  0.12 s/rep  [64 writs in the AH] you own the item (1x)
+    Solid Sharpening Stone               Blacksmithing    writ  90s 49c + item   2s 27c - pouch 70s 00c = net  22s 76c  0.18 s/rep  [81 writs in the AH] 
+
+== Artisan (200 reputation) ==
+ >> Major Rejuvenation Potion            Alchemy          writ  98s 99c + item  73s 20c - pouch 75s 00c = net  97s 19c  0.49 s/rep  [41 writs in the AH] 
+    Distilled Firewater                  Alchemy          writ  80s 98c + item  99s 22c - pouch 75s 00c = net   1g 05s  0.53 s/rep  [18 writs in the AH] 
+    Limited Invulnerability Potion       Alchemy          writ   1g 08s + item  71s 30c - pouch 75s 00c = net   1g 05s  0.53 s/rep  [63 writs in the AH] 
+
+Per day (the best of each tier): 2g 83s, net after coin pouches 1g 05s for 400 reputation
+Coin pouches: estimate from conquestcapped.com (Nov 2026): Journeyman 22–45 s, Expert 50–90 s, Artisan about 75 s
+
+== Trade crates (Merchant's Favor, you have 10) ==
+-- Apprentice: 5 favor, green 10 (from urgametips.com and wow.gg (Nov 2026))
+    Herbs              crate   9s 98c + 20x Silverleaf 0s 00c                    =   9s 98c  2.00 s/favor  you own the bundle (34x Silverleaf)
+    Curiosities        crate   0s 98c + 4x Greater Magic Essence 16s 00c         =  16s 98c  3.40 s/favor  
+    Textiles           crate  11s 88c + 40x Linen Cloth 11s 60c                  =  23s 48c  4.70 s/favor  
+-- Journeyman: 10 favor, green 20 (from urgametips.com and wow.gg (Nov 2026))
+    Herbs              crate  28s 27c + 10x Bruiseweed 7s 00c                    =  35s 27c  3.53 s/favor  
+    Textiles           crate  11s 80c + 20x Medium Leather 28s 60c               =  40s 40c  4.04 s/favor  
+    Ore                crate   0s 67c + 10x Silver Ore 50s 90c                   =  51s 57c  5.16 s/favor  
+-- Expert: 15 favor, green 30 (measured: handed in 113x)
+    Textiles           crate   1s 39c + 20x Heavy Leather 44s 00c                =  45s 39c  3.03 s/favor  
+    Earthly herbs      crate   2s 00c + 10x Khadgar's Whisker 50s 00c            =  52s 00c  3.47 s/favor  
+    Parts              crate  18s 00c + 8x Iron Strut 54s 96c                    =  72s 96c  4.86 s/favor  
+-- Artisan: 20 favor, green 40 (estimated, extrapolated from Apprentice 5, Journeyman 10, Expert 15)
+    Ore                crate   0s 34c + 10x Truesilver Ore 1g 19s                =   1g 20s  6.01 s/favor  
+    Textiles           crate   1s 02c + 20x Thick Leather 1g 23s                 =   1g 24s  6.20 s/favor  
+    Earthly herbs      crate   0s 57c + 10x Golden Sansam 1g 36s                 =   1g 37s  6.86 s/favor  
