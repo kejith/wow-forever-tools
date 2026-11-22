@@ -1,0 +1,51 @@
+3310 Items, 54 ohne Namen, letzter Scantag 2026-11-21
+   6292  10-pfündiger Matschschnapper
+  13917  103-pfündiger Machtfisch
+  13909  12-pfündiger Hummer
+   6294  12-pfündiger Matschschnapper
+  13910  15-pfündiger Hummer
+  13901  15-pfündiger Lachs
+   6295  15-pfündiger Matschschnapper
+   6309  17-pfündiger Wels
+  13902  18-pfündiger Lachs
+  13911  19-pfündiger Hummer
+   6310  19-pfündiger Wels
+  13912  21-pfündiger Hummer
+  13913  22-pfündiger Hummer
+  13903  22-pfündiger Lachs
+   6311  22-pfündiger Wels
+  13904  25-pfündiger Lachs
+   6363  26-pfündiger Wels
+   6364  32-pfündiger Wels
+  13885  34-pfündiger Rotkiemen
+  13886  37-pfündiger Rotkiemen
+  13876  40-pfündiger Gelbschwanz
+  13882  42-pfündiger Rotkiemen
+  13883  45-pfündiger Rotkiemen
+  13877  47-pfündiger Gelbschwanz
+  13884  49-pfündiger Rotkiemen
+  13887  52-pfündiger Rotkiemen
+  13878  53-pfündiger Gelbschwanz
+  13879  59-pfündiger Gelbschwanz
+  13880  68-pfündiger Gelbschwanz
+  13907  7-pfündiger Hummer
+  13914  70-pfündiger Machtfisch
+  13915  85-pfündiger Machtfisch
+  13908  9-pfündiger Hummer
+  13916  92-pfündiger Machtfisch
+  12213  Aas Surprise
+  10256  Abenteurerarmschienen
+  10260  Abenteurerhandschuhe
+   9420  Abenteurerrundbandhelm
+ 248709  Abgefangene Kiste: Barren des Experten
+ 248712  Abgefangene Kiste: Barren des Fachmanns
+ 248706  Abgefangene Kiste: Barren des Gesellen
+ 248703  Abgefangene Kiste: Barren des Lehrlings
+ 248710  Abgefangene Kiste: Bauteile des Experten
+ 248713  Abgefangene Kiste: Bauteile des Fachmanns
+ 248707  Abgefangene Kiste: Bauteile des Gesellen
+ 248704  Abgefangene Kiste: Bauteile des Lehrlings
+ 248691  Abgefangene Kiste: Blühende Kräuter des Experten
+ 248696  Abgefangene Kiste: Blühende Kräuter des Fachmanns
+ 248692  Abgefangene Kiste: Erz des Experten
+ 248697  Abgefangene Kiste: Erz des Fachmanns

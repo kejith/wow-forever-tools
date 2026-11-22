@@ -1,0 +1,103 @@
+Brakk-Düsterfels  |  AH scan 2026-11-21  |  build 1.60.1.71037  |  vendor prices 279
+
+== Alchimie 300/300 (profession window read 2026-11-21 06:11) ==
+  Learned:
+   Transmutieren: Arkanit                   profit    33g 79s  cost   13g 67s  AH    60x  
+   Geisterfarbstoff                         profit    35s 86c  cost    1g 02s  AH    54x  profit is falling (on 11/19 still +0.51g)
+   Elixier der schwachen Stärke             profit    13s 81c  cost    3s 30c  AH   159x  
+   Viridiangrüner Farbstoff                 profit    10s 16c  cost   32s 44c  AH  1361x  
+   Geringes Klerikerelixier                 profit     9s 80c  cost    9s 10c  AH   928x  
+   Elixier der Schattenmacht                profit     9s 04c  cost    1g 18s  AH   331x  
+   Großes Klerikerelixier                   profit     8s 44c  cost   54s 87c  AH   275x  profit is falling (on 11/19 still +0.32g)
+   Himmelblauer Farbstoff                   profit     7s 19c  cost   88s 74c  AH   109x  
+   Frostschutztrank                         profit     5s 89c  cost   18s 71c  AH   118x  
+   Geringes Magierblutelixier               profit     3s 45c  cost    4s 09c  AH   432x  
+   Geringes Arkanelixier                    profit     2s 31c  cost    5s 76c  AH  2111x  
+   Schwefelsäure                            profit     1s 86c  cost    8s 02c  AH   557x  
+   Trollblutelixier                         profit     1s 62c  cost    4s 08c  AH   313x  
+   Magentafarbener Farbstoff                profit     1s 40c  cost   20s 64c  AH   488x  profit is falling (on 11/19 still +0.02g)
+   Steinschuppenöl                          profit     0s 85c  cost    2s 00c  AH 14129x  
+  Not learned yet:
+   Transmutieren: Legionit                  profit    27g 36s  learnable yes   from 275  AH 8g 95s
+   Fläschchen mit chromatischem Widerstand  profit     5g 46s  learnable yes   from 300  AH 10g 87s
+   Transmutieren: Leben zu Erde             profit     4g 00s  learnable yes   from 275  AH 45g 99s
+   Transmutieren: Untod zu Wasser           profit     3g 83s  learnable yes   from 275  AH 85g 22s
+   Transmutieren: Feuer zu Erde             profit     3g 07s  learnable yes   from 275  recipe item
+   Fläschchen mit destillierter Weisheit    profit     1g 44s  learnable yes   from 300  AH 35g 98s
+   Trank des Dämonentötens                  profit     1g 40s  learnable yes   from 250  recipe item
+   Großer Naturschutztrank                  profit     1g 31s  learnable yes   from 290  AH 30g 00s
+   Fläschchen mit oberster Macht            profit     1g 11s  learnable yes   from 300  AH 50g 49s
+   Erheblicher Trank des Zauberschlags      profit     1g 00s  learnable yes   from 285  recipe item
+   Trank des giftigen Blutes                profit    98s 60c  learnable yes   from 275  recipe item
+   Fläschchen der Titanen                   profit    78s 49c  learnable yes   from 300  AH 59g 69s
+   Elementarfeuer transmutieren             profit    64s 22c  learnable yes   from 300  recipe item
+   Alchemielaboratorium                     profit    58s 97c  learnable yes   from 300  AH 33g 99s
+   Großer Schattenschutztrank               profit    56s 56c  learnable yes   from 290  AH 45g 89s
+
+== Erste Hilfe 300/300 (profession window read 2026-11-21 06:02) ==
+  Learned:
+   Erheblicher Heiltrank                    profit     4s 20c  cost   22s 49c  AH  2384x  
+   Verbandtasche                            profit     0s 85c  cost    0s 38c  AH   134x  
+   Schwerer Seidenverband                   profit     0s 06c  cost    3s 74c  AH  2388x  
+   Einfache Schlammpackung                  profit     0s 05c  cost    0s 75c  AH  1431x  
+   Seidenverband                            profit    -0s 06c  cost    1s 87c  AH  5934x  
+   Leinenverband                            profit    -0s 19c  cost    0s 29c  AH  1600x  
+   Magiestoffverband                        profit    -0s 35c  cost    4s 15c  AH  1356x  profit is falling (on 11/19 still -0.00g)
+   Schwerer Leinenverband                   profit    -0s 39c  cost    0s 58c  AH  6137x  
+   Heiltrank                                profit    -0s 47c  cost    1s 42c  AH  2652x  
+   Runenstoffverband                        profit    -0s 62c  cost    5s 47c  AH   314x  profit is falling (on 11/19 still +0.00g)
+   Gegengift                                profit    -0s 90c  cost    1s 70c  AH   505x  profit is falling (on 11/19 still -0.00g)
+   Schwacher Heiltrank                      profit    -1s 71c  cost    1s 80c  AH  2018x  
+   Geringer Heiltrank                       profit    -1s 82c  cost    2s 06c  AH  1685x  
+   Wollverband                              profit    -2s 12c  cost    2s 39c  AH  5431x  
+   Schwerer Magiestoffverband               profit    -2s 60c  cost    8s 30c  AH   293x  profit is falling (on 11/19 still -0.01g)
+  Not learned yet:
+  *Mächtiges Gegengift                      profit     1g 58s  learnable yes   from 300  recipe item
+  *Starke Schlammpackung                    profit    64s 16c  learnable yes   from 280  AH 2g 98s
+  *Labor des Seuchenarztes                  profit    32s 57c  learnable yes   from 300  AH 30g 98s
+  *Studierzimmer für Gifte                  profit     8s 11c  learnable yes   from 140  AH 1g 07s
+   Schwerer Runenstoffverband               profit     0s 36c  learnable yes   from ?    trainer
+   Überragende Schlammpackung               profit    -0s 16c  learnable yes   from 210  AH 17s 79c
+   Starkes Gegengift                        profit    -0s 22c  learnable yes   from 130  AH 27s 00c
+   Großer Heiltrank                         profit    -1s 61c  learnable yes   from 155  AH 3s 98c
+   Dichter Runenstoffverband                profit    -3s 78c  learnable yes   from 300  recipe item
+   Wirksames Gegengift                      profit    -6s 04c  learnable yes   from 215  AH 31s 00c
+   Überragender Heiltrank                   profit   -13s 05c  learnable yes   from 215  AH 20s 00c
+   Lederabschnürbinde                       profit   -20s 11c  learnable yes   from 200  AH 2g 49s
+   Chirurgische Abschnürbinde               profit   -66s 67c  learnable yes   from 265  AH 2g 25s
+   Schlaue Schlammpackung                   profit          –  learnable yes   from 140  AH 3g 99s
+   Kristalldurchdrungener Verband           profit          –  learnable ?     from ?    recipe item
+
+== Kochkunst 300/300 (profession window read 2026-11-21 04:09) ==
+  Learned:
+   Triagetee                                profit     1s 52c  cost   12s 63c  AH   629x  profit is falling (on 11/19 still +0.06g)
+   Bärenbraten                              profit     1s 14c  cost    3s 88c  AH   147x  profit is falling (on 11/19 still +0.02g)
+   Gegrillter Bussardflügel                 profit     0s 46c  cost    3s 36c  AH   461x  profit is falling (on 11/19 still +0.02g)
+   Nachtflossensuppe                        profit     0s 36c  cost    3s 38c  AH  3708x  
+   Kräutergebackenes Ei                     profit     0s 26c  cost    1s 90c  AH   801x  
+   Einfaches Lagerfeuer                     profit     0s 21c  cost    0s 35c  AH  3926x  
+   Geräucherter Weisenfisch                 profit     0s 20c  cost    0s 47c  AH   703x  
+   Rotkiemenfilet                           profit     0s 19c  cost    0s 07c  AH  5031x  
+   Glitschhautmakrele                       profit     0s 16c  cost    0s 45c  AH  1967x  
+   Tüpfelgelbschwanz                        profit     0s 12c  cost    0s 65c  AH  6229x  
+   Langzahniger Matschschnapper             profit     0s 09c  cost    0s 09c  AH  9312x  
+   Spinnenwurst                             profit     0s 06c  cost    3s 36c  AH   530x  
+   Scharfe Muscheln nach Goblin-Art         profit     0s 04c  cost    0s 86c  AH  3627x  
+   Weisenfisch Supreme                      profit     0s 00c  cost    1s 95c  AH  2100x  
+   Stoppelfühlerwels                        profit    -0s 08c  cost    0s 18c  AH  2867x  
+  Not learned yet:
+  *Rückenflossenheilbutt                    profit    81s 01c  learnable yes   from ?    trainer
+  *Fledermausragout                         profit    20s 96c  learnable yes   from 275  recipe item
+  *Undermine-Muschelsuppe                   profit    17s 31c  learnable yes   from 225  recipe item
+  *Dampfendes Hirschsteak                   profit    17s 30c  learnable yes   from 275  recipe item
+  *Pikanter Schildkröteneintopf             profit    13s 61c  learnable yes   from 275  recipe item
+  *Krokiliskensteak                         profit    10s 14c  learnable yes   from 80   AH 1g 10s
+  *Langsam gegarter prähistorischer Raptor  profit     8s 40c  learnable yes   from 275  recipe item
+  *Verkalkter Smoothie                      profit     7s 68c  learnable yes   from 180  recipe item
+  *Raptorrouladen                           profit     6s 42c  learnable yes   from 225  recipe item
+  *Eisenofen                                profit     5s 45c  learnable yes   from 300  AH 95g 49s
+  *Pikante Hirschfrikadelle                 profit     4s 96c  learnable yes   from 225  recipe item
+  *Schmackhaftes Löwensteak                 profit     4s 71c  learnable yes   from 150  AH 1g 19s
+  *Mageres Wildbret                         profit     4s 63c  learnable yes   from 110  recipe item
+  *Dschungeleintopf                         profit     4s 42c  learnable yes   from 175  recipe item
+  *Flinkschlagsteak                         profit     4s 08c  learnable yes   from 275  recipe item

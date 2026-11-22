@@ -1,0 +1,13 @@
+Brakk-Düsterfels  |  AH-Scan 2026-11-21  |  Build 1.60.1.71037  |  Händlerpreise 279
+
+== Alchimie 300/300 (Berufsfenster gelesen 2026-11-21 06:11) ==
+  Gelernt:
+   Transmutieren: Arkanit                   Gewinn    33g 79s  Kosten   13g 67s  AH    60x  
+   Geisterfarbstoff                         Gewinn    35s 86c  Kosten    1g 02s  AH    54x  Gewinn fällt (am 19.11. noch +0.51g)
+   Elixier der schwachen Stärke             Gewinn    13s 81c  Kosten    3s 30c  AH   159x  
+   Viridiangrüner Farbstoff                 Gewinn    10s 16c  Kosten   32s 44c  AH  1361x  
+  Noch nicht gelernt:
+   Transmutieren: Legionit                  Gewinn    27g 36s  lernbar ja    ab 275  AH 8g 95s
+   Fläschchen mit chromatischem Widerstand  Gewinn     5g 46s  lernbar ja    ab 300  AH 10g 87s
+   Transmutieren: Leben zu Erde             Gewinn     4g 00s  lernbar ja    ab 275  AH 45g 99s
+   Transmutieren: Untod zu Wasser           Gewinn     3g 83s  lernbar ja    ab 275  AH 85g 22s

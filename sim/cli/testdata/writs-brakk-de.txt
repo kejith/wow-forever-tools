@@ -1,0 +1,39 @@
+AH-Daten: letzter Scan-Tag 2026-11-21  |  Charakter: Brakk-Düsterfels
+Ruf Versorgung und Logistik Durotar: Wohlwollend 9125/21000 (noch 11875 bis zur nächsten Stufe)
+Hinweis: Preise sind der Mindest-Sofortkauf beim letzten Scan, keine Live-Angebote.
+
+== Geselle (75 Ruf) ==
+ >> Spinnenseidenslipper                 Schneiderei      Verfügung   0s 00c + Item  25s 88c - Beutel 33s 00c = netto  -7s 12c  -0.09 s/Ruf  [93 Verfügungen im AH] Verfügung im Besitz
+    Verschnörkeltes Handfernrohr         Ingenieurskunst  Verfügung  30s 00c + Item  25s 00c - Beutel 33s 00c = netto  22s 00c  0.29 s/Ruf  [92 Verfügungen im AH] 
+    Silberdietrich                       Schmiedekunst    Verfügung  62s 46c + Item   0s 85c - Beutel 33s 00c = netto  30s 31c  0.40 s/Ruf  [36 Verfügungen im AH] 
+
+== Experte (125 Ruf) ==
+ >> Mechanisches Reparierset             Ingenieurskunst  Verfügung  54s 44c + Item  30s 49c - Beutel 70s 00c = netto  14s 93c  0.12 s/Ruf  [129 Verfügungen im AH] 
+    Blitzstrahlbombe                     Ingenieurskunst  Verfügung  85s 00c + Item   0s 00c - Beutel 70s 00c = netto  15s 00c  0.12 s/Ruf  [64 Verfügungen im AH] Item im Besitz (1x)
+    Robuster Wetzstein                   Schmiedekunst    Verfügung  90s 49c + Item   2s 27c - Beutel 70s 00c = netto  22s 76c  0.18 s/Ruf  [81 Verfügungen im AH] 
+
+== Fachmann (200 Ruf) ==
+ >> Erheblicher Verjüngungstrank         Alchimie         Verfügung  98s 99c + Item  73s 20c - Beutel 75s 00c = netto  97s 19c  0.49 s/Ruf  [41 Verfügungen im AH] 
+    Destilliertes Feuerwasser            Alchimie         Verfügung  80s 98c + Item  99s 22c - Beutel 75s 00c = netto   1g 05s  0.53 s/Ruf  [18 Verfügungen im AH] 
+    Begrenzter Unverwundbarkeitstrank    Alchimie         Verfügung   1g 08s + Item  71s 30c - Beutel 75s 00c = netto   1g 05s  0.53 s/Ruf  [63 Verfügungen im AH] 
+
+Pro Tag (jeweils die beste): 2g 83s, netto nach Münzbeuteln 1g 05s für 400 Ruf
+Münzbeutel: Schätzung laut conquestcapped.com (Nov 2026): Geselle 22–45 s, Experte 50–90 s, Fachmann etwa 75 s
+
+== Handelskisten (Händlergunst, du hast 10) ==
+-- Lehrling: 5 Gunst, grün 10 (laut urgametips.com und wow.gg (Nov 2026))
+    Kräuter            Kiste   9s 98c + 20x Silberblatt 0s 00c                   =   9s 98c  2.00 s/Gunst  Bündel im Besitz (34x Silberblatt)
+    Kuriositäten       Kiste   0s 98c + 4x Große Magieessenz 16s 00c             =  16s 98c  3.40 s/Gunst  
+    Textilien          Kiste  11s 88c + 40x Leinenstoff 11s 60c                  =  23s 48c  4.70 s/Gunst  
+-- Geselle: 10 Gunst, grün 20 (laut urgametips.com und wow.gg (Nov 2026))
+    Kräuter            Kiste  28s 27c + 10x Beulengras 7s 00c                    =  35s 27c  3.53 s/Gunst  
+    Textilien          Kiste  11s 80c + 20x Mittleres Leder 28s 60c              =  40s 40c  4.04 s/Gunst  
+    Erz                Kiste   0s 67c + 10x Silbererz 50s 90c                    =  51s 57c  5.16 s/Gunst  
+-- Experte: 15 Gunst, grün 30 (gemessen: 113x abgegeben)
+    Textilien          Kiste   1s 39c + 20x Schweres Leder 44s 00c               =  45s 39c  3.03 s/Gunst  
+    Weltliche Kräuter  Kiste   2s 00c + 10x Khadgars Schnurrbart 50s 00c         =  52s 00c  3.47 s/Gunst  
+    Bauteile           Kiste  18s 00c + 8x Eisenstrebe 54s 96c                   =  72s 96c  4.86 s/Gunst  
+-- Fachmann: 20 Gunst, grün 40 (geschätzt, fortgeschrieben aus Lehrling 5, Geselle 10, Experte 15)
+    Erz                Kiste   0s 34c + 10x Echtsilbererz 1g 19s                 =   1g 20s  6.01 s/Gunst  
+    Textilien          Kiste   1s 02c + 20x Dickes Leder 1g 23s                  =   1g 24s  6.20 s/Gunst  
+    Weltliche Kräuter  Kiste   0s 57c + 10x Goldener Sansam 1g 36s               =   1g 37s  6.86 s/Gunst  
