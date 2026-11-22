@@ -13,63 +13,31 @@ import (
 	"github.com/kejith/wow-forever-tools/sim/internal/sv"
 )
 
-// dumpScript prints every global a file sets the way upgrades.load_sv returns it, as JSON.
+// dumpScript prints every global a file sets the way the Python scripts read it (upgrades.load_sv), as JSON.
 const dumpScript = `
 import json, sys
-sys.path.insert(0, sys.argv[1])
-from upgrades import load_sv
 import re
-src = open(sys.argv[2], encoding="utf-8", errors="replace").read()
+# load_sv as scripts/upgrades.py had it: the file in a sandboxed Lua 5.4, one global as Python data.
+def lua_to_py(x):
+    from lupa.lua54 import lua_type
+    if lua_type(x) != "table":
+        return x
+    keys = list(x.keys())
+    if keys and all(isinstance(k, int) for k in keys) and sorted(keys) == list(range(1, len(keys) + 1)):
+        return [lua_to_py(x[k]) for k in sorted(keys)]
+    return {k: lua_to_py(x[k]) for k in keys}
+def load_sv(path, name):
+    from lupa.lua54 import LuaRuntime
+    lua = LuaRuntime(register_eval=False, register_builtins=False)
+    for g in ("os", "io", "package", "require", "dofile", "loadfile", "debug"):
+        lua.execute(f"{g} = nil")
+    lua.execute(open(path, encoding="utf-8", errors="replace").read())
+    return lua_to_py(lua.globals()[name])
+src = open(sys.argv[1], encoding="utf-8", errors="replace").read()
 names = re.findall(r"^([A-Za-z_][A-Za-z0-9_]*) = ", src, re.M)
-print(json.dumps({n: load_sv(sys.argv[2], n) for n in names}, ensure_ascii=False))
+print(json.dumps({n: load_sv(sys.argv[1], n) for n in names}, ensure_ascii=False))
 `
 
-const pricesScript = `
-import json, sys
-sys.path.insert(0, sys.argv[1])
-import writs
-print(json.dumps(writs.load_prices(sys.argv[2]), ensure_ascii=False))
-`
-
-// TestPricesAgainstPython reads Auctionator's price database with Prices and with writs.load_prices (the
-// test folder and WOW_FOREVER_DIR, if set). Runs with SV_LUPA=1 like TestAgainstLupa.
-func TestPricesAgainstPython(t *testing.T) {
-	if os.Getenv("SV_LUPA") == "" {
-		t.Skip("set SV_LUPA=1 to compare with writs.load_prices (needs uv)")
-	}
-	scripts, _ := filepath.Abs(filepath.Join("..", "..", "..", "scripts"))
-	roots := []string{filepath.Join(scripts, "fixtures", "forever")}
-	if w := os.Getenv("WOW_FOREVER_DIR"); w != "" {
-		roots = append(roots, w)
-	}
-	script := filepath.Join(t.TempDir(), "prices.py")
-	if err := os.WriteFile(script, []byte(pricesScript), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	for _, root := range roots {
-		paths, _ := filepath.Glob(filepath.Join(root, "WTF", "Account", "*", "SavedVariables", "Auctionator.lua"))
-		for _, p := range paths {
-			out, err := exec.Command("uv", "run", "--quiet", "python", script, scripts, p).Output()
-			if err != nil {
-				t.Errorf("%s: python: %v", p, err)
-				continue
-			}
-			db, err := sv.Prices(p)
-			if err != nil {
-				t.Errorf("%s: %v", p, err)
-				continue
-			}
-			data, _ := pyjson.Encode(db)
-			if string(data) != strings.TrimSpace(string(out)) {
-				t.Errorf("%s: the price database differs from writs.load_prices (%d entries)", p, db.Len())
-			} else {
-				t.Logf("%s: %d entries, byte for byte as Python writes them", root, db.Len()) // not the account folder
-			}
-		}
-	}
-}
-
-// collision names the first table of a file with two keys that are the same text in JSON.
 func collision(f *sv.File) string {
 	var walk func(path string, t *sv.Table) string
 	walk = func(path string, t *sv.Table) string {
@@ -107,8 +75,8 @@ func TestAgainstLupa(t *testing.T) {
 	if os.Getenv("SV_LUPA") == "" {
 		t.Skip("set SV_LUPA=1 to compare with lupa (needs uv)")
 	}
-	scripts, _ := filepath.Abs(filepath.Join("..", "..", "..", "scripts"))
-	roots := []string{filepath.Join(scripts, "fixtures", "forever")}
+	fixtures, _ := filepath.Abs(filepath.Join("..", "..", "..", "scripts", "fixtures"))
+	roots := []string{filepath.Join(fixtures, "forever")}
 	if w := os.Getenv("WOW_FOREVER_DIR"); w != "" {
 		roots = append(roots, w)
 	}
@@ -125,9 +93,9 @@ func TestAgainstLupa(t *testing.T) {
 		}
 		for _, p := range paths {
 			if filepath.Base(p) == "Auctionator.lua" || strings.HasSuffix(p, ".bak") {
-				continue // the price database is a string; Prices reads it, the parity check compares it
+				continue // the price database is a string; Prices reads it
 			}
-			out, err := exec.Command("uv", "run", "--quiet", "--with", "lupa", "python", script, scripts, p).Output()
+			out, err := exec.Command("uv", "run", "--quiet", "--with", "lupa", "python", script, p).Output()
 			if err != nil {
 				t.Errorf("%s: lupa: %v", p, err)
 				continue

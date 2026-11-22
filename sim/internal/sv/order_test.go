@@ -11,14 +11,28 @@ import (
 	"github.com/kejith/wow-forever-tools/sim/internal/sv"
 )
 
-// orderScript prints, for every table of a file that load_sv turns into a dict without a string key, the
-// order of its keys: that order is Lua's and the same in every run.
+// orderScript prints, for every table of a file that lupa turns into a dict without a string key, the order
+// of its keys: that order is Lua's and the same in every run.
 const orderScript = `
 import json, sys
-sys.path.insert(0, sys.argv[1])
-from upgrades import load_sv
 import re
-src = open(sys.argv[2], encoding="utf-8", errors="replace").read()
+# load_sv as scripts/upgrades.py had it: the file in a sandboxed Lua 5.4, one global as Python data.
+def lua_to_py(x):
+    from lupa.lua54 import lua_type
+    if lua_type(x) != "table":
+        return x
+    keys = list(x.keys())
+    if keys and all(isinstance(k, int) for k in keys) and sorted(keys) == list(range(1, len(keys) + 1)):
+        return [lua_to_py(x[k]) for k in sorted(keys)]
+    return {k: lua_to_py(x[k]) for k in keys}
+def load_sv(path, name):
+    from lupa.lua54 import LuaRuntime
+    lua = LuaRuntime(register_eval=False, register_builtins=False)
+    for g in ("os", "io", "package", "require", "dofile", "loadfile", "debug"):
+        lua.execute(f"{g} = nil")
+    lua.execute(open(path, encoding="utf-8", errors="replace").read())
+    return lua_to_py(lua.globals()[name])
+src = open(sys.argv[1], encoding="utf-8", errors="replace").read()
 out = {}
 def walk(x, path):
     if isinstance(x, dict):
@@ -30,7 +44,7 @@ def walk(x, path):
         for i, v in enumerate(x):
             walk(v, path + "/" + str(i + 1))
 for n in re.findall(r"^([A-Za-z_][A-Za-z0-9_]*) = ", src, re.M):
-    walk(load_sv(sys.argv[2], n), n)
+    walk(load_sv(sys.argv[1], n), n)
 print(json.dumps(out))
 `
 
@@ -62,14 +76,15 @@ func walkOrder(x any, path string, out map[string][]string) {
 }
 
 // TestKeyOrderAgainstLupa checks that a table without string keys iterates in Lua's order (luaOrder): the
-// scripts follow it, and ties in their sorts keep it. Runs with SV_LUPA=1 (needs uv); WOW_FOREVER_DIR adds a
+// Python scripts followed it, ties in their sorts kept it, and the recorded answers (bridge/golden_test.go)
+// were made that way. Runs with SV_LUPA=1 (needs uv); WOW_FOREVER_DIR adds a
 // real game folder.
 func TestKeyOrderAgainstLupa(t *testing.T) {
 	if os.Getenv("SV_LUPA") == "" {
 		t.Skip("set SV_LUPA=1 to compare with lupa (needs uv)")
 	}
-	scripts, _ := filepath.Abs(filepath.Join("..", "..", "..", "scripts"))
-	roots := []string{filepath.Join(scripts, "fixtures", "forever")}
+	fixtures, _ := filepath.Abs(filepath.Join("..", "..", "..", "scripts", "fixtures"))
+	roots := []string{filepath.Join(fixtures, "forever")}
 	if w := os.Getenv("WOW_FOREVER_DIR"); w != "" {
 		roots = append(roots, w)
 	}
@@ -88,7 +103,7 @@ func TestKeyOrderAgainstLupa(t *testing.T) {
 			if filepath.Base(p) == "Auctionator.lua" || strings.HasSuffix(p, ".bak") {
 				continue
 			}
-			raw, err := exec.Command("uv", "run", "--quiet", "--with", "lupa", "python", script, scripts, p).Output()
+			raw, err := exec.Command("uv", "run", "--quiet", "--with", "lupa", "python", script, p).Output()
 			if err != nil {
 				t.Errorf("%s: lupa: %v", filepath.Base(p), err)
 				continue

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDecodeLikePillow(t *testing.T) {
@@ -32,6 +33,36 @@ func TestDecodeLikePillow(t *testing.T) {
 		if img.Rect.Dx() != c.w || img.Rect.Dy() != c.h || hex.EncodeToString(img.Pix) != c.rgba {
 			t.Errorf("%s: other pixels than Pillow's", c.name)
 		}
+	}
+}
+
+// TestRetryWhenThrottled: wago.tools answers 429 twice, then the icon; a server that stays busy gives up after
+// the retries.
+func TestRetryWhenThrottled(t *testing.T) {
+	waits := retryWaits
+	retryWaits = []time.Duration{time.Millisecond, time.Millisecond, time.Millisecond}
+	defer func() { retryWaits = waits }()
+	blp := blpOf(t)
+	calls := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls[r.URL.Path]++
+		if r.URL.Path == "/api/casc/700" && calls[r.URL.Path] <= 2 || r.URL.Path == "/api/casc/701" {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		w.Write(blp)
+	}))
+	defer srv.Close()
+	baseURL = srv.URL
+	defer func() { baseURL = "https://wago.tools" }()
+	cache := t.TempDir()
+	os.MkdirAll(Dir(cache), 0o755)
+	if !Fetch(cache, 700) || calls["/api/casc/700"] != 3 {
+		t.Errorf("throttled twice: fetched %v after %d calls", Fetch(cache, 700), calls["/api/casc/700"])
+	}
+	if Fetch(cache, 701) || calls["/api/casc/701"] != 1+len(retryWaits) {
+		t.Errorf("always throttled: %d calls", calls["/api/casc/701"])
 	}
 }
 

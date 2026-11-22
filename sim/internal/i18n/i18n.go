@@ -1,7 +1,8 @@
-// Package i18n is the Go side of scripts/i18n.py: the English source text is the key, T("only {n} in the
-// AH", "n", 3) looks it up in the catalog of the selected language and fills in the placeholders the way
-// Python's str.format does. The German catalog is locale_de.json in this folder; the Python scripts read the
-// same file (scripts/locale_de.py), so both sides translate alike while the scripts move to Go.
+// Package i18n translates the texts of wowtools (it took over from scripts/i18n.py): the English source text
+// is the key, T("only {n} in the AH", "n", 3) looks it up in the catalog of the selected language and fills
+// in the placeholders the way Python's str.format did. The German catalog is locale_de.json in this folder,
+// one section per tool (the sections still carry the names of the scripts the texts came from). The test of
+// this package fails on a text without a German entry, an entry no code uses, or different placeholders.
 //
 // The language follows the game client unless it is set: --lang en|de, the environment variable
 // WOW_TOOLS_LANG, or textLocale in WTF/Config.wtf (deDE -> German, anything else English).
@@ -107,7 +108,7 @@ func SetLanguage(lang, wow string) string {
 func Language() string { return language }
 
 // Mark marks a text for translation without translating it yet: a text that is looked up through a variable
-// (scripts/test_i18n.py and the test of this package find it at the Mark call).
+// (the test of this package finds it at the Mark call).
 func Mark(text string) string { return text }
 
 // T is text in the selected language with its {name} placeholders filled in from name/value pairs:

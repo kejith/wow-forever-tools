@@ -3,7 +3,7 @@
 [![CI](https://github.com/kejith/wow-forever-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/kejith/wow-forever-tools/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kejith/wow-forever-tools)](https://github.com/kejith/wow-forever-tools/releases/latest)
 
-Tools for World of Warcraft: Forever: a desktop app, an MCP server and scripts that evaluate character data, auction house scans and professions.
+Tools for World of Warcraft: Forever: a desktop app, an MCP server and a command line tool that evaluate character data, auction house scans and professions.
 
 The data comes out of the game through two addons, each in its own repository:
 
@@ -12,9 +12,9 @@ The data comes out of the game through two addons, each in its own repository:
 | WoWMCP | [kejith/WoWMCP](https://github.com/kejith/WoWMCP) | exports character, equipment, bags, bank, quests, reputation, professions, talents and auction house items into its SavedVariables; shows the app's lists in the game |
 | GoldPerHour | [kejith/GoldPerHour](https://github.com/kejith/GoldPerHour) | gold per hour, split into herbs and loot |
 
-The game writes SavedVariables to disk only on `/reload` or logout. The app, the scripts and the MCP server read them from there.
+The game writes SavedVariables to disk only on `/reload` or logout. The app, the command line tool and the MCP server read them from there.
 
-App, scripts and addons work with an English and a German game client and use the client's language. Names that come from the game (items, zones, professions) are always in the language of the client.
+App, command line tool and addons work with an English and a German game client and use the client's language. Names that come from the game (items, zones, professions) are always in the language of the client.
 
 ## Desktop app
 
@@ -22,17 +22,17 @@ App, scripts and addons work with an English and a German game client and use th
 
 Download `WoW-Forever-Tools-Setup-<version>.exe` from the [latest release](https://github.com/kejith/wow-forever-tools/releases/latest) and run it. The installer is not code signed, so Windows SmartScreen asks once ("More info", then "Run anyway").
 
-The app brings everything it needs. On the first start it downloads Python and two libraries through its bundled [uv](https://docs.astral.sh/uv/), which needs a network connection. It finds the game under `C:\Program Files (x86)\World of Warcraft\_forever_`; for another place set `wowDir` in the settings file (see "Settings").
+The app brings everything it needs; nothing else is installed. It fetches game tables and item icons from wago.tools when a page first needs them. It finds the game under `C:\Program Files (x86)\World of Warcraft\_forever_`; for another place set `wowDir` in the settings file (see "Settings").
 
 ### Pages
 
 - **Connection:** Is WoW Forever running? Are WoWMCP and GoldPerHour installed and current (install and update with one click)? How old are the auction house scan, the item export and the character snapshots? Which lists did the app send into the game, and has the game loaded them? Requests to the addon: item export, read all items again, character snapshot.
-- **Character:** the character window as in the game: stats, equipment with points, professions, talents. For a healer every heal rank with its healing per second and per mana (`scripts/healing.py`); for a caster that deals damage the rotation for the most damage and the one for a long fight, every damage spell and rank with its DPS and damage per mana, and what a point of each stat adds (`scripts/damage.py`).
-- **Writs:** the cheapest crafting writ per tier, net of the coin pouch, and the trade crates by silver per Merchant's Favor (`scripts/writs.py`).
-- **AH upgrades:** upgrades per equipment slot with a budget, a preview of higher levels and a mark for items new in Forever (`scripts/upgrades.py`).
-- **Professions:** profit per craft of the recipes you know, and missing recipes that pay more, with the source and price of the recipe (`scripts/recipes.py`).
-- **Consumables:** what flasks, elixirs, buff food, weapon oils, scrolls, potions and runes add to your DPS or HPS in a fight, which of them exclude each other, and the best set of those you can get now; below that the strongest potions, food, drinks, bandages and buffs for the level (`scripts/consumables.py`). The Character page shows the same set, and the pages "AH upgrades" and "Rotations" can rate with it ("with consumables").
-- **Gold per hour:** the running session of the GoldPerHour addon (herbs and loot, per hour, items, zones, gold curve), start/stop/reset, the addon's settings and the history of finished sessions (`scripts/goldperhour.py`).
+- **Character:** the character window as in the game: stats, equipment with points, professions, talents. For a healer every heal rank with its healing per second and per mana (`sim/tools/healing`); for a caster that deals damage the rotation for the most damage and the one for a long fight, every damage spell and rank with its DPS and damage per mana, and what a point of each stat adds (`sim/tools/damage`).
+- **Writs:** the cheapest crafting writ per tier, net of the coin pouch, and the trade crates by silver per Merchant's Favor (`sim/tools/writs`).
+- **AH upgrades:** upgrades per equipment slot with a budget, a preview of higher levels and a mark for items new in Forever (`sim/tools/upgrades`).
+- **Professions:** profit per craft of the recipes you know, and missing recipes that pay more, with the source and price of the recipe (`sim/tools/recipes`).
+- **Consumables:** what flasks, elixirs, buff food, weapon oils, scrolls, potions and runes add to your DPS or HPS in a fight, which of them exclude each other, and the best set of those you can get now; below that the strongest potions, food, drinks, bandages and buffs for the level (`sim/tools/consumables`). The Character page shows the same set, and the pages "AH upgrades" and "Rotations" can rate with it ("with consumables").
+- **Gold per hour:** the running session of the GoldPerHour addon (herbs and loot, per hour, items, zones, gold curve), start/stop/reset, the addon's settings and the history of finished sessions (`sim/tools/goldperhour`).
 
 The app watches `WTF\Account` and reloads as soon as the game writes SavedVariables.
 
@@ -53,7 +53,7 @@ What the pages find is also available in the game, through the WoWMCP addon (1.7
 - **Tooltip lines** on the items of the lists, for example the gain of an upgrade or the profit of a recipe.
 - **A chat line at vendors** that sell a recipe worth buying.
 
-The app writes the lists for every character into `Interface\AddOns\WoWMCP\AppData.lua` whenever the game has saved (`scripts/ingame.py`); the game loads the file on the next `/reload`. After a new auction house scan that takes two: the first `/reload` saves the scan for the app, the second loads the new lists. The "Connection" page shows what was sent and whether the game has loaded it, and has "Send now" and the switch for sending automatically.
+The app writes the lists for every character into `Interface\AddOns\WoWMCP\AppData.lua` whenever the game has saved (`sim/tools/ingame`); the game loads the file on the next `/reload`. After a new auction house scan that takes two: the first `/reload` saves the scan for the app, the second loads the new lists. The "Connection" page shows what was sent and whether the game has loaded it, and has "Send now" and the switch for sending automatically.
 
 ### Language
 
@@ -67,26 +67,35 @@ The language follows the game client (`SET textLocale` in `WTF\Config.wtf`): Ger
 | --- | --- |
 | `wowDir` | the `_forever_` folder, if the game is not in the default place. The environment variable `WOW_FOREVER_DIR` does the same. |
 | `language` | `auto` (default), `en` or `de` |
-| `uvPath` | another `uv` than the bundled one |
+| `wowtoolsPath` | another `wowtools` than the bundled one |
 | `sendToGame` | `false`: do not write the lists for the game by itself (the switch on the "Connection" page) |
 | `addonSources` | install an addon from a local checkout instead of the release: `{ "goldperhour": "<folder>", "wowmcp": "<folder>" }`. The environment variables `GOLDPERHOUR_ADDON_DIR` and `WOWMCP_ADDON_DIR` do the same. |
 
-## Scripts
+## Command line
 
-The scripts need [uv](https://docs.astral.sh/uv/) (`winget install astral-sh.uv`); their dependencies are listed in the script header and `uv run` installs them.
+Everything the app computes is one Go program, `wowtools`. The app ships it (`resources\bin\wowtools.exe` in
+the installation folder); from a checkout build it with [Go](https://go.dev/dl/): `cd sim`, then
+`go build -o wowtools ./cmd/wowtools` (`wowtools.exe` on Windows).
 
-| Script | Purpose |
+| Command | Purpose |
 | --- | --- |
-| `uv run scripts/writs.py --char <name>` | best writ per tier and the trade crates (`--top 3`, `--owned-at-ah-price`) |
-| `uv run scripts/upgrades.py --char <name>` | equipment upgrades from the auction house (`--max-price <gold>`, `--profile leveling\|dungeon`, `--sort gain\|price`, `--preview 4`, `--top 3`) |
-| `uv run scripts/recipes.py --char <name>` | profit per recipe (`--profession Alchemy`, `--top 15`) |
-| `uv run scripts/consumables.py --char <name>` | the strongest potions, food, bandages and buffs for the level, and the best set of consumables for a fight (`--top 5`, `--all-buffs`, `--fight-seconds 60`) |
-| `uv run scripts/damage.py --char <name>` | the rotation for the most damage and the one for a long fight, every damage spell with its DPS, and stat weights (`--all-ranks`, `--fight-seconds 60`); needs the combat engine (`sim/`) |
-| `uv run scripts/ingame.py` | what the WoWMCP addon shows in the game, per character; `--write` puts it into the addon folder |
-| `uv run scripts/goldperhour.py` | GoldPerHour sessions |
-| `uv run scripts/app_bridge.py status` | what the app sees, as JSON |
+| `wowtools writs --char <name>` | best writ per tier and the trade crates (`--top 3`, `--owned-at-ah-price`) |
+| `wowtools upgrades --char <name>` | equipment upgrades from the auction house and your own gear (`--max-price <gold>`, `--profile leveling\|dungeon`, `--sort gain\|price`, `--preview 4`, `--top 3`, `--engine on\|off`) |
+| `wowtools recipes --char <name>` | profit per recipe (`--profession Alchemy`, `--top 15`) |
+| `wowtools consumables --char <name>` | the strongest potions, food, bandages and buffs for the level, and the best set of consumables for a fight (`--top 5`, `--all-buffs`, `--fight-seconds 60`) |
+| `wowtools rotations --char <name>` | what to cast in which fight, from the combat engine (`--fight-seconds 60`, `--consumables`) |
+| `wowtools damage --char <name>` | the rotation for the most damage and the one for a long fight, every damage spell with its DPS, and stat weights (`--all-ranks`, `--fight-seconds 60`) |
+| `wowtools healing --char <name>` | every heal and shield rank with its healing per second and per mana, and stat weights |
+| `wowtools combatlog --char <name>` | what the character really did in the newest combat log, next to the combat model (`--fight N`) |
+| `wowtools pricehistory` | price history of the items in Auctionator's database (`--item 2447`) |
+| `wowtools ingame` | what the WoWMCP addon shows in the game, per character; `--write` puts it into the addon folder |
+| `wowtools goldperhour` | GoldPerHour sessions, as JSON |
+| `wowtools bridge status` | what the app sees, as JSON (`wowtools bridge --list` names the commands) |
 
-Every script takes `--wow <folder>`. `writs.py`, `upgrades.py`, `recipes.py`, `consumables.py` and `ingame.py` print a table, or JSON with `--json`, and take `--lang auto|en|de` (default: the language of the game client; `WOW_TOOLS_LANG` sets it for all scripts; `ingame.py` always writes the client's language into the game). `goldperhour.py` and `app_bridge.py` always print JSON.
+Every command takes `--wow <folder>` (default: `WOW_FOREVER_DIR`, else `C:\Program Files (x86)\World of
+Warcraft\_forever_`). The reports print a table, or JSON with `--json`, and take `--lang auto|en|de` (default:
+the language of the game client; `WOW_TOOLS_LANG` sets it for all commands; `ingame` always writes the client's
+language into the game). `wowtools --help` lists every command.
 
 Before running them: scan the auction house with Auctionator, open every profession window once, then `/reload`. Prices are the lowest buyout of the last scan, not live offers.
 
@@ -142,18 +151,18 @@ npm install
 npm start
 ```
 
-This needs Node.js 22 and uv. The app has no build step: plain JavaScript in `app/` (main process) and `app/renderer/` (window, ES modules). All numbers are computed in Python through `scripts/app_bridge.py`.
+This needs Node.js 22 and a built `sim/wowtools` (see "Command line"). The app has no build step: plain JavaScript in `app/` (main process) and `app/renderer/` (window, ES modules). All numbers are computed by `wowtools bridge <command>` (Go, `sim/`).
 
 | Check | Command |
 | --- | --- |
 | App: addon install, release download, requests, translations | `cd app && npm test` |
-| Scripts | `uv run scripts/test_writs.py` (also `test_upgrades.py`, `test_recipes.py`, `test_consumables.py`, `test_ingame.py`, `test_goldperhour.py`, `test_i18n.py`) |
+| wowtools: calculations, reports, the app's JSON, translations, combat engine | `cd sim && go test ./...` |
 | MCP server | `uv run server/test_wow_mcp.py` |
 | Screenshots of every page | `cd app && npm run capture` (into `app/captures`; add `-- --lang=de` for German) |
 | The app as it will be installed, unpacked | `cd app && npm run pack` (into `app/dist`) |
 | The Windows installer | `cd app && npm run dist` (on Windows) |
 
-No test needs the game or a network connection.
+No test needs the game. The Go tests read the game tables of the test folder (`scripts/fixtures/forever`) from `scripts/cache`; the first run downloads them from wago.tools.
 
 ### Translations
 
@@ -161,11 +170,11 @@ English is the language of the code. A text is written in English where it is us
 
 | Part | Mark a text | German catalog | Test |
 | --- | --- | --- | --- |
-| Scripts | `tr("…")`, `mark("…")` from `scripts/i18n.py` | `scripts/locale_de.py` | `scripts/test_i18n.py` |
+| wowtools | `i18n.T("…")`, `i18n.Mark("…")` from `sim/internal/i18n` | `sim/internal/i18n/locale_de.json` | `cd sim && go test ./internal/i18n` |
 | App, main process | `t('…')` from `app/i18n.js` | `app/locales/de.js` | `app/i18n.test.js` |
 | App, window | `t('…')`, `mark('…')` from `app/renderer/i18n.js`; `data-i18n` in `index.html` | `app/renderer/locales/de.js` | `app/i18n.test.js` |
 
-The tests fail when a text has no German entry, when an entry is no longer used or when the placeholders differ. For another language add a catalog and its code to `LANGUAGES` in the three `i18n` files.
+The tests fail when a text has no German entry, when an entry is no longer used or when the placeholders differ. For another language add a catalog and its code to the language lists of `sim/internal/i18n`, `app/i18n.js` and `app/renderer/i18n.js`.
 
 ### Releases
 

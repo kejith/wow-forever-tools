@@ -103,24 +103,50 @@ func Map(cache string, ids map[int64]bool, build string) (map[int64]int64, error
 	return out, nil
 }
 
+// retryWaits are the pauses before asking again when wago.tools says "too many requests" (429) or is busy
+// (503): a fresh install asks for the icons of a whole page at once. A Retry-After of up to maxWait wins.
+var (
+	retryWaits = []time.Duration{time.Second, 2 * time.Second, 4 * time.Second}
+	maxWait    = 10 * time.Second
+)
+
+// download is the body of a GET; false for anything but 200 once the retries are used up.
+func download(url string) ([]byte, bool) {
+	for try := 0; ; try++ {
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			return nil, false
+		}
+		req.Header.Set("User-Agent", userAgent)
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, false
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err == nil && resp.StatusCode == http.StatusOK {
+			return data, true
+		}
+		busy := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable
+		if !busy || try >= len(retryWaits) {
+			return nil, false
+		}
+		wait := retryWaits[try]
+		if s, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && s > 0 {
+			wait = time.Duration(s) * time.Second
+		}
+		time.Sleep(min(wait, maxWait))
+	}
+}
+
 // Fetch is icons.fetch_icon: downloads one icon BLP and stores it as PNG; true if the PNG exists afterwards.
 func Fetch(cache string, fdid int64) bool {
 	path := game.Join(Dir(cache), fmt.Sprintf("%d.png", fdid))
 	if _, err := os.Stat(path); err == nil {
 		return true
 	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/casc/%d?download", baseURL, fdid), nil)
-	if err != nil {
-		return false
-	}
-	req.Header.Set("User-Agent", userAgent)
-	resp, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil || resp.StatusCode != http.StatusOK {
+	data, ok := download(fmt.Sprintf("%s/api/casc/%d?download", baseURL, fdid))
+	if !ok {
 		return false
 	}
 	img, err := DecodeBLP(data)
@@ -143,7 +169,7 @@ func Fetch(cache string, fdid int64) bool {
 }
 
 // Resolve is icons.resolve: {"icons": {itemId: FileDataID or null}, "fallback", "dir"}; downloads what is
-// not cached yet, eight at a time.
+// not cached yet, four at a time (wago.tools throttles more).
 func Resolve(wow string, itemIDs []int64) (*pyjson.Obj, error) {
 	cache := tables.CacheDir()
 	ids := map[int64]bool{}
@@ -167,7 +193,7 @@ func Resolve(wow string, itemIDs []int64) (*pyjson.Obj, error) {
 	ok := map[int64]bool{}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	slots := make(chan struct{}, 8)
+	slots := make(chan struct{}, 4)
 	for icon := range need {
 		wg.Add(1)
 		go func(icon int64) {

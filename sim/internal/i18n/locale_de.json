@@ -178,7 +178,6 @@
     "assumption": "Annahme"
   },
   "simengine.py": {
-    "The combat engine (simforever) was not found.": "Die Kampf-Engine (simforever) wurde nicht gefunden.",
     "The combat engine failed: {err}": "Die Kampf-Engine ist fehlgeschlagen: {err}",
     "The combat engine reports: {err}": "Die Kampf-Engine meldet: {err}",
     "The snapshot does not name the client build; /wowmcp sync and /reload first.": "Der Schnappschuss nennt den Client-Build nicht; erst /wowmcp sync und /reload.",

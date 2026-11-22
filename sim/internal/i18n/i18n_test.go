@@ -116,6 +116,20 @@ func TestGoTextsHaveGermanEntries(t *testing.T) {
 	}
 }
 
+func TestCatalogEntriesAreUsed(t *testing.T) {
+	used := goTexts(t)
+	var unused []string
+	for en := range Catalog("de") {
+		if _, ok := used[en]; !ok {
+			unused = append(unused, strconv.Quote(en))
+		}
+	}
+	sort.Strings(unused)
+	if len(unused) > 0 {
+		t.Fatalf("no code uses these entries of locale_de.json (remove them):\n%s", strings.Join(unused, "\n"))
+	}
+}
+
 func fieldSet(text string) map[pyfmt.Field]bool {
 	out := map[pyfmt.Field]bool{}
 	for _, f := range pyfmt.Fields(text) {

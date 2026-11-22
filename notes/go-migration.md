@@ -1,7 +1,8 @@
 # Migration of the Python scripts to Go
 
-Status: phases 0 to 4 done (2026-11-22): every bridge command is in Go and answers like Python on the
-fixture and the real data. Next: phase 5.
+Status: done (2026-11-22). Every calculation of the app and every report is `wowtools` (Go, `sim/`); the
+Python scripts, uv, lupa and Pillow are gone from the app, the installer and the repo. Only the MCP server
+`server/wow_mcp.py` stays in Python. Not released yet: the next version (1.12.0) is the first without Python.
 
 Goal: the app computes everything with one Go binary. uv, Python, lupa and Pillow leave the installer and the
 user's machine, and the answers stay the same as today, field for field.
@@ -274,6 +275,35 @@ Done when: every bridge command is in `GO_COMMANDS`.
 - CLAUDE.md: the scripts table becomes `wowtools <command>` calls, "Check after changes" becomes Go tests, the
   WSL tool list loses uv for the app (uv stays for the MCP server).
 - Release as a minor version (`1.x.0`): the user-visible change is the installer and the first start.
+
+**Done (2026-11-22).** What came of it:
+
+- **The reports came along.** The scripts were also the command line (`uv run scripts/writs.py --char …`), and
+  CLAUDE.md's checks relied on them. Before the scripts went, their text output became `wowtools <command>`
+  (`sim/cli`, one file per command), ported by three agents side by side in their own worktrees and compared
+  with the scripts byte for byte on the fixture and the real data in both languages (`scripts/clidiff.sh`, gone
+  with the scripts): 270 runs, every text equal. What differs is only in `--json` and was there before: Python
+  printed a whole number from the engine's JSON as `4`, Go as `4.0`; key orders Python took at random from a Lua
+  table. `writs.py` had no lupa in its header, so under plain `uv run` it left out the measured payouts, the level
+  and the Merchant's Favor; the Go report has them.
+- **The guarantee stays without Python.** The bridge's answers on the fixture were recorded from Python (78 cases,
+  `sim/bridge/testdata/golden.json.gz`, 950 KB), once more with the clock 40 days ahead: no field depends on the
+  day. `TestGolden` runs every case in-process and compares (numbers within 1e-9, key order not compared);
+  it passes under Linux and as a Windows build. The reports have Python's text in `sim/cli/testdata`.
+- **Gone:** `scripts/*.py` with their tests, `scripts/fixtures/make_forever.py` (it read the real folder through
+  the scripts; the fixture is fixed now), `sim/cmd/parity`, `sim/cmd/simforever` (`wowtools engine` reads a
+  bundle on stdin), the generators that imported the scripts (their case tables stay), `main.js`'s uv lookup and
+  Python fallback, `notPorted`. The SavedVariables checks against lupa (`SV_LUPA=1`) keep working: they carry the
+  few lines of `load_sv` they need.
+- **Installer:** `resources/` holds `app.asar`, `bin/wowtools.exe` and `scripts/data`; nothing is downloaded on
+  the first start. CI: Go tests (with the golden test) on Ubuntu and Windows, the DB2 cache on both, uv only for
+  the MCP server's tests, and the smoke test checks the bundled wowtools.
+- **Icons on the first start:** a packed app with an empty cache asked wago.tools for a whole page of icons at
+  once, eight at a time, and got 429 for many (question marks until a restart; Python did the same). The download
+  now waits and asks again on 429/503 (1, 2, 4 s, or `Retry-After` up to 10 s), four at a time: the packed app
+  then showed all 286 icons of the capture run from an empty cache.
+- Checked: `go vet`, `go test ./...`, `npm test`, the app from source and the packed app (`npm run pack`) in
+  capture mode against the real data: every page, no error, the packed one with `resources/bin/wowtools`.
 
 ## Optional afterwards
 
