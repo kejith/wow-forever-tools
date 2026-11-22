@@ -1,0 +1,43 @@
+AH scan: 2026-11-21 | item export: 2026-11-21 16:31 | level 28 | budget 47g 17s | 605 items, 0 not loaded
+Combat model: 57.0 DPS against +3 levels, 60s fight, mana for 64s
+   Schattenwort: Schmerz (Rang 3)  8.60  8.2% of the fight time
+   Heiliges Feuer (Rang 2)  14.20  33.7% of the fight time
+   Verschlingende Seuche (Rang 1)  6.20  6.1% of the fight time, returns 6.2 health per second
+   Gedankenschlag (Rang 3)  13.80  17.9% of the fight time
+   Göttliche Pein (Rang 4)  14.20  32.5% of the fight time
+   Dunkles Opfer (Rang 1)    0.00  0.7 casts per minute, 1.7% of the fight time, 6.1 mana per second for 4.9 health per second
+== What the model does with your spells and talents (4 rotations compared)
+   Spells
+      used              Göttliche Pein (Rang 4): cast in the rotation
+      used              Schattenwort: Schmerz (Rang 3): cast in the rotation
+      used              Verschlingende Seuche (Rang 1): cast in the rotation
+      used              Gedankenschlag (Rang 3): cast in the rotation
+      used              Heiliges Feuer (Rang 2): cast in the rotation
+      used              Dunkles Opfer (Rang 1): converts health to mana when the rotation runs short
+      no influence      Machtwort: Schild (Rang 4), Erneuerung (Rang 3), Gedankenbesänftigung (Rang 1), Magiebannung (Rang 1), Krankheit heilen, Verblassen (Rang 2), Inneres Feuer (Rang 2), Machtwort: Seelenstärke (Rang 3), Auferstehung (Rang 1), Geringes Heilen (Rang 3), Heilen (Rang 2), Blitzheilung (Rang 1), Berührung der Schwäche (Rang 2), Furchtzauberschutz, Psychischer Schrei (Rang 1), Untote fesseln (Rang 1)
+   Talents
+      used              Meditation (3/3): mana regeneration continues while casting
+      used              Zauberstab-Spezialisierung (2/2): raises the wand damage
+      used              Heilige Präzision (1/3): changes spells of the rotation
+      used              Macht im Licht (3/5): changes spells of the rotation
+      in your stats     Mentale Stärke (5/5): already part of the numbers the game shows for your character
+      no influence      Verbessertes Machtwort: Schild (3/3), Willensentzug (2/5), Seelenwehr (1/1)
+   The snapshot was taken with these buffs, and its numbers include them: Mal der Wildnis, Arkane Intelligenz.
+   Checked against the spell texts, mana costs and cast times of the game: 13 of 13 spell ranks agree.
+Prices are the lowest buyout at the scan.
+7 items you own are only known by name (Szepter des Verlasseneren in your bank, Geisterhafter Mantel in your bank, Monstrositätenhautreste in your bank, Zerfledderte Fäustlinge in your bank, Reich mit Juwelen besetzter Ring in your bank, Banditen-Umhang der Magie in your bank, ...): open the bank once with WoWMCP 1.12 or newer, then /reload.
+
+== Best package for 47g 17s: +4.3 DPS (+8%) for 1g 38s
+   Finger       +1.8   new      owned            Ring der Machtregulierung (in your bags) [NEW in Forever]  [SP 6, Mana/5s 3]  id 273030
+              up to here 0s 00c for +1.8 DPS, replaces Schädelring
+   Wrist        +0.9 +104%      owned            Messerpoliertuch (in your bags) [NEW in Forever]  [SP 6, Spi 4]  id 271740
+              up to here 0s 00c for +2.7 DPS, replaces Tabithas Manschetten
+   Feet         +1.6 +233%     1g 38s     1.1/g  Spinnenseidenstiefel  [SP 7, Sta 4, Int 4]  id 4320
+              up to here 1g 38s for +4.3 DPS, replaces Feuerwandler-Stiefel
+
+== Feet: now Feuerwandler-Stiefel (SP 2, Int 1, Spi 5)
+     +1.6 +233%     1g 38s     1.1/g  Spinnenseidenstiefel  [SP 7, Sta 4, Int 4]  id 4320
+== Wrist: now Tabithas Manschetten (SP 3, Sta 4)
+     +0.9 +104%      owned            Messerpoliertuch (in your bags) [NEW in Forever]  [SP 6, Spi 4]  id 271740
+== Finger: now Schädelring (Sta 3, Int 3)
+     +1.8   new      owned            Ring der Machtregulierung (in your bags) [NEW in Forever]  [SP 6, Mana/5s 3]  id 273030

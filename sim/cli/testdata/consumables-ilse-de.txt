@@ -1,0 +1,209 @@
+Ilse-Grabeshauch  |  Stufe 28  |  AH-Scan 2026-11-21
+
+== Heiltränke ==
+ *Großer verfärbter Heiltrank          stellt 975–1105 Gesundheit wieder her            6s 78c    Alchimie
+  Verfärbter Heiltrank                 stellt 600–680 Gesundheit wieder her             5s 04c    Alchimie
+  Großer Heiltrank                     stellt 455–585 Gesundheit wieder her             3s 00c    Erste Hilfe
+  Heiltrank                            stellt 280–360 Gesundheit wieder her             1s 00c    Erste Hilfe
+  Geringer verfärbter Heiltrank        stellt 300–340 Gesundheit wieder her             1s 97c    Alchimie
+   nächstes: Überragender verfärbter Heiltrank ab Stufe 35
+
+== Manatränke ==
+ *Dunkelrune                           stellt 900–1500 Mana wieder her                  2g 02s    
+  Manatrank                            stellt 455–585 Mana wieder her                   1s 76c  7 in den Taschen  Alchimie
+  Geringer Manatrank                   stellt 280–360 Mana wieder her                   0s 36c  1 in den Taschen  Alchimie
+  Schwacher Manatrank                  stellt 140–180 Mana wieder her                   0s 14c    Alchimie
+  Schwacher Verjüngungstrank           stellt 90–150 Mana wieder her                    0s 15c    Alchimie
+   nächstes: Erheblicher Manatrank ab Stufe 49
+
+== Essen ==
+ *Blutbauchfisch                       1392 Gesundheit in 30 Sek.                       2s 75c    
+  Steinschuppenkabeljau                875 Gesundheit in 27 Sek.                        0s 10c    Kochkunst
+  Langzahniger Matschschnapper         552 Gesundheit in 24 Sek.                        0s 04c    Kochkunst
+  Sengginwurzel                        294 Gesundheit in 21 Sek.                        0s 06c    
+  Glitschhautmakrele                   244 Gesundheit in 21 Sek.                        0s 05c    Kochkunst
+   nächstes: Gegrillter Kalmar ab Stufe 35
+
+== Getränke ==
+ *Verzaubertes Wasser                  1345 Mana in 27 Sek.                             1s 40c    
+  Triagetee                            1345 Mana in 27 Sek.                            14s 90c  19 in den Taschen  Kochkunst
+  Blubberwasser                        835 Mana in 24 Sek.                              0s 50c    
+  Melonensaft                          835 Mana in 24 Sek.                              0s 53c  5 in den Taschen  
+  Eiskalte Milch                       437 Mana in 21 Sek.                              0s 23c    
+   nächstes: Mondbeerensaft ab Stufe 35
+
+== Verbände ==
+   nächstes: Leinenverband mit Erste Hilfe 1
+
+== Zaubermacht ==
+ *Trank des Zauberschlags              +16 Zaubermacht                                  8s 00c    Alchimie
+  Geringes Arkanelixier                +15 Zaubermacht                                  8s 49c  1 in den Taschen  Alchimie
+  Salziger Meeresfrüchteeintopf        +14 Zaubermacht                                 10s 97c    Kochkunst
+  Geringes Arkanelixier                +14 Zaubermacht                                       –    Alchimie
+  Geringer Trank des Zauberschlags     +11 Zaubermacht                                  3s 89c    Alchimie
+   nächstes: Großer Trank des Zauberschlags ab Stufe 35
+
+== Schattenzaubermacht ==
+   nächstes: Elixier der Schattenmacht ab Stufe 40
+
+== Heiligzaubermacht ==
+   nächstes: Elixier der heiligen Kraft ab Stufe 40
+
+== Heilung ==
+ *Trank des Heilers                    +31 Heilung                                     39s 99c    Alchimie
+  Triagetee                            +22 Heilung                                     14s 90c  19 in den Taschen  Kochkunst
+  Geringer Trank des Heilers           +20 Heilung                                     12s 97c    Alchimie
+  Geringes Klerikerelixier             +20 Heilung                                     19s 89c  1 in den Taschen  Alchimie
+  Schwacher Trank des Heilers          +13 Heilung                                      0s 38c    Alchimie
+   nächstes: Großer Trank des Heilers ab Stufe 35
+
+== Zauberkrit ==
+   nächstes: Hervorragendes Zauberöl ab Stufe 45
+
+== Intelligenz ==
+ *Gegrillter Bussardflügel             +10 Intelligenz                                  4s 02c    Kochkunst
+  Rolle der Intelligenz II             +8 Intelligenz                                   1s 19c    
+  Elixier der geringen Intelligenz     +6 Intelligenz                                   4s 00c  5 in den Taschen  Alchimie
+  Gerösteter Raptor                    +5 Intelligenz                                   3s 05c    Kochkunst
+  Rolle der Intelligenz                +4 Intelligenz                                   0s 88c    
+   nächstes: Runn Tum Knolle Surprise ab Stufe 35
+
+== Willenskraft ==
+ *Verkalkter Smoothie                  +10 Willenskraft                                11s 99c    Kochkunst
+  Rolle der Willenskraft II            +7 Willenskraft                                  0s 99c    
+  Scharfe Muscheln nach Goblin-Art     +6 Ausdauer, +6 Willenskraft                     0s 95c    Kochkunst
+  Elixier der geringen Willenskraft    +6 Willenskraft                                  5s 45c  1 in den Taschen  Alchimie
+  Mrrggl Smrrthle                      +5 Willenskraft                                  3s 61c    Kochkunst
+   nächstes: Rolle der Willenskraft III ab Stufe 30
+
+== Mana pro 5 Sek. ==
+ *Geringes Magierblutelixier           +6 Mana pro 5 Sek.                               7s 93c  1 in den Taschen  Alchimie
+  Schwaches Manaöl                     +5 Mana pro 5 Sek., +10 Heilung                  5s 00c  3 in den Taschen  Verzauberkunst
+  Schwaches Magierblutelixier          +3 Mana pro 5 Sek.                               7s 87c    Alchimie
+   nächstes: Magierblutelixier ab Stufe 40
+
+== Ausdauer ==
+ *Schwarzer Rumsey Rum                 +15 Ausdauer                                     5s 85c    
+  Riesenmuschelrisotto                 +10 Ausdauer                                     5s 15c    Kochkunst
+  Rolle der Ausdauer II                +8 Ausdauer                                      3s 49c    
+  Scharfe Muscheln nach Goblin-Art     +6 Ausdauer, +6 Willenskraft                     0s 95c    Kochkunst
+  Klarer Rumsey-Rum                    +5 Ausdauer                                      0s 51c    
+   nächstes: Dirges abgefahrene Chimaerokkoteletts ab Stufe 45
+
+== Maximale Gesundheit ==
+ *Elixier der geringen Seelenstärke    +120 Maximale Gesundheit                         7s 47c    Alchimie
+  Elixier der schwachen Seelenstärke   +27 Maximale Gesundheit                          3s 26c    Alchimie
+   nächstes: Elixier der Seelenstärke ab Stufe 45
+
+== Alle Attribute ==
+  Elixier der verschmolzenen Reue      +1 Alle Attribute                                     –    Alchimie
+
+=== Verbrauchsgüter für einen Kampf von 60 s: Heilung ===
+134.4 HPS ohne, 186.2 HPS mit dem besten Set (+51.8, +38.6 %), zu kaufen: 2s 18c
+  1. Manatrank                            Tränke im Kampf        +22.7 HPS      1s 76c  7 in den Taschen
+  2. Triagetee                            Buff-Essen              +6.7 HPS     14s 90c  19 in den Taschen
+  3. Geringes Klerikerelixier             Elixiere                +6.0 HPS     19s 89c  1 in den Taschen
+  4. Schwaches Manaöl                     Waffenöl                +5.9 HPS      5s 00c  3 in den Taschen
+  5. Rolle der Intelligenz II             Rollen                  +4.3 HPS      1s 19c  
+  6. Elixier der geringen Intelligenz     Elixiere                +3.4 HPS      4s 00c  5 in den Taschen
+  7. Geringes Magierblutelixier           Elixiere                +1.3 HPS      7s 93c  1 in den Taschen
+  8. Elixier der geringen Willenskraft    Elixiere                +0.8 HPS      5s 45c  1 in den Taschen
+  9. Rolle der Willenskraft II            Rollen                  +0.6 HPS      0s 99c  
+
+-- Elixiere: Elixiere für verschiedene Werte wirken zusammen: Kampf- und Wächterelixiere kennt das Spiel hier nicht. (Ob sich zwei Elixiere für denselben Wert addieren, ist für Forever nicht bestätigt. Das Set nimmt eins pro Wert.)
+ *Geringes Klerikerelixier             +20 Heilung                                 +6.4 HPS     19s 89c  1 in den Taschen  
+ *Elixier der geringen Intelligenz     +6 Intelligenz                              +4.5 HPS      4s 00c  5 in den Taschen  
+  Schwaches Klerikerelixier            +10 Heilung                                 +3.2 HPS      5s 69c    stattdessen: Geringes Klerikerelixier
+ *Geringes Magierblutelixier           +6 Mana pro 5 Sek.                          +3.1 HPS      7s 93c  1 in den Taschen  
+  Elixier der Weisheit                 +3 Intelligenz                              +2.2 HPS      1s 05c    stattdessen: Elixier der geringen Intelligenz
+ *Elixier der geringen Willenskraft    +6 Willenskraft                             +1.2 HPS      5s 45c  1 in den Taschen  
+   … und 20 weitere
+
+-- Buff-Essen: Immer nur ein Buff "Satt": Die nächste Mahlzeit ersetzt ihn.
+  Gegrillter Bussardflügel             +10 Intelligenz                             +7.5 HPS      4s 02c    stattdessen: Triagetee
+  Gewürzter Chilikrebs                 +10 Intelligenz                             +7.5 HPS      4s 10c    stattdessen: Triagetee
+  Rippchen vom tobenden Raptor         +10 Intelligenz                             +7.5 HPS      4s 98c    stattdessen: Triagetee
+ *Triagetee                            +22 Heilung                                 +7.1 HPS     14s 90c  19 in den Taschen  
+  Gerösteter Raptor                    +5 Intelligenz                              +3.7 HPS      3s 05c    stattdessen: Triagetee
+   … und 66 weitere
+
+-- Waffenöl: Eine vorübergehende Verzauberung pro Waffe. Zauberstein und Feuerstein des Hexenmeisters belegen laut ihren Texten denselben Platz.
+ *Schwaches Manaöl                     +5 Mana pro 5 Sek., +10 Heilung             +5.3 HPS      5s 00c  3 in den Taschen  
+  Schwaches Zauberöl                   +8 Zaubermacht, +8 Heilung                  +2.6 HPS      2s 99c    stattdessen: Schwaches Manaöl
+
+-- Rollen: Eine Rolle pro Wert. (Im ursprünglichen Spiel kam eine Rolle nicht zum Klassenbuff desselben Werts dazu (Arkane Intelligenz, Göttlicher Willen, Machtwort: Seelenstärke). Für Forever nicht geprüft: Das Set zählt die Rolle voll.)
+ *Rolle der Intelligenz II             +8 Intelligenz                              +6.0 HPS      1s 19c    
+  Rolle der Intelligenz                +4 Intelligenz                              +3.0 HPS      0s 88c    stattdessen: Rolle der Intelligenz II
+ *Rolle der Willenskraft II            +7 Willenskraft                             +1.4 HPS      0s 99c    
+  Rolle der Willenskraft               +3 Willenskraft                             +0.6 HPS      0s 34c    stattdessen: Rolle der Willenskraft II
+  Rolle des Schutzes                   +60 Rüstung                                 +0.0 HPS      0s 52c    
+   … und 7 weitere
+
+-- Tränke im Kampf: Alle Tränke teilen sich eine Abklingzeit von 2 Minuten. Der Gewinn ist das, was der Trank gibt, über den Kampf verteilt: sein Mana oder seine Gesundheit, oder sein Buff für die Sekunden, die er hält.
+ *Manatrank                            stellt 455–585 Mana wieder her             +22.7 HPS      1s 76c  7 in den Taschen  
+  Geringer Manatrank                   stellt 280–360 Mana wieder her             +14.0 HPS      0s 36c  1 in den Taschen  stattdessen: Manatrank
+  Schwacher Manatrank                  stellt 140–180 Mana wieder her              +7.0 HPS      0s 14c    stattdessen: Manatrank
+  Schwacher Verjüngungstrank           stellt 90–150 Mana wieder her, stellt 90    +5.2 HPS      0s 15c    stattdessen: Manatrank
+  Trank des Heilers                    +31 Heilung                                 +5.0 HPS     39s 99c    stattdessen: Manatrank
+   … und 18 weitere
+
+-- Runen und Wurzeln: Runen und die Wurzeln aus dem Teufelswald teilen sich eine eigene Abklingzeit von 2 Minuten, neben den Tränken.
+  Dunkelrune                           stellt 900–1500 Mana wieder her, kostet    +25.9 HPS      2g 02s    kostet mehr als die Hälfte deiner Gesundheit
+
+-- Andere Buffs: Die Buffs aus den Verwüsteten Landen teilen sich eine Abklingzeit von einer Stunde, und es wirkt immer nur ein Zanza-Trank. (Bei den anderen sagt nichts, was sie ausschließen: Das Set zählt jeden davon obendrauf.)
+  Elixier der verschmolzenen Reue      +1 Alle Attribute                           +0.9 HPS           –    nicht im AH
+  Oil of Olaf                          +50 Rüstung                                 +0.0 HPS      0s 88c    
+
+=== Verbrauchsgüter für einen Kampf von 60 s: Schaden ===
+64.6 DPS ohne, 80.8 DPS mit dem besten Set (+16.2, +25.1 %), zu kaufen: 23s 15c
+  1. Geringes Arkanelixier                Elixiere                +5.1 DPS      8s 49c  1 in den Taschen
+  2. Salziger Meeresfrüchteeintopf        Buff-Essen              +4.8 DPS     10s 97c  
+  3. Schwaches Zauberöl                   Waffenöl                +2.7 DPS      2s 99c  
+  4. Trank des Zauberschlags              Tränke im Kampf         +2.7 DPS      8s 00c  
+  5. Rolle der Intelligenz II             Rollen                  +0.4 DPS      1s 19c  
+  6. Elixier der geringen Intelligenz     Elixiere                +0.3 DPS      4s 00c  5 in den Taschen
+  7. Elixier der geringen Willenskraft    Elixiere                +0.1 DPS      5s 45c  1 in den Taschen
+
+-- Elixiere: Elixiere für verschiedene Werte wirken zusammen: Kampf- und Wächterelixiere kennt das Spiel hier nicht. (Ob sich zwei Elixiere für denselben Wert addieren, ist für Forever nicht bestätigt. Das Set nimmt eins pro Wert.)
+ *Geringes Arkanelixier                +15 Zaubermacht                             +5.1 DPS      8s 49c  1 in den Taschen  
+  Geringes Arkanelixier                +14 Zaubermacht                             +4.8 DPS           –    nicht im AH
+  Schwaches Arkanelixier               +5 Zaubermacht                              +1.7 DPS      1s 90c    stattdessen: Geringes Arkanelixier
+ *Elixier der geringen Intelligenz     +6 Intelligenz                              +0.3 DPS      4s 00c  5 in den Taschen  
+  Geringes Magierblutelixier           +6 Mana pro 5 Sek.                          +0.1 DPS      7s 93c  1 in den Taschen  
+ *Elixier der geringen Willenskraft    +6 Willenskraft                             +0.1 DPS      5s 45c  1 in den Taschen  
+   … und 20 weitere
+
+-- Buff-Essen: Immer nur ein Buff "Satt": Die nächste Mahlzeit ersetzt ihn.
+ *Salziger Meeresfrüchteeintopf        +14 Zaubermacht                             +4.8 DPS     10s 97c    
+  Geräucherter Weisenfisch             +4 Zaubermacht                              +1.4 DPS      0s 70c    stattdessen: Salziger Meeresfrüchteeintopf
+  Gegrillter Bussardflügel             +10 Intelligenz                             +0.4 DPS      4s 02c    stattdessen: Salziger Meeresfrüchteeintopf
+  Gewürzter Chilikrebs                 +10 Intelligenz                             +0.4 DPS      4s 10c    stattdessen: Salziger Meeresfrüchteeintopf
+  Rippchen vom tobenden Raptor         +10 Intelligenz                             +0.4 DPS      4s 98c    stattdessen: Salziger Meeresfrüchteeintopf
+   … und 66 weitere
+
+-- Waffenöl: Eine vorübergehende Verzauberung pro Waffe. Zauberstein und Feuerstein des Hexenmeisters belegen laut ihren Texten denselben Platz.
+ *Schwaches Zauberöl                   +8 Zaubermacht, +8 Heilung                  +2.7 DPS      2s 99c    
+  Schwaches Manaöl                     +5 Mana pro 5 Sek., +10 Heilung             +0.1 DPS      5s 00c  3 in den Taschen  stattdessen: Schwaches Zauberöl
+
+-- Rollen: Eine Rolle pro Wert. (Im ursprünglichen Spiel kam eine Rolle nicht zum Klassenbuff desselben Werts dazu (Arkane Intelligenz, Göttlicher Willen, Machtwort: Seelenstärke). Für Forever nicht geprüft: Das Set zählt die Rolle voll.)
+ *Rolle der Intelligenz II             +8 Intelligenz                              +0.3 DPS      1s 19c    
+  Rolle der Intelligenz                +4 Intelligenz                              +0.2 DPS      0s 88c    stattdessen: Rolle der Intelligenz II
+  Rolle der Willenskraft II            +7 Willenskraft                             +0.1 DPS      0s 99c    
+  Rolle der Willenskraft               +3 Willenskraft                             +0.0 DPS      0s 34c    
+  Rolle des Schutzes                   +60 Rüstung                                 +0.0 DPS      0s 52c    
+   … und 7 weitere
+
+-- Tränke im Kampf: Alle Tränke teilen sich eine Abklingzeit von 2 Minuten. Der Gewinn ist das, was der Trank gibt, über den Kampf verteilt: sein Mana oder seine Gesundheit, oder sein Buff für die Sekunden, die er hält.
+ *Trank des Zauberschlags              +16 Zaubermacht                             +2.7 DPS      8s 00c    
+  Geringer Trank des Zauberschlags     +11 Zaubermacht                             +1.9 DPS      3s 89c    stattdessen: Trank des Zauberschlags
+  Schwacher Trank des Zauberschlags    +7 Zaubermacht                              +1.2 DPS      1s 45c    stattdessen: Trank des Zauberschlags
+  Manatrank                            stellt 455–585 Mana wieder her              +0.6 DPS      1s 76c  7 in den Taschen  stattdessen: Trank des Zauberschlags
+  Geringer Manatrank                   stellt 280–360 Mana wieder her              +0.5 DPS      0s 36c  1 in den Taschen  stattdessen: Trank des Zauberschlags
+   … und 18 weitere
+
+-- Runen und Wurzeln: Runen und die Wurzeln aus dem Teufelswald teilen sich eine eigene Abklingzeit von 2 Minuten, neben den Tränken.
+  Dunkelrune                           stellt 900–1500 Mana wieder her, kostet     +0.6 DPS      2g 02s    kostet mehr als die Hälfte deiner Gesundheit
+
+-- Andere Buffs: Die Buffs aus den Verwüsteten Landen teilen sich eine Abklingzeit von einer Stunde, und es wirkt immer nur ein Zanza-Trank. (Bei den anderen sagt nichts, was sie ausschließen: Das Set zählt jeden davon obendrauf.)
+  Elixier der verschmolzenen Reue      +1 Alle Attribute                           +0.1 DPS           –    nicht im AH
+  Oil of Olaf                          +50 Rüstung                                 +0.0 DPS      0s 88c    

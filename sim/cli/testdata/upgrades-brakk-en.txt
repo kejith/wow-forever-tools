@@ -1,0 +1,81 @@
+AH scan: 2026-11-21 | item export: 2026-11-21 16:31 | level 53 | budget 221g 65s | 605 items, 0 not loaded
+Combat model: 326.4 DPS against +2 levels, 60s fight, mana for 62s
+   Fluch der Elemente (Rang 4)  0.00  2.4% of the fight time, the other spells deal 10% more under it
+   Omen der Pein (Rang 5)   80.60  5.7% of the fight time
+   Verderbnis (Rang 5)      71.10  7.4% of the fight time
+   Lebensentzug (Rang 3)    30.90  4.6% of the fight time, returns 30.9 health per second
+   Zermürben (Rang 1)       143.80  79.9% of the fight time
+== What the model does with your spells and talents (144 rotations compared)
+   Spells
+      used              Verderbnis (Rang 5): cast in the rotation
+      used              Dämonenrüstung (Rang 4): taken as always active; its health regeneration feeds Life Tap
+      used              Omen der Pein (Rang 5): cast in the rotation
+      used              Aderlass (Rang 5): converts health to mana when the rotation runs short
+      used              Lebensentzug (Rang 3): cast in the rotation
+      used              Fluch der Elemente (Rang 4): cast in the rotation
+      used              Zermürben (Rang 1): cast in the rotation
+      tried             Feuerbrand (Rang 6): tried instead: 320.2 DPS, less than the rotation above
+      tried             Schattenblitz (Rang 8): tried instead: 245.9 DPS, less than the rotation above
+      tried             Blutsauger (Rang 5): tried next to the rotation above: this fight does not need it
+      tried             Seelendieb (Rang 3): tried instead: 214.7 DPS, less than the rotation above
+      tried             Höllenfeuer (Rang 2): hits every enemy at once: played in the fights against several enemies of the rotation guide
+      tried             Sengender Schmerz (Rang 3): tried instead: 229.4 DPS, less than the rotation above
+      tried             Feuerregen (Rang 3): hits every enemy at once: played in the fights against several enemies of the rotation guide
+      tried             Seelenfeuer (Rang 1): tried instead: 314.2 DPS, less than the rotation above
+      tried             Todesmantel (Rang 2): tried instead: 325.8 DPS, less than the rotation above
+      no influence      Dämonenhaut (Rang 2), Wichtel beschwören (Beschwören), Seelenstein herstellen (Rang 4), Leerwandler beschwören (Beschwören), Ritual der Beschwörung, Fluch der Schwäche (Rang 5), Fluch der Tollkühnheit (Rang 2), Verbannen (Rang 2), Sukkubus beschwören (Beschwören), Lebenslinie (Rang 6), Dämon unterwerfen (Rang 1), Fluch der Sprachen (Rang 1), Zauberstein herstellen (Rang 2), Mana entziehen (Rang 2), Schreckensgeheul (Rang 1), Furcht (Rang 2), Gesundheitsstein herstellen (Rang 4), Feuerstein herstellen (Rang 3)
+   Talents
+      used              Seelenentzug (3/3): changes spells of the rotation
+      used              Verbesserte Verderbnis (5/5): changes spells of the rotation
+      used              Verbesserter Aderlass (2/2): applied to the rotation
+      used              Lebensentzug (1/1): cast in the rotation
+      used              Schattenbeherrschung (5/5): changes spells of the rotation
+      used              Verbessertes Omen der Pein (2/2): changes spells of the rotation
+      used              Pandemie (3/3): applied to the rotation
+      used              Böswilligkeit (5/5): changes spells of the rotation
+      used              Zermürben (1/1): cast in the rotation
+      in your stats     Unterdrückung (5/5): already part of the numbers the game shows for your character
+      in your stats     Dämonische Umarmung (1/5): already part of the numbers the game shows for your character
+      tried             Verbessertes Entziehen (3/3): changes only spells the best rotation does not cast
+      not modeled       Seelenernte (2/2): depends on the situation (a kill, a proc), not modeled
+      no influence      Teufelskonzentration (3/3), Grimmige Reichweite (2/2), Fluch verstärken (1/1)
+   The snapshot was taken with these buffs, and its numbers include them: Dämonenrüstung, Teufelsross beschwören, Blutpakt, Satt, Segen des Kriegshäuptlings.
+   Checked against the spell texts, mana costs and cast times of the game: 47 of 47 spell ranks agree.
+Prices are the lowest buyout at the scan.
+
+== Best package for 221g 65s: +31.0 DPS (+10%) for 94g 31s
+   Neck         +5.4   new      owned            Schnallengürtel des Kuriers (in your bags) [NEW in Forever]  [SP 8, Int 10, Spi 7]  id 279833
+              up to here 0s 00c for +5.4 DPS, replaces Halsschmuck des Hochschamanen
+   Wand         +3.4 +197%     1g 32s     2.5/g  Kleiner ewiger Zauberstab [NEW in Forever]  [SP 8, DPS 45.8]  id 249232
+              up to here 1g 32s for +8.8 DPS, replaces Zauberstab des Gezeitenlieds
+   Wrist        +3.9  +94%     4g 99s     0.8/g  Kultistenmanschetten [NEW in Forever]  [SP 12, Spi 8]  id 284104
+              up to here 6g 32s for +12.7 DPS, replaces Blutbandarmschienen
+   Legs         +3.2  +24%     5g 99s     0.5/g  Geisterzwirnhose  [SP 26, Spi 20]  id 14144
+              up to here 12g 32s for +15.9 DPS, replaces Schattenzwirnhose
+   Chest       +12.8  +96%    53g 99s     0.2/g  Robe der Winternacht  [Shadow 40, Int 12]  id 14136
+              up to here 66g 32s for +28.7 DPS, replaces Elementargewandung
+   Main Hand    +2.4   +6%    27g 99s     0.1/g  Spitze des Steinformers [two-handed]  [SP 64, Sta 20, Int 17, DPS 35.7]  id 12532
+              up to here 94g 31s for +31.1 DPS, replaces Hypnoseklinge + Umbralkristall
+
+== Neck: now Halsschmuck des Hochschamanen (Int 5, Spi 8)
+     +5.4   new      owned            Schnallengürtel des Kuriers (in your bags) [NEW in Forever]  [SP 8, Int 10, Spi 7]  id 279833
+            Anlegen: Erhöht den durch magische Zauber und Effekte verursachten Schaden gegen Humanoide um bis zu 10.
+== Shoulder: now Schattenzwirnschultern (Shadow 17, Sta 7)
+     +5.7  +53%     6g 45s     0.9/g  Teufelsstoffschultern (from level 57)  [Shadow 26, Spi 5]  id 14112
+== Chest: now Elementargewandung (SP 21)
+    +12.8  +96%    53g 99s     0.2/g  Robe der Winternacht  [Shadow 40, Int 12]  id 14136
+== Legs: now Schattenzwirnhose (Shadow 21, Sta 6)
+     +3.2  +24%     5g 99s     0.5/g  Geisterzwirnhose  [SP 26, Spi 20]  id 14144
+== Wrist: now Blutbandarmschienen (SP 5, Int 9, Spi 3)
+     +3.5  +83%     4g 99s     0.7/g  Kultistenmanschetten [NEW in Forever]  [SP 12, Spi 8]  id 284104
+     +1.5  +37%    19g 00s     0.1/g  Gepeinigte Stulpen [NEW in Forever]  [SP 9, Sta 13]  id 287028
+== Main Hand: now Hypnoseklinge (SP 44, Int 8, Spi 3, DPS 17.5)
+     +2.4   +6%    27g 99s     0.1/g  Spitze des Steinformers [two-handed]  [SP 64, Sta 20, Int 17, DPS 35.7]  id 12532
+== Wand: now Zauberstab des Gezeitenlieds (Sta 3, Int 4, Crit rating 7, DPS 51)
+     +3.4 +197%     1g 32s     2.5/g  Kleiner ewiger Zauberstab [NEW in Forever]  [SP 8, DPS 45.8]  id 249232
+     +2.1 +123%      owned            Verwirbelter Netherzauberstab (in your bags) [NEW in Forever]  [SP 6, DPS 34]  id 249144
+
+== With a special effect, please look for yourself
+   Main Hand     0s 00c  Katerinas Messer: Anlegen: Erhöht Eure Chance, einem Angriff auszuweichen, um 0.5%.
+   Off Hand      3g 05s  Lapidis Tidesippe-Humpen: Benutzen: Stellt im Verlauf von 30 Sek. 1.915 Punkt(e) Mana wieder her. Ihr müsst beim Trinken sitzen bleiben. (10 |4Min.:Min.; Abklingzeit)
+   Waist         4g 90s  Sandbedeckte Seidenschärpe: Benutzen: Entfernt alle Unbeweglichkeitseffekte und macht Euch 5 Sek. lang immun gegen Unbeweglichkeitseffekte. (30 |4Min.:Min.; Abklingzeit)

@@ -1,0 +1,63 @@
+AH-Scan: 2026-11-21 | Item-Export: 2026-11-21 16:31 | Stufe 28 | Budget 47g 17s | 605 Items, 0 nicht geladen
+Kampfmodell: 134.4 HPS über einen 60s-Kampf, Mana für 61s
+Downranking lohnt sich: Heile mit Heilen (Rang 1) statt Heilen (Rang 2) (+2 % Heilung über den Kampf).
+    134.4 HPS im Kampf · 2.75 Heilung pro Mana · 426 Heilung für 155 Mana in 3.0s · Heilen (Rang 1) <==
+    132.0 HPS im Kampf · 2.63 Heilung pro Mana · 538 Heilung für 205 Mana in 3.0s · Heilen (Rang 2)
+    117.2 HPS im Kampf · 3.78 Heilung pro Mana · 283 Heilung für 75 Mana in 2.5s · Geringes Heilen (Rang 3) (entwachsen: 5 % weniger Heilbonus)
+    113.2 HPS im Kampf · 2.22 Heilung pro Mana · 278 Heilung für 125 Mana in 1.5s · Blitzheilung (Rang 1)
+     87.1 HPS im Kampf · 3.56 Heilung pro Mana · 160 Heilung für 45 Mana in 2.0s · Geringes Heilen (Rang 2) (entwachsen: 35 % weniger Heilbonus)
+     61.4 HPS im Kampf · 2.57 Heilung pro Mana · 77 Heilung für 30 Mana in 1.5s · Geringes Heilen (Rang 1) (entwachsen: 65 % weniger Heilbonus)
+   Erneuerung (Rang 2)      14.30  9.2 % der Kampfzeit
+   Heilen (Rang 1)          126.10  88.8 % der Kampfzeit
+   Dunkles Opfer (Rang 1)    0.00  0.8 Mal pro Minute, 2.0 % der Kampfzeit, 7.4 Mana pro Sekunde für 5.9 Leben pro Sekunde (das Leben ist von der Heilung abgezogen)
+== Was das Modell mit deinen Zaubern und Talenten macht (48 Rotationen verglichen)
+   Zauber
+      genutzt           Erneuerung (Rang 2): wird in der Rotation gewirkt
+      genutzt           Heilen (Rang 1): wird in der Rotation gewirkt
+      genutzt           Dunkles Opfer (Rang 1): wandelt Leben in Mana um, wenn der Rotation das Mana ausgeht
+      geprüft           Machtwort: Schild (Rang 4): stattdessen geprüft: 133.6 HPS, weniger als die Rotation oben
+      geprüft           Geringes Heilen (Rang 3): stattdessen geprüft: 128.2 HPS, weniger als die Rotation oben
+      geprüft           Blitzheilung (Rang 1): stattdessen geprüft: 114.8 HPS, weniger als die Rotation oben
+      ohne Einfluss     Gedankenbesänftigung (Rang 1), Magiebannung (Rang 1), Krankheit heilen, Göttliche Pein (Rang 4), Verblassen (Rang 2), Inneres Feuer (Rang 2), Schattenwort: Schmerz (Rang 3), Machtwort: Seelenstärke (Rang 3), Auferstehung (Rang 1), Berührung der Schwäche (Rang 2), Verschlingende Seuche (Rang 1), Furchtzauberschutz, Gedankenschlag (Rang 3), Psychischer Schrei (Rang 1), Untote fesseln (Rang 1), Heiliges Feuer (Rang 2)
+   Talente
+      genutzt           Meditation (3/3): Manaregeneration läuft beim Zaubern weiter
+      in deinen Werten  Mentale Stärke (5/5): steckt schon in den Werten, die das Spiel für deinen Charakter anzeigt
+      geprüft           Verbessertes Machtwort: Schild (3/3): verändert nur Zauber, die die beste Rotation nicht wirkt
+      geprüft           Seelenwehr (1/1): verändert nur Zauber, die die beste Rotation nicht wirkt
+      ohne Einfluss     Zauberstab-Spezialisierung (2/2), Willensentzug (2/5), Heilige Präzision (1/3), Macht im Licht (3/5)
+   Der Schnappschuss entstand mit diesen Buffs, und seine Zahlen enthalten sie: Mal der Wildnis, Arkane Intelligenz.
+   Mit den Zaubertexten, Manakosten und Zauberzeiten des Spiels verglichen: 12 von 13 Zauberrängen stimmen überein.
+      Machtwort: Schild (Rang 1): das Modell hat 73 | Nutzt die Seelenkraft des Gruppenmitglieds zum Abschirmen und absorbiert dabei 83 Punkt(e) Schaden. Hält 30 Sek. lang an. Solange der Schild hält, wird das Zaub
+Preise = Mindest-Sofortkauf beim Scan.
+7 Gegenstände, die du besitzt, sind nur dem Namen nach bekannt (Szepter des Verlasseneren auf deiner Bank, Geisterhafter Mantel auf deiner Bank, Monstrositätenhautreste auf deiner Bank, Zerfledderte Fäustlinge auf deiner Bank, Reich mit Juwelen besetzter Ring auf deiner Bank, Banditen-Umhang der Magie auf deiner Bank, ...): öffne die Bank einmal mit WoWMCP 1.12 oder neuer, dann /reload.
+
+== Bestes Paket für 47g 17s: +5.0 HPS (+4%) für 1g 38s
+   Finger       +1.6 +172%  vorhanden            Ring der Machtregulierung (in deinen Taschen) [NEU in Forever]  [ZM 6, Mana/5s 3]  id 273030
+              bis hier 0s 00c für +1.6 HPS, ersetzt Schädelring
+   Handgelenk   +1.3 +133%  vorhanden            Messerpoliertuch (in deinen Taschen) [NEU in Forever]  [ZM 6, Wil 4]  id 271740
+              bis hier 0s 00c für +2.9 HPS, ersetzt Tabithas Manschetten
+   Füße         +2.2 +159%     1g 38s     1.6/g  Spinnenseidenstiefel  [ZM 7, Ausd 4, Int 4]  id 4320
+              bis hier 1g 38s für +5.1 HPS, ersetzt Feuerwandler-Stiefel
+
+== Hals: jetzt Selbstvertrauen des Wegwächters (Wil 3)
+     +1.3   neu     1g 81s     0.7/g  Halskette der Harmonie (ab Stufe 31)  [Int 4, Wil 4]  id 5180
+     +1.3   neu     4g 52s     0.3/g  Kaleidoskopkette (ab Stufe 30)  [Ausd 4, Int 4, Wil 4]  id 13084
+== Schulter: jetzt Grünzwirnmantel der Eule (Int 5, Wil 5)
+     +0.9  +44%    24s 99c     3.5/g  Steinstoffschulterklappen (ab Stufe 31)  [Ausd 4, Int 9]  id 14412
+== Brust: jetzt Robe von Arugal (ZS 6, Ausd 5, Wil 6)
+     +1.0  +16%     3g 40s     0.3/g  Täuscher-Roben (ab Stufe 29)  [ZM 9, Int 12, Wil 8]  id 7728
+== Beine: jetzt Gazeträumer-Hose (ZM 12, Wil 9)
+     +3.8  +83%    18g 50s     0.2/g  Gamaschen des Violetten Zauberers [NEU in Forever] (ab Stufe 29)  [ZM 12, Int 13, Wil 5]  id 286988
+== Füße: jetzt Feuerwandler-Stiefel (ZM 2, Int 1, Wil 5)
+     +2.2 +159%     1g 38s     1.6/g  Spinnenseidenstiefel  [ZM 7, Ausd 4, Int 4]  id 4320
+== Handgelenk: jetzt Tabithas Manschetten (ZM 3, Ausd 4)
+     +1.3 +133%  vorhanden            Messerpoliertuch (in deinen Taschen) [NEU in Forever]  [ZM 6, Wil 4]  id 271740
+     +0.6  +62%    12s 70c     4.7/g  Silberfadenmanschetten  [Ausd 2, Int 5]  id 4036
+     +0.6  +62%    19s 95c     3.0/g  Steinstoffbindungen (ab Stufe 29)  [Ausd 4, Int 5]  id 14416
+== Finger: jetzt Schädelring (Ausd 3, Int 3)
+     +1.6 +172%  vorhanden            Ring der Machtregulierung (in deinen Taschen) [NEU in Forever]  [ZM 6, Mana/5s 3]  id 273030
+     +1.5 +158%    19s 00c     7.8/g  Voodooband (ab Stufe 32)  [Int 7, Wil 3]  id 1996
+     +0.6  +67%    16s 90c     3.7/g  Azoras Testament  [Int 5]  id 4999
+
+== Mit Spezialeffekt, bitte selbst ansehen
+   Taille       35s 00c  Spinnengürtel: Benutzen: Entfernt alle Unbeweglichkeitseffekte und macht Euch 5 Sek. lang immun gegen Unbeweglichkeitseffekte. (30 |4Min.:Min.; Abklingzeit)

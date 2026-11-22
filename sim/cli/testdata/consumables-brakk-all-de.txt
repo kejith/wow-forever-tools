@@ -1,0 +1,106 @@
+Brakk-Düsterfels  |  Stufe 53  |  AH-Scan 2026-11-21
+
+== Heiltränke ==
+ *Überragender verfärbter Heiltrank    stellt 1500–1700 Gesundheit wieder her          35s 60c    Alchimie
+  Erheblicher Verjüngungstrank         stellt 1440–1760 Gesundheit wieder her          73s 20c    Alchimie
+   nächstes: Erheblicher verfärbter Heiltrank ab Stufe 60
+
+== Manatränke ==
+ *Erheblicher Manatrank                stellt 1350–2250 Mana wieder her                74s 95c    Alchimie
+  Erheblicher Verjüngungstrank         stellt 1440–1760 Mana wieder her                73s 20c    Alchimie
+
+== Essen ==
+  Dirges abgefahrene Chimaerokkotelett 2550 Gesundheit in 30 Sek.                            –    Kochkunst
+ *Frittierte Kochbanane                2148 Gesundheit in 30 Sek.                       2s 88c    
+   nächstes: Pirschersteak ab Stufe 55
+
+== Getränke ==
+ *Angereicherter Manakeks              4410 Mana in 30 Sek.                            20s 99c    
+  Trichterwindentau                    2934 Mana in 30 Sek.                             5s 00c  24 in den Taschen  
+
+== Verbände ==
+  Kristalldurchdrungener Verband       2500 Gesundheit in 10 Sek.                            –    Erste Hilfe
+ *Schwerer Runenstoffverband           2000 Gesundheit in 8 Sek.                       11s 89c    Erste Hilfe
+
+== Zaubermacht ==
+ *Fläschchen mit oberster Macht        +150 Zaubermacht                                19g 75s    Alchimie
+  Hervorragendes Zauberöl              +36 Zaubermacht, +36 Heilung, +1% Zauberkrit          –    Verzauberkunst
+
+== Schattenzaubermacht ==
+ *Elixier der Schattenmacht            +40 Schattenzaubermacht                          1g 34s    Alchimie
+
+== Feuerzaubermacht ==
+ *Elixier der Feuermacht               +10 Feuerzaubermacht                             0s 35c    Alchimie
+
+== Frostzaubermacht ==
+  Elixier der Frostmacht               +15 Frostzaubermacht                                  –    Alchimie
+
+== Naturzaubermacht ==
+   nächstes: Elixier der Naturmacht ab Stufe 55
+
+== Heiligzaubermacht ==
+ *Elixier der heiligen Kraft           +40 Heiligzaubermacht                           37s 50c    Alchimie
+
+== Heilung ==
+ *Überragender Trank des Heilers       +62 Heilung                                     49s 80c    Alchimie
+  Großer Trank des Heilers             +44 Heilung                                      0s 10c    Alchimie
+   nächstes: Erheblicher Trank des Heilers ab Stufe 55
+
+== Zauberkrit ==
+  Hervorragendes Zauberöl              +36 Zaubermacht, +36 Heilung, +1% Zauberkrit          –    Verzauberkunst
+
+== Intelligenz ==
+ *Elixier der großen Intelligenz       +25 Intelligenz                                 12s 90c  3 in den Taschen  Alchimie
+  Langsam gegarter prähistorischer Rap +20 Intelligenz                                 24s 98c    Kochkunst
+
+== Willenskraft ==
+ *Heftiger Smoothie                    +20 Willenskraft                                19s 64c    Kochkunst
+  Elixier der Weisen                   +18 Intelligenz, +18 Willenskraft               52s 99c    Alchimie
+   nächstes: Elixier der Weisen ab Stufe 55
+
+== Mana pro 5 Sek. ==
+  Hervorragendes Manaöl                +15 Mana pro 5 Sek., +30 Heilung                      –    Verzauberkunst
+  Magierblutelixier                    +12 Mana pro 5 Sek.                                   –    Alchimie
+   nächstes: Großes Magierblutelixier ab Stufe 55
+
+== Ausdauer ==
+  Dirges abgefahrene Chimaerokkotelett +25 Ausdauer                                          –    Kochkunst
+ *Pikanter Schildkröteneintopf         +20 Ausdauer                                    27s 27c    Kochkunst
+   nächstes: Fläschchen der natürlichen Genauigkeit ab Stufe 55
+
+== Maximale Gesundheit ==
+ *Fläschchen der Titanen               +1200 Maximale Gesundheit                       21g 99s    Alchimie
+  Elixier der Seelenstärke             +200 Maximale Gesundheit                        24s 00c    Alchimie
+
+== Gesundheit alle 5 Sek. ==
+  Erhebliches Trollblutelixier         +20 Gesundheit alle 5 Sek.                            –    Alchimie
+ *Trollblutelixier                     +12 Gesundheit alle 5 Sek.                       6s 00c    Alchimie
+
+== Rüstung ==
+ *Großer Steinschildtrank              +2000 Rüstung                                   25s 77c    Alchimie
+  Geringer Steinschildtrank            +1000 Rüstung                                    4s 69c    Alchimie
+
+== Stärke ==
+ *Elixier der großen Stärke            +25 Stärke                                      46s 99c    Alchimie
+  Bärengeschnetzeltes                  +20 Stärke                                      12s 86c    Kochkunst
+
+== Beweglichkeit ==
+ *Elixier der großen Beweglichkeit     +25 Beweglichkeit                               20s 20c    Alchimie
+  Elixier des Mungos                   +25 Beweglichkeit, +2% Krit                     83s 97c    Alchimie
+
+== Angriffskraft ==
+ *Überragender Trank der Raserei       +56 Angriffskraft, +56 Distanzangriffskraft      1g 30s    Alchimie
+  Gedünsteter Sonnenschuppenlachs      +40 Angriffskraft, +40 Distanzangriffskraft      4s 40c    Kochkunst
+   nächstes: Erheblicher Trank der Raserei ab Stufe 55
+
+== Distanzangriffskraft ==
+ *Überragender Trank der Raserei       +56 Angriffskraft, +56 Distanzangriffskraft      1g 30s    Alchimie
+  Gedünsteter Sonnenschuppenlachs      +40 Angriffskraft, +40 Distanzangriffskraft      4s 40c    Kochkunst
+   nächstes: Erheblicher Trank der Raserei ab Stufe 55
+
+== Krit ==
+ *Elixier des Mungos                   +25 Beweglichkeit, +2% Krit                     83s 97c    Alchimie
+  Elementarwetzstein                   +2% Krit                                              –    Schmiedekunst
+
+== Alle Attribute ==
+  Elixier der verschmolzenen Reue      +1 Alle Attribute                                     –    Alchimie
