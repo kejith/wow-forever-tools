@@ -2,7 +2,7 @@
 
 Status: done (2026-11-22). Every calculation of the app and every report is `wowtools` (Go, `sim/`); the
 Python scripts, uv, lupa and Pillow are gone from the app, the installer and the repo. Only the MCP server
-`server/wow_mcp.py` stays in Python. Not released yet: the next version (1.12.0) is the first without Python.
+`server/wow_mcp.py` stays in Python. Released as app 1.12.0, the first version without Python.
 
 Goal: the app computes everything with one Go binary. uv, Python, lupa and Pillow leave the installer and the
 user's machine, and the answers stay the same as today, field for field.

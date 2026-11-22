@@ -44,7 +44,7 @@ Since 2026-11-17 the project lives in three public GitHub repos of `kejith`. `gh
 | `kejith/WoWMCP` | `~/work/WoWMCP` | export addon, `.toc` in the root folder | `## Version:` in `WoWMCP.toc` | `WoWMCP-v<version>.zip` |
 | `kejith/GoldPerHour` | `~/work/GoldPerHour` | addon GoldPerHour | `## Version:` in `GoldPerHour.toc` | `GoldPerHour-v<version>.zip` |
 
-Current: app `1.11.0`, WoWMCP `1.12.0`, GoldPerHour `0.3.1`.
+Current: app `1.12.0`, WoWMCP `1.12.0`, GoldPerHour `0.3.1`.
 
 - **Commit author:** In all three repos `kejith <5557752+kejith@users.noreply.github.com>` is set locally. The global Git configuration names a private address that must not get into the public repos.
 - **Public means:** no account number, no Windows user name and no private paths in versioned files. Such details are in `CLAUDE.local.md` (not versioned).
