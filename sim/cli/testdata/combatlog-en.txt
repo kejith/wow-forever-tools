@@ -1,0 +1,18 @@
+WoWCombatLog-112026_100000.txt: Brakk, 2 fights, 14 s fighting, 551 damage, 40.8 DPS while fighting
+Spell power in the log: 110 to 110. The model's numbers are at 110, the log's median.
+Spell                 Casts  /min  Hits  Crit  Missed  Avg hit  Model  Ticks  Crit  Avg tick  Model     Tick every   Up  Enemy  Crit x  Resisted  Damage  Share
+Shadow Bolt (Rang 1)      4  17.8     3   33%     25%    100.0   74.0      0     -         -      -              -    -   +10%    1.50      7.8%     355  64.4%
+Corruption (Rang 1)       1   4.4     0     -      0%        -      -      3   33%      40.0   38.7  3.0/3.0/3.0 s  67%   +10%    2.00      0.0%     176  31.9%
+Drain Life (Rang 1)       0   0.0     0     -       -        -      -      0     -         -   27.7              -    -      -       -      0.0%       0   0.0%
+Melee (Grimpaw)           0   0.0     1    0%      0%     25.0      -      0     -         -      -              -    -   -20%       -      0.0%      20   3.6%
+Life Tap (Rang 1)         1   4.4     0     -      0%        -      -      0     -         -      -              -    -      -       -      0.0%       0   0.0%
+Avg hit and avg tick are the amounts before crit and mitigation, as a tooltip shows them; "Enemy" is what the enemies added to them (debuffs) and "Crit x" what a crit multiplied. "Tick every" is the fastest tenth, the median and the slowest tenth of the time between two ticks.
+  Drain Life (Rang 1): 40 healing, 10 overhealing
+  Life Tap (Rang 1): 120 mana, 1x (120 each)
+Buffs on you, of the time fighting: Demon Armor 100%, Shadow Trance 22%, Mark of the Wild 7%
+Casts on enemies that missed, by the enemy's level above yours:
+  -24: 1 of 4 (25.0%), the model expects 0%
+  -23: 0 of 1 (0.0%), the model expects 0%
+Fights (--fight N shows one cast by cast):
+  1  10:01:38      12 s  enemies 1      441 damage     38.3 DPS  mana 90% > 50%  level -24  Training Dummy  [Dummy Boss]
+  2  10:03:18       2 s  enemies 1      110 damage     55.0 DPS  mana 100% > 100%  level -23  Training Dummy

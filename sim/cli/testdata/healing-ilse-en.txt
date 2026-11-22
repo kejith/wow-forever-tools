@@ -1,0 +1,37 @@
+Ilse, level 28 Priester | combat engine 0.10.0
+Healing bonus 158, crit 5.0%, mana 1879, spirit 112
+Mana per 5 sec.: 55.6 while casting, 106.3 outside the five-second rule
+  Mana per 5 sec. from your gear and buffs counts all the time (5 now). The regeneration from spirit (101 mana per 5 sec.) stops while you cast and for five seconds after a cast that costs mana. Both numbers are those of your character sheet.
+  Your talents let 50% of it through while casting.
+  The numbers are those of your last snapshot, with the buffs you had then.
+
+Spell                       One cast          Average  Mana  Cast     HPS                 Per mana  From bonus  Coefficient                             Use it for
+Geringes Heilen (Rang 1)    70-80             77.2     30    1.5 s    51.5                2.57      32%         15% (outgrown: 65% less healing bonus)  -
+Geringes Heilen (Rang 2)    147-165           160.1    45    2.0 s    80.0                3.56      38%         38% (outgrown: 35% less healing bonus)  -
+Geringes Heilen (Rang 3)    263-289           283.1    75    2.5 s    113.3               3.78      39%         70% (outgrown: 5% less healing bonus)   Light damage, Tank healing, Heavy damage, Group damage
+Machtwort: Schild (Rang 1)  absorbs 73        73.4     38    instant  4.9 on the target   1.92      22%         10%                                     -
+Machtwort: Schild (Rang 2)  absorbs 126       126.2    68    instant  8.4 on the target   1.86      12%         10%                                     -
+Machtwort: Schild (Rang 3)  absorbs 210       210.2    110   instant  14.0 on the target  1.90      8%          10%                                     -
+Machtwort: Schild (Rang 4)  absorbs 297       296.6    149   instant  19.8 on the target  1.99      5%          10%                                     Everything you have
+Erneuerung (Rang 1)         5 x 36 over 15 s  179.3    30    instant  12.0 on the target  5.98*     75%         85% (outgrown: 15% less healing bonus)  Tank healing, Heavy damage, Group damage
+Erneuerung (Rang 2)         5 x 47 over 15 s  233.0    65    instant  15.5 on the target  3.58      68%         100%                                    Sustained
+Erneuerung (Rang 3)         5 x 57 over 15 s  283.0    105   instant  18.9 on the target  2.70      56%         100%                                    Everything you have
+Heilen (Rang 1)             395-436           425.9    155   3.0 s    142.0               2.75      33%         88%                                     Sustained
+Heilen (Rang 2)             499-551           538.1    205   3.0 s    179.4               2.63      26%         88%                                     Heavy damage
+Blitzheilung (Rang 1)       250-292           278.1    125   1.5 s    185.4*              2.22      25%         44%                                     Everything you have
+* the most healing per mana, and the most per second among the heals you can cast back to back
+
+Which rank when
+  Light damage (46.7 HPS, mana lasts): Geringes Heilen (Rang 3): the default heal, with pauses in between
+  Tank healing (93.5 HPS, mana lasts 3:06 min): Erneuerung (Rang 1): keep it on the target; Geringes Heilen (Rang 3): the default heal, with pauses in between; Dunkles Opfer (Rang 1): 1x before the mana is gone: 552 mana for 440 health, which you heal back
+  Heavy damage (140.2 HPS, mana lasts 1:09 min): Erneuerung (Rang 1): keep it on the target; Geringes Heilen (Rang 3): the default heal; Heilen (Rang 2): in between, when the default heal is too slow; Dunkles Opfer (Rang 1): 1x before the mana is gone: 552 mana for 440 health, which you heal back
+  Everything you have (187.0 HPS, mana lasts 31 s): Erneuerung (Rang 3): keep it on the target; Machtwort: Schild (Rang 4): keep it on the target; Blitzheilung (Rang 1): the default heal; Dunkles Opfer (Rang 1): 1x before the mana is gone: 552 mana for 440 health, which you heal back
+  Group damage (96.6 HPS, mana lasts 4:31 min): Erneuerung (Rang 1): keep it on 5 of the 5 targets; Geringes Heilen (Rang 3): the default heal, with pauses in between; Dunkles Opfer (Rang 1): 1x before the mana is gone: 552 mana for 440 health, which you heal back
+  Sustained over 60 s (134.4 HPS, what your gear is rated by): Erneuerung (Rang 2), Heilen (Rang 1)
+
+What a point adds (HPS; in brackets: the points of healing bonus that do the same)
+  Healing bonus: 0.321 (1.00) in a fight of 60 s, 0.214 (1.00) in one of 300 s
+  Intellect: 0.313 (0.97) in a fight of 60 s, 0.222 (1.04) in one of 300 s
+  Spirit: 0.078 (0.24) in a fight of 60 s, 0.249 (1.16) in one of 300 s
+  Mana per 5 sec.: 0.207 (0.65) in a fight of 60 s, 0.755 (3.53) in one of 300 s
+  Spell crit, per 1%: 0.615 (1.91) in a fight of 60 s, 0.320 (1.50) in one of 300 s
