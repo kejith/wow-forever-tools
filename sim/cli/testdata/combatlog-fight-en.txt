@@ -1,0 +1,8 @@
+WoWCombatLog-112026_100000.txt: Brakk, 2 fights, 14 s fighting, 551 damage, 40.8 DPS while fighting
+Spell power in the log: 110 to 110. The model's numbers are at 110, the log's median.
+  1  10:01:38      12 s  enemies 1      441 damage     38.3 DPS  mana 90% > 50%  level -24  Training Dummy  [Dummy Boss]
+     2.0 s  [90/100]   Shadow Bolt (Rang 1) > Training Dummy
+     2.5 s  [80/100]   Corruption (Rang 1) > Training Dummy
+     8.0 s  [70/100]   Shadow Bolt (Rang 1) > Training Dummy
+     9.0 s  [60/100]   Shadow Bolt (Rang 1) > Training Dummy
+    10.0 s  [50/60]    Life Tap (Rang 1)

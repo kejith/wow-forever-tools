@@ -1,0 +1,96 @@
+Brakk, level 53 Hexenmeister | combat engine 0.10.0
+Shadow: 261 spell power, 5.3% crit | Fire: 189 spell power, 5.3% crit
+1% of your spells miss an enemy 2 levels above you | mana 3346 | wand 46.4 DPS
+Mana per 5 sec.: 10.0 while casting, 118.8 outside the five-second rule | Life Tap: 517 mana for 431 health
+  Every number is against an enemy 2 levels above you, with your talents in it and the buffs you had at your last snapshot.
+  A row of the spell table is one cast alone: what your other spells add to it (a curse on the enemy, talents that count your spells over time) shows in the rotations.
+  The rotations cast the highest rank of each spell; a lower rank is in the table for its damage per mana.
+
+Which rotation when
+  Maximum damage: 320.5 DPS, your mana pays for 48 s of it
+    The normal fight as if your mana never ran out: the most damage you can do in 60 seconds, whatever it costs. Your mana pays for 48 s of it. A fight that lasts longer needs the rotation of the normal fight.
+    1. Fluch der Elemente (Rang 4): cast it first and keep it on the enemy: your spells deal 10% more under it
+    2. Omen der Pein (Rang 5) (83.6 DPS): keep it on the enemy
+    3. Verderbnis (Rang 5) (62.5 DPS): keep it on the enemy
+    4. Lebensentzug (Rang 3) (30.5 DPS): keep it on the enemy
+    5. Todesmantel (Rang 2) (8.9 DPS): whenever it is ready
+    6. Zermürben (Rang 1) (135.0 DPS): fills the rest of the time
+    Left out: Feuerbrand (Rang 6) (-6.9), Seelenfeuer (Rang 1) (-19.0), Schattenblitz (Rang 8) (-50.9), Blutsauger (Rang 5) (-98.4), Sengender Schmerz (Rang 3) (-116.8), Seelendieb (Rang 3) (-155.8)
+  Sustained damage: 283.9 DPS
+    10 minutes of fighting without a break. From 4:03 min on the health is too low for Aderlass (Rang 5): Blutsauger (Rang 5) brings it back. At the end 14% mana and 76% health are left.
+    1. Fluch der Elemente (Rang 4): cast it first and keep it on the enemy: your spells deal 10% more under it
+    2. Omen der Pein (Rang 5) (73.1 DPS): keep it on the enemy
+    3. Verderbnis (Rang 5) (63.4 DPS): keep it on the enemy
+    4. Lebensentzug (Rang 3) (25.9 DPS): keep it on the enemy
+    5. Zermürben (Rang 1) (113.2 DPS): fills the rest of the time
+    6. Aderlass (Rang 5): as soon as the health allows it and the mana has room for it, and when the mana is gone
+    7. Blutsauger (Rang 5) (8.2 DPS): when the health is too low to trade for mana and the mana is running out (first after 4:03 min)
+    Left out: Todesmantel (Rang 2) (-2.9), Seelenfeuer (Rang 1) (-23.2), Feuerbrand (Rang 6) (-28.1), Schattenblitz (Rang 8) (-76.1), Sengender Schmerz (Rang 3) (-110.2), Seelendieb (Rang 3) (-118.0)
+  Normal fight: 300.7 DPS
+    60 seconds against an enemy 2 levels above you: the fight your gear is rated for. The mana lasts with Aderlass (Rang 5). At the end 19% mana and 86% health are left.
+    1. Fluch der Elemente (Rang 4): cast it first and keep it on the enemy: your spells deal 10% more under it
+    2. Omen der Pein (Rang 5) (75.4 DPS): keep it on the enemy
+    3. Verderbnis (Rang 5) (62.5 DPS): keep it on the enemy
+    4. Lebensentzug (Rang 3) (27.8 DPS): keep it on the enemy
+    5. Zermürben (Rang 1) (135.0 DPS): fills the rest of the time
+    6. Aderlass (Rang 5): as soon as the health bar is full and the mana has room for it, and when the mana is gone
+    Left out: Feuerbrand (Rang 6) (-1.9), Todesmantel (Rang 2) (-5.2), Seelenfeuer (Rang 1) (-12.4), Schattenblitz (Rang 8) (-78.3), Blutsauger (Rang 5) (-84.1), Sengender Schmerz (Rang 3) (-105.6), Seelendieb (Rang 3) (-138.7)
+  Quick kill: 282.4 DPS
+    An enemy that dies in 15 seconds. The mana lasts for the whole fight. At the end 59% mana and 100% health are left.
+    1. Omen der Pein (Rang 5) (71.5 DPS): keep it on the enemy
+    2. Verderbnis (Rang 5) (56.8 DPS): keep it on the enemy
+    3. Lebensentzug (Rang 3) (23.6 DPS): keep it on the enemy
+    4. Todesmantel (Rang 2) (32.3 DPS): whenever it is ready
+    5. Zermürben (Rang 1) (98.2 DPS): fills the rest of the time
+    Left out: Feuerbrand (Rang 6) (-13.5), Fluch der Elemente (Rang 4) (-13.8), Schattenblitz (Rang 8) (-40.0), Seelenfeuer (Rang 1) (-49.3), Blutsauger (Rang 5) (-77.9), Sengender Schmerz (Rang 3) (-87.5), Seelendieb (Rang 3) (-90.5)
+  Boss: 262.7 DPS
+    3 minutes against an enemy 3 levels above you. The mana lasts with Aderlass (Rang 5). At the end 17% mana and 86% health are left.
+    1. Fluch der Elemente (Rang 4): cast it first and keep it on the enemy: your spells deal 10% more under it
+    2. Omen der Pein (Rang 5) (68.5 DPS): keep it on the enemy
+    3. Verderbnis (Rang 5) (57.5 DPS): keep it on the enemy
+    4. Lebensentzug (Rang 3) (24.7 DPS): keep it on the enemy
+    5. Zermürben (Rang 1) (112.0 DPS): fills the rest of the time
+    6. Aderlass (Rang 5): as soon as the health bar is full and the mana has room for it, and when the mana is gone
+    Left out: Todesmantel (Rang 2) (-4.0), Seelenfeuer (Rang 1) (-14.3), Feuerbrand (Rang 6) (-19.4), Schattenblitz (Rang 8) (-72.4), Seelendieb (Rang 3) (-107.7), Sengender Schmerz (Rang 3) (-111.9)
+  Several enemies: 402.3 DPS
+    3 enemies at once that live for 30 seconds; the number is the damage on all of them together. The mana lasts for the whole fight. At the end 13% mana and 46% health are left.
+    1. Fluch der Elemente (Rang 4): cast it on every enemy first: your spells deal 10% more under it
+    2. Omen der Pein (Rang 5) (121.3 DPS): keep it on every enemy
+    3. Verderbnis (Rang 5) (84.8 DPS): keep it on every enemy
+    4. Höllenfeuer (Rang 2) (163.3 DPS): once the spells above are up, while your health is above 40%: it hits every enemy and costs you 146 health per second
+    5. Zermürben (Rang 1) (32.8 DPS): fills the rest of the time, on one enemy
+    Left out: Feuerregen (Rang 3) (-2.5), Seelendieb (Rang 3) (-6.5), Schattenblitz (Rang 8) (-6.5), Feuerbrand (Rang 6) (-6.5), Blutsauger (Rang 5) (-6.5), Seelenfeuer (Rang 1) (-6.6), Sengender Schmerz (Rang 3) (-6.6), Todesmantel (Rang 2) (-15.8), Lebensentzug (Rang 3) (-19.9)
+  Many enemies: 700.3 DPS
+    6 enemies at once that live for 20 seconds; the number is the damage on all of them together. The mana lasts for the whole fight. At the end 45% mana and 46% health are left.
+    1. Höllenfeuer (Rang 2) (445.5 DPS): once the spells above are up, while your health is above 40%: it hits every enemy and costs you 146 health per second
+    2. Feuerregen (Rang 3) (254.8 DPS): fills the rest of the time and hits every enemy at once
+    Left out: Todesmantel (Rang 2) (-14.0), Omen der Pein (Rang 5) (-19.2), Schattenblitz (Rang 8) (-35.3), Zermürben (Rang 1) (-37.9), Blutsauger (Rang 5) (-39.4), Sengender Schmerz (Rang 3) (-39.5), Seelendieb (Rang 3) (-42.5), Verderbnis (Rang 5) (-70.2), Seelenfeuer (Rang 1) (-101.1), Feuerbrand (Rang 6) (-139.0), Lebensentzug (Rang 3) (-169.7), Fluch der Elemente (Rang 4) (-182.2)
+  Your gear is rated by a faster estimate of the normal fight: 326.4 DPS over 60 s.
+
+Your spells in their highest rank (--all-ranks lists every rank)
+Spell                       One cast                Average  Mana  Cast     DPS               Per cast second  Per mana  Coefficient  Nothing else  Cast in
+Feuerbrand (Rang 6)         150 + 5 x 63 over 15 s  462      295   1.7 s    30.8 kept up      270.7            1.56      85%          -             -
+Schattenblitz (Rang 8)      446-470                 477      315   2.6 s    186.3*            186.3            1.51      98%          28 s          -
+Verderbnis (Rang 5)         6 x 112 over 18 s       731      225   instant  40.6 kept up      487.1            3.25      158%         -             Maximum damage, Sustained damage, Normal fight, Quick kill, Boss, Several enemies
+Omen der Pein (Rang 1)      12 x 49 over 24 s       645      25    instant  26.9 kept up      430.2            25.81*    211%         -             -
+Omen der Pein (Rang 5)      12 x 82 over 24 s       1073     170   instant  44.7 kept up      715.5            6.31      211%         -             Maximum damage, Sustained damage, Normal fight, Quick kill, Boss, Several enemies
+Seelendieb (Rang 3)         5 x 106 over 15 s       577      210   15.0 s   38.5              38.5             2.75      72%          4:38 min      -
+Blutsauger (Rang 5)         5 x 86 over 5 s         469      240   5.0 s    93.8              93.8             1.95      72%          1:12 min      Sustained damage
+Sengender Schmerz (Rang 3)  125-135                 132      91    1.3 s    88.0              88.0             1.45      44%          57 s          -
+Feuerregen (Rang 3)         4 x 167 over 8 s        680      885   8.0 s    84.9              84.9             0.77      34%          31 s          Many enemies
+Höllenfeuer (Rang 2)        15 x 146 over 15 s      2228     975   15.0 s   148.5             148.5            2.28      34%          53 s          Several enemies, Many enemies
+Lebensentzug (Rang 3)       10 x 46 over 30 s       505      285   instant  16.8 kept up      336.6            1.77      60%          -             Maximum damage, Sustained damage, Normal fight, Quick kill, Boss
+Zermürben (Rang 1)          6 x 110 over 6 s        722      200   6.0 s    120.3             120.3            3.61      144%         1:46 min      Maximum damage, Sustained damage, Normal fight, Quick kill, Boss, Several enemies
+Todesmantel (Rang 2)        465                     484      525   instant  4.0 per cooldown  322.6            0.92      24%          -             Maximum damage, Quick kill
+Seelenfeuer (Rang 1)        531-618                 584      305   5.1 s    9.7 per cooldown  114.1            1.91      102%         -             -
+Wand                                                         0              46.4              46.4                                    lasts
+* the most damage per mana, and the most per second among the spells you can cast back to back
+
+What a point adds (DPS; in brackets: the points of spell power that do the same)
+  Spell power: 0.637 (1.00) in a fight of 60 s, 0.586 (1.00) in one of 300 s
+  Intellect: 0.057 (0.09) in a fight of 60 s, 0.089 (0.15) in one of 300 s
+  Spirit: 0.000 (0.00) in a fight of 60 s, 0.063 (0.11) in one of 300 s
+  Stamina: 0.000 (0.00) in a fight of 60 s, 0.000 (0.00) in one of 300 s
+  Mana per 5 sec.: 0.000 (0.00) in a fight of 60 s, 0.149 (0.25) in one of 300 s
+  Spell hit, per 1%: 3.297 (5.18) in a fight of 60 s, 3.039 (5.18) in one of 300 s
+  Spell crit, per 1%: 2.960 (4.65) in a fight of 60 s, 2.729 (4.65) in one of 300 s

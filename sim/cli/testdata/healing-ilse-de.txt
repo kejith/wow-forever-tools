@@ -1,0 +1,37 @@
+Ilse, Stufe 28 Priester | Kampfmodell 0.10.0
+Heilbonus 158, Krit 5.0 %, Mana 1879, Willenskraft 112
+Mana pro 5 Sek.: 55.6 beim Zaubern, 106.3 außerhalb der Fünf-Sekunden-Regel
+  Mana pro 5 Sek. von Ausrüstung und Buffs zählt immer (jetzt 5). Die Regeneration aus Willenskraft (101 Mana pro 5 Sek.) setzt aus, während du zauberst und fünf Sekunden nach einem Zauber, der Mana kostet. Beide Zahlen stammen aus deinem Charakterfenster.
+  Deine Talente lassen davon 50 % beim Zaubern durch.
+  Die Zahlen sind die deines letzten Snapshots, mit den Buffs, die du da hattest.
+
+Zauber                      Ein Zauber        Schnitt  Mana  Zauberzeit  HPS                Pro Mana  Aus Bonus  Koeffizient                               Einsatz
+Geringes Heilen (Rang 1)    70-80             77.2     30    1.5 s       51.5               2.57      32%        15% (entwachsen: 65 % weniger Heilbonus)  -
+Geringes Heilen (Rang 2)    147-165           160.1    45    2.0 s       80.0               3.56      38%        38% (entwachsen: 35 % weniger Heilbonus)  -
+Geringes Heilen (Rang 3)    263-289           283.1    75    2.5 s       113.3              3.78      39%        70% (entwachsen: 5 % weniger Heilbonus)   Leichter Schaden, Tank heilen, Schwerer Schaden, Gruppenschaden, Dauerhaft
+Machtwort: Schild (Rang 1)  absorbiert 73     73.4     38    sofort      4.9 auf dem Ziel   1.92      22%        10%                                       -
+Machtwort: Schild (Rang 2)  absorbiert 126    126.2    68    sofort      8.4 auf dem Ziel   1.86      12%        10%                                       -
+Machtwort: Schild (Rang 3)  absorbiert 210    210.2    110   sofort      14.0 auf dem Ziel  1.90      8%         10%                                       -
+Machtwort: Schild (Rang 4)  absorbiert 297    296.6    149   sofort      19.8 auf dem Ziel  1.99      5%         10%                                       Alles, was geht
+Erneuerung (Rang 1)         5 x 36 über 15 s  179.3    30    sofort      12.0 auf dem Ziel  5.98*     75%        85% (entwachsen: 15 % weniger Heilbonus)  Tank heilen, Schwerer Schaden, Gruppenschaden
+Erneuerung (Rang 2)         5 x 47 über 15 s  233.0    65    sofort      15.5 auf dem Ziel  3.58      68%        100%                                      Dauerhaft
+Erneuerung (Rang 3)         5 x 57 über 15 s  283.0    105   sofort      18.9 auf dem Ziel  2.70      56%        100%                                      Alles, was geht
+Heilen (Rang 1)             395-436           425.9    155   3.0 s       142.0              2.75      33%        88%                                       -
+Heilen (Rang 2)             499-551           538.1    205   3.0 s       179.4              2.63      26%        88%                                       Schwerer Schaden
+Blitzheilung (Rang 1)       250-292           278.1    125   1.5 s       185.4*             2.22      25%        44%                                       Alles, was geht
+* die meiste Heilung pro Mana und die meiste pro Sekunde unter den Heilungen, die du am Stück zaubern kannst
+
+Welcher Rang wann
+  Leichter Schaden (46.7 HPS, Mana reicht): Geringes Heilen (Rang 3): die Standardheilung, mit Pausen dazwischen
+  Tank heilen (93.5 HPS, Mana reicht 3:06 min): Erneuerung (Rang 1): auf dem Ziel halten; Geringes Heilen (Rang 3): die Standardheilung, mit Pausen dazwischen; Dunkles Opfer (Rang 1): 1x, bevor das Mana leer ist: 552 Mana für 440 Leben, das du wieder heilst
+  Schwerer Schaden (140.2 HPS, Mana reicht 1:09 min): Erneuerung (Rang 1): auf dem Ziel halten; Geringes Heilen (Rang 3): die Standardheilung; Heilen (Rang 2): zwischendurch, wenn die Standardheilung zu langsam ist; Dunkles Opfer (Rang 1): 1x, bevor das Mana leer ist: 552 Mana für 440 Leben, das du wieder heilst
+  Alles, was geht (187.0 HPS, Mana reicht 31 s): Erneuerung (Rang 3): auf dem Ziel halten; Machtwort: Schild (Rang 4): auf dem Ziel halten; Blitzheilung (Rang 1): die Standardheilung; Dunkles Opfer (Rang 1): 1x, bevor das Mana leer ist: 552 Mana für 440 Leben, das du wieder heilst
+  Gruppenschaden (96.6 HPS, Mana reicht 4:31 min): Erneuerung (Rang 1): auf 5 der 5 Ziele halten; Geringes Heilen (Rang 3): die Standardheilung, mit Pausen dazwischen; Dunkles Opfer (Rang 1): 1x, bevor das Mana leer ist: 552 Mana für 440 Leben, das du wieder heilst
+  Dauerhaft über 120 s (112.6 HPS, danach wird deine Ausrüstung bewertet): Erneuerung (Rang 2), Geringes Heilen (Rang 3)
+
+Was ein Punkt bringt (HPS; in Klammern: so viele Punkte Heilbonus bringen dasselbe)
+  Heilbonus: 0.311 (1.00) in einem Kampf von 120 s, 0.214 (1.00) in einem von 300 s
+  Intelligenz: 0.163 (0.52) in einem Kampf von 120 s, 0.222 (1.04) in einem von 300 s
+  Willenskraft: 0.070 (0.23) in einem Kampf von 120 s, 0.249 (1.16) in einem von 300 s
+  Mana pro 5 Sek.: 0.204 (0.66) in einem Kampf von 120 s, 0.755 (3.53) in einem von 300 s
+  Zauberkrit, pro 1 %: 0.495 (1.59) in einem Kampf von 120 s, 0.320 (1.50) in einem von 300 s

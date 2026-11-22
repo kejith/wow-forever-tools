@@ -1,0 +1,4 @@
+WoWCombatLog-112026_100000.txt: Brakk, 2 Kämpfe, 14 s im Kampf, 551 Schaden, 40.8 DPS im Kampf
+Zaubermacht im Log: 110 bis 110.
+  2  10:03:18       2 s  Gegner 1      110 Schaden     55.0 DPS  Mana 100 % > 100 %  Stufe -23  Training Dummy
+     2.0 s  [100/100]  Shadow Bolt (Rang 1) > Training Dummy

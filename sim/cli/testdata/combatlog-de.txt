@@ -1,0 +1,18 @@
+WoWCombatLog-112026_100000.txt: Brakk, 2 Kämpfe, 14 s im Kampf, 551 Schaden, 40.8 DPS im Kampf
+Zaubermacht im Log: 110 bis 110. Die Zahlen des Modells gelten für 110, den Median des Logs.
+Zauber                Gewirkt  /min  Treffer  Krit  Verfehlt  Ø Treffer  Modell  Ticks  Krit  Ø Tick  Modell      Tick alle  Aktiv  Gegner  Krit x  Widerstanden  Schaden  Anteil
+Shadow Bolt (Rang 1)        4  17.8        3   33%       25%      100.0    74.0      0     -       -       -              -      -    +10%    1.50          7.8%      355   64.4%
+Corruption (Rang 1)         1   4.4        0     -        0%          -       -      3   33%    40.0    38.7  3.0/3.0/3.0 s    67%    +10%    2.00          0.0%      176   31.9%
+Drain Life (Rang 1)         0   0.0        0     -         -          -       -      0     -       -    27.7              -      -       -       -          0.0%        0    0.0%
+Nahkampf (Grimpaw)          0   0.0        1    0%        0%       25.0       -      0     -       -       -              -      -    -20%       -          0.0%       20    3.6%
+Life Tap (Rang 1)           1   4.4        0     -        0%          -       -      0     -       -       -              -      -       -       -          0.0%        0    0.0%
+Ø Treffer und Ø Tick sind die Werte vor Krit und Minderung, wie ein Tooltip sie zeigt; „Gegner“ ist, was die Gegner darauf aufgeschlagen haben (Debuffs), und „Krit x“, womit ein Krit multipliziert hat. „Tick alle“ ist das schnellste Zehntel, der Median und das langsamste Zehntel der Zeit zwischen zwei Ticks.
+  Drain Life (Rang 1): 40 Heilung, 10 Überheilung
+  Life Tap (Rang 1): 120 Mana, 1x (je 120)
+Buffs auf dir, Anteil der Kampfzeit: Demon Armor 100%, Shadow Trance 22%, Mark of the Wild 7%
+Zauber auf Gegner, die verfehlt haben, nach der Stufe des Gegners über deiner:
+  -24: 1 von 4 (25.0 %), das Modell erwartet 0 %
+  -23: 0 von 1 (0.0 %), das Modell erwartet 0 %
+Kämpfe (--fight N zeigt einen Zauber für Zauber):
+  1  10:01:38      12 s  Gegner 1      441 Schaden     38.3 DPS  Mana 90 % > 50 %  Stufe -24  Training Dummy  [Dummy Boss]
+  2  10:03:18       2 s  Gegner 1      110 Schaden     55.0 DPS  Mana 100 % > 100 %  Stufe -23  Training Dummy

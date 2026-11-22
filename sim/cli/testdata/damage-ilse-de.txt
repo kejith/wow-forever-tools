@@ -1,0 +1,87 @@
+Ilse, Stufe 28 Priester | Kampfmodell 0.10.0
+Heilig: 69 Zaubermacht, 5.0 % Krit | Schatten: 69 Zaubermacht, 5.0 % Krit
+6 % deiner Zauber verfehlen einen Gegner 2 Stufen über dir | Mana 1879 | Zauberstab 26.1 DPS
+Mana pro 5 Sek.: 67.7 beim Zaubern, 113.3 außerhalb der Fünf-Sekunden-Regel
+  Jede Zahl gilt gegen einen Gegner 2 Stufen über dir, mit deinen Talenten und den Buffs, die du beim letzten Snapshot hattest.
+  Eine Zeile der Zaubertabelle ist ein Zauber für sich: was deine anderen Zauber dazutun (ein Fluch auf dem Gegner, Talente, die deine Zauber über Zeit zählen), zeigt sich in den Rotationen.
+  Die Rotationen zaubern von jedem Zauber den höchsten Rang; ein niedrigerer Rang steht wegen seines Schadens pro Mana in der Tabelle.
+
+Welche Rotation wann
+  Maximaler Schaden: 63.1 DPS, dein Mana reicht dafür 45 s
+    Der normale Kampf, als ginge dein Mana nie aus: der meiste Schaden, den du in 60 Sekunden machen kannst, egal was es kostet. Dein Mana reicht dafür 45 s. Ein Kampf, der länger dauert, braucht die Rotation des normalen Kampfs.
+    1. Schattenwort: Schmerz (Rang 3) (9.5 DPS): auf dem Gegner halten
+    2. Verschlingende Seuche (Rang 1) (6.5 DPS): auf dem Gegner halten
+    3. Gedankenschlag (Rang 3) (15.3 DPS): immer wenn bereit
+    4. Göttliche Pein (Rang 4) (31.9 DPS): füllt die restliche Zeit
+    Weggelassen: Heiliges Feuer (Rang 2) (-3.1)
+  Dauerkampf: 41.9 DPS
+    10 Minuten Kampf ohne Pause. Kein Füllzauber: in diesem Kampf ist das Mana bei den Zaubern oben mehr wert, und die Pausen am Zauberstab regenerieren es. Am Ende sind 3 % Mana und 100 % Leben übrig.
+    1. Schattenwort: Schmerz (Rang 3) (9.3 DPS): auf dem Gegner halten
+    2. Gedankenschlag (Rang 3) (12.2 DPS): immer wenn bereit
+    3. Zauberstab (20.4 DPS): füllt die restliche Zeit und kostet kein Mana
+    Weggelassen: Verschlingende Seuche (Rang 1) (-0.0), Heiliges Feuer (Rang 2) (-0.7), Göttliche Pein (Rang 4) (-1.7)
+  Normaler Kampf: 62.2 DPS
+    60 Sekunden gegen einen Gegner 2 Stufen über dir: der Kampf, für den deine Ausrüstung bewertet wird. Das Mana reicht mit Dunkles Opfer (Rang 1). Am Ende sind 6 % Mana und 83 % Leben übrig.
+    1. Schattenwort: Schmerz (Rang 3) (9.5 DPS): auf dem Gegner halten
+    2. Verschlingende Seuche (Rang 1) (6.8 DPS): auf dem Gegner halten
+    3. Gedankenschlag (Rang 3) (15.3 DPS): immer wenn bereit
+    4. Göttliche Pein (Rang 4) (30.6 DPS): füllt die restliche Zeit
+    5. Dunkles Opfer (Rang 1): wenn Mana fehlt und das Leben es erlaubt
+    Weggelassen: Heiliges Feuer (Rang 2) (-2.8)
+  Schneller Kill: 62.6 DPS
+    Ein Gegner, der in 15 Sekunden stirbt. Das Mana reicht für den ganzen Kampf. Am Ende sind 72 % Mana und 100 % Leben übrig.
+    1. Schattenwort: Schmerz (Rang 3) (10.0 DPS): auf dem Gegner halten
+    2. Verschlingende Seuche (Rang 1) (5.7 DPS): auf dem Gegner halten
+    3. Gedankenschlag (Rang 3) (17.5 DPS): immer wenn bereit
+    4. Göttliche Pein (Rang 4) (29.4 DPS): füllt die restliche Zeit
+    Weggelassen: Heiliges Feuer (Rang 2) (-6.9)
+  Boss: 44.0 DPS
+    3 Minuten gegen einen Gegner 3 Stufen über dir. Kein Füllzauber: in diesem Kampf ist das Mana bei den Zaubern oben mehr wert, und die Pausen am Zauberstab regenerieren es. Am Ende sind 6 % Mana und 100 % Leben übrig.
+    1. Schattenwort: Schmerz (Rang 3) (8.8 DPS): auf dem Gegner halten
+    2. Verschlingende Seuche (Rang 1) (5.9 DPS): auf dem Gegner halten
+    3. Gedankenschlag (Rang 3) (11.6 DPS): immer wenn bereit
+    4. Dunkles Opfer (Rang 1): wenn Mana fehlt und das Leben es erlaubt
+    5. Zauberstab (17.7 DPS): füllt die restliche Zeit und kostet kein Mana
+    Weggelassen: Heiliges Feuer (Rang 2) (-0.6), Göttliche Pein (Rang 4) (-2.0)
+  Mehrere Gegner: 69.3 DPS
+    3 Gegner zugleich, die 30 Sekunden leben; die Zahl ist der Schaden auf allen zusammen. Das Mana reicht für den ganzen Kampf. Am Ende sind 39 % Mana und 100 % Leben übrig.
+    1. Schattenwort: Schmerz (Rang 3) (25.9 DPS): auf jedem Gegner halten
+    2. Verschlingende Seuche (Rang 1) (5.7 DPS): auf einem Gegner halten: die Abklingzeit erlaubt nicht mehr
+    3. Gedankenschlag (Rang 3) (13.1 DPS): immer wenn bereit, auf einen Gegner
+    4. Göttliche Pein (Rang 4) (24.5 DPS): füllt die restliche Zeit, auf einen Gegner
+    Weggelassen: Heiliges Feuer (Rang 2) (-11.9)
+  Viele Gegner: 73.0 DPS
+    6 Gegner zugleich, die 20 Sekunden leben; die Zahl ist der Schaden auf allen zusammen. Das Mana reicht für den ganzen Kampf. Am Ende sind 56 % Mana und 100 % Leben übrig.
+    1. Schattenwort: Schmerz (Rang 3) (44.8 DPS): auf jedem Gegner halten
+    2. Verschlingende Seuche (Rang 1) (3.2 DPS): auf einem Gegner halten: die Abklingzeit erlaubt nicht mehr
+    3. Gedankenschlag (Rang 3) (6.6 DPS): immer wenn bereit, auf einen Gegner
+    4. Göttliche Pein (Rang 4) (18.4 DPS): füllt die restliche Zeit, auf einen Gegner
+    Weggelassen: Heiliges Feuer (Rang 2) (-5.4)
+  Deine Ausrüstung wird mit einer schnelleren Schätzung des normalen Kampfs bewertet: 64.6 DPS über 60 s.
+
+Jeder Rang, den du kennst
+Zauber                          Ein Zauber                 Schnitt  Mana  Zauberzeit  DPS                   Pro Zaubersekunde  Pro Mana  Koeffizient  Nur das    Einsatz
+Heilige Pein (Rang 1)           43-47                      46       20    1.5 s       30.8                  30.8               2.31      44%          reicht     -
+Göttliche Pein (Rang 2)         65-71                      70       30    2.0 s       34.8                  34.8               2.32      58%          21:25 min  -
+Göttliche Pein (Rang 3)         93-100                     99       60    2.5 s       39.7                  39.7               1.65      73%          2:59 min   -
+Göttliche Pein (Rang 4)         108-117                    116      95    2.5 s       46.2*                 46.2               1.22      73%          1:16 min   Maximaler Schaden, Normaler Kampf, Schneller Kill, Mehrere Gegner, Viele Gegner
+Schattenwort: Schmerz (Rang 1)  6 x 19 über 18 s           106      25    sofort      5.9 gehalten          70.7               4.24*     113%         -          -
+Schattenwort: Schmerz (Rang 2)  6 x 24 über 18 s           134      50    sofort      7.5 gehalten          89.5               2.68      113%         -          -
+Schattenwort: Schmerz (Rang 3)  6 x 32 über 18 s           179      95    sofort      10.0 gehalten         119.6              1.89      113%         -          Maximaler Schaden, Dauerkampf, Normaler Kampf, Schneller Kill, Boss, Mehrere Gegner, Viele Gegner
+Gedankenschlag (Rang 1)         70-74                      69       50    1.5 s       8.6 pro Abklingzeit   46.0               1.38      41%          -          -
+Gedankenschlag (Rang 2)         99-105                     98       80    1.5 s       12.3 pro Abklingzeit  65.6               1.23      41%          -          -
+Gedankenschlag (Rang 3)         132-140                    131      110   1.5 s       16.4 pro Abklingzeit  87.4               1.19      41%          -          Maximaler Schaden, Dauerkampf, Normaler Kampf, Schneller Kill, Boss, Mehrere Gegner, Viele Gegner
+Verschlingende Seuche (Rang 1)  8 x 23 über 24 s           172      215   sofort      7.2 pro Abklingzeit   114.8              0.80      75%          -          Maximaler Schaden, Normaler Kampf, Schneller Kill, Boss, Mehrere Gegner, Viele Gegner
+Heiliges Feuer (Rang 1)         104-118 + 5 x 8 über 10 s  151      85    3.5 s       15.1 gehalten         43.1               1.78      102%         -          -
+Heiliges Feuer (Rang 2)         113-128 + 5 x 8 über 10 s  166      95    3.5 s       16.6 gehalten         47.3               1.74      102%         -          -
+Zauberstab                                                          0                 26.1                  26.1                                      reicht
+* der meiste Schaden pro Mana und der meiste pro Sekunde unter den Zaubern, die du am Stück zaubern kannst
+
+Was ein Punkt bringt (DPS; in Klammern: so viele Punkte Zaubermacht bringen dasselbe)
+  Zaubermacht: 0.342 (1.00) in einem Kampf von 60 s, 0.121 (1.00) in einem von 300 s
+  Intelligenz: 0.043 (0.12) in einem Kampf von 60 s, 0.037 (0.30) in einem von 300 s
+  Willenskraft: 0.010 (0.03) in einem Kampf von 60 s, 0.041 (0.34) in einem von 300 s
+  Ausdauer: 0.000 (0.00) in einem Kampf von 60 s, 0.009 (0.07) in einem von 300 s
+  Mana pro 5 Sek.: 0.024 (0.07) in einem Kampf von 60 s, 0.120 (0.99) in einem von 300 s
+  Zaubertreffer, pro 1 %: 0.345 (1.01) in einem Kampf von 60 s, 0.257 (2.12) in einem von 300 s
+  Zauberkrit, pro 1 %: 0.213 (0.62) in einem Kampf von 60 s, 0.084 (0.69) in einem von 300 s
