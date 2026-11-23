@@ -7,10 +7,13 @@ import (
 )
 
 // consumables is app_bridge.py's "consumables": every buff group (the window hides the ones that do not help
-// the class) and, with the combat engine, the consumables for a fight rated by what they add ("plans").
+// the class) and, with the combat engine, the consumables for a fight rated by what they add ("plans"). With
+// --set value the set of a plan is the one by value: the most gain per gold an hour of fighting costs, up to
+// --budget gold an hour.
 func init() {
 	register("consumables", func(a *Args) (*pyjson.Obj, error) {
-		return consumables.Compute(a.Wow, a.Char, a.Top, true, a.Engine, a.FightSeconds, a.TargetDelta, nil)
+		set := consumables.Set{Value: a.Set == "value", Budget: a.Budget}
+		return consumables.Compute(a.Wow, a.Char, a.Top, true, a.Engine, a.FightSeconds, a.TargetDelta, nil, set)
 	})
 }
 

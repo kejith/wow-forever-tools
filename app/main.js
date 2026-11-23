@@ -131,6 +131,9 @@ async function runBridge(command, opts = {}) {
   // Without it the engine decides how many kills the fight has.
   if (typeof opts.killsPerMinute === 'number' && opts.killsPerMinute >= 0) args.push('--kills-per-minute', String(opts.killsPerMinute));
   if (opts.consumables) args.push('--consumables');
+  // The set of consumables by value, and the gold an hour of fighting may cost with it.
+  if (opts.set === 'value') args.push('--set', 'value');
+  if (opts.set === 'value' && Number(opts.budget) > 0) args.push('--budget', String(Number(opts.budget)));
   if (['dps', 'hps', 'ttoom'].includes(opts.metric)) args.push('--metric', opts.metric);
   if (opts.method === 'montecarlo') args.push('--method', 'montecarlo');
   if (typeof opts.profession === 'string' && opts.profession) args.push('--profession', opts.profession);
@@ -365,6 +368,7 @@ async function capturePages(out, required) {
     if (page === 'consumables') {
       await captureScrolled(out, wait, '.cons-fight .cons-grid', 'consumables-kinds');
       await captureScrolled(out, wait, '#c-buffs', 'consumables-buffs');
+      await captureConsumablesByValue(out, wait);
     }
     if (page === 'goldperhour') {
       // Open the first finished session, then shoot settings and history.
@@ -383,6 +387,30 @@ async function capturePages(out, required) {
     else if (result.error) failed.push(`${page}: ${result.error}`);
   }
   return failed;
+}
+
+// The consumables page with the set by value: the buying order. Switches back to the strongest set, which
+// the pages after it (and the Character page of a second run) expect.
+async function captureConsumablesByValue(out, wait) {
+  const choose = (value) => win.webContents.executeJavaScript(`(() => {
+    const el = document.querySelector('#c-set');
+    if (!el) return false;
+    el.value = ${JSON.stringify(value)};
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  // The select renders the page again by itself, so `__idle` does not say when it is done; the spinner does.
+  const idle = async () => {
+    await wait(300);
+    for (let i = 0; i < 600 && await win.webContents.executeJavaScript('!!document.querySelector("#content .loading")'); i++) await wait(500);
+    await wait(400);
+  };
+  if (!await choose('value')) return;
+  await idle();
+  const image = await win.webContents.capturePage();
+  fs.writeFileSync(path.join(out, 'consumables-value.png'), image.toPNG());
+  await choose('best');
+  await idle();
 }
 
 // Second shot of a long page, scrolled to `selector`; scrolls back to the top afterwards.

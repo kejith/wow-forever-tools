@@ -361,6 +361,13 @@ type Row struct {
 	Chosen       int
 	Adds         float64
 	item         *Item
+
+	// The set by value (chooseValue) adds these.
+	PerHour     *int64   // what an hour of fighting with the item costs, in copper; nil = no price
+	PerGold     *float64 // Gain per gold of that
+	AddsPerGold *float64 // Adds per gold of that, for a row of the set
+	NoPrice     bool     // you can craft it, but nothing says what it costs: never part of the set
+	OverBudget  bool     // would add something, but the budget does not pay for it
 }
 
 // price is `r["price"] or 0`.
@@ -439,6 +446,21 @@ func (r *Row) Obj() *pyjson.Obj {
 		o.Set("onYou", r.OnYou)
 	} else if r.BlockedBy != "" {
 		o.Set("blockedBy", r.BlockedBy)
+	}
+	if r.PerHour != nil {
+		o.Set("costPerHour", *r.PerHour)
+	}
+	if r.PerGold != nil {
+		o.Set("perGold", *r.PerGold)
+	}
+	if r.AddsPerGold != nil {
+		o.Set("addsPerGold", *r.AddsPerGold)
+	}
+	if r.NoPrice {
+		o.Set("noPrice", true)
+	}
+	if r.OverBudget {
+		o.Set("overBudget", true)
 	}
 	return o
 }
@@ -648,7 +670,7 @@ type starter func(metric string) (*enginebundle.Engine, error)
 // evaluate is consumables.evaluate: the page for one character export c; with start also the consumables
 // for a fight of seconds, rated by the engine.
 func evaluate(c *sv.Table, cat *Catalog, recipeCat *recipes.Catalog, prices, vendor *sv.Table, top int,
-	allBuffs bool, start starter, seconds float64, metrics []string) (*pyjson.Obj, []*plan, error) {
+	allBuffs bool, start starter, seconds float64, metrics []string, set Set) (*pyjson.Obj, []*plan, error) {
 	ch := c.Tab("character")
 	var levelOut any = int64(1)
 	if v := ch.Get("level"); sv.Truthy(v) {
@@ -728,7 +750,7 @@ func evaluate(c *sv.Table, cat *Catalog, recipeCat *recipes.Catalog, prices, ven
 	if start == nil {
 		return out, nil, nil
 	}
-	plans, err := fightPlans(c, cat, x, start, seconds, top, metrics)
+	plans, err := fightPlans(c, cat, x, start, seconds, top, metrics, set)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -742,10 +764,11 @@ func evaluate(c *sv.Table, cat *Catalog, recipeCat *recipes.Catalog, prices, ven
 
 // Compute is consumables.compute: the page as plain data. engine "on" or "auto" adds the consumables for a
 // fight, rated by the combat engine ("plans"); "auto" leaves them out when the engine does not run or does
-// not model the class and says why in "planNote". metrics nil = every metric of the class.
+// not model the class and says why in "planNote". metrics nil = every metric of the class. set says which set
+// the plans hold: the strongest one (the zero value) or the one by value.
 func Compute(wow, char string, top int, allBuffs bool, engine string, fightSeconds float64, targetDelta int,
-	metrics []string) (*pyjson.Obj, error) {
-	out, _, err := compute(wow, char, top, allBuffs, engine, fightSeconds, targetDelta, metrics)
+	metrics []string, set Set) (*pyjson.Obj, error) {
+	out, _, err := compute(wow, char, top, allBuffs, engine, fightSeconds, targetDelta, metrics, set)
 	var l *lookupError
 	if errors.As(err, &l) {
 		return nil, l.err
@@ -761,7 +784,7 @@ func (l *lookupError) Error() string { return l.err.Error() }
 func (l *lookupError) Unwrap() error { return l.err }
 
 func compute(wow, char string, top int, allBuffs bool, engine string, fightSeconds float64, targetDelta int,
-	metrics []string) (*pyjson.Obj, []*plan, error) {
+	metrics []string, set Set) (*pyjson.Obj, []*plan, error) {
 	files := game.FindChars(wow, char)
 	if len(files) == 0 {
 		return nil, nil, errors.New(i18n.T("No WoWMCP export found for \"{char}\".", "char", char))
@@ -830,13 +853,13 @@ func compute(wow, char string, top int, allBuffs bool, engine string, fightSecon
 	if err != nil {
 		return nil, nil, err
 	}
-	out, plans, err := evaluate(c, cat, recipeCat, prices, vendor, top, allBuffs, start, fightSeconds, metrics)
+	out, plans, err := evaluate(c, cat, recipeCat, prices, vendor, top, allBuffs, start, fightSeconds, metrics, set)
 	if err != nil { // the engine did not run
 		if engine == "on" || start == nil {
 			return nil, nil, &lookupError{err}
 		}
 		note = err.Error()
-		if out, plans, err = evaluate(c, cat, recipeCat, prices, vendor, top, allBuffs, nil, fightSeconds, nil); err != nil {
+		if out, plans, err = evaluate(c, cat, recipeCat, prices, vendor, top, allBuffs, nil, fightSeconds, nil, set); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -863,7 +886,7 @@ func buildNumber(v any) (int64, bool) {
 // then falls back to the weight scale with --engine auto, every other error is returned whatever --engine
 // says.
 func FightBuffs(wow, char, metric string, fightSeconds float64, targetDelta int) (*upgrades.Consumed, error) {
-	_, plans, err := compute(wow, char, 5, false, "on", fightSeconds, targetDelta, []string{metric})
+	_, plans, err := compute(wow, char, 5, false, "on", fightSeconds, targetDelta, []string{metric}, Set{})
 	if err != nil {
 		return nil, err
 	}

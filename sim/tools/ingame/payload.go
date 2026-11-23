@@ -48,7 +48,7 @@ var (
 		return recipes.Compute(wow, folder, "", 0, prices)
 	}
 	computeConsumables = func(wow, folder string) (any, error) {
-		return consumables.Compute(wow, folder, 3, false, "off", 60, -1, nil)
+		return consumables.Compute(wow, folder, 3, false, "off", 60, -1, nil, consumables.Set{})
 	}
 	loadPrices = writs.LoadPrices
 )

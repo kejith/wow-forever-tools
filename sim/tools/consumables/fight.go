@@ -392,28 +392,34 @@ func joinComma(parts []string) string {
 	return out
 }
 
-// choose is consumables.choose: the best set. What each row adds alone (gain), then greedy by what a row adds
-// on top of the ones chosen before it, among the rows the character can get now whose slots are free. Of rows
-// that add the same, the one in the bags wins, then the cheaper one. For a healer the health an item costs
-// is taken off what it adds. Returns the chosen rows in order, their summed delta and what they add together.
-func choose(eng *enginebundle.Engine, rows []*Row, healer bool) ([]*Row, *Delta, float64, error) {
-	cost := func(r *Row) float64 {
+// batchFunc is Engine.Batch: the metric gain per key for a list of stat deltas.
+type batchFunc func(evals []enginebundle.Eval, reoptimize bool) (map[string]float64, error)
+
+// healthCost is the health a row costs per second, as far as it is taken off what the row adds: for a healer
+// somebody has to heal it.
+func healthCost(healer bool) func(*Row) float64 {
+	return func(r *Row) float64 {
 		if healer && r.HealthPerSec != nil {
 			return *r.HealthPerSec
 		}
 		return 0
 	}
+}
+
+// rateAlone sets what each row adds alone (Gain) and returns the slots a buff of the snapshot holds
+// (slot -> the buff's name).
+func rateAlone(batch batchFunc, rows []*Row, cost func(*Row) float64) (*slots, error) {
 	var evals []enginebundle.Eval
 	for _, r := range rows {
 		if r.Delta.Len() > 0 {
 			evals = append(evals, enginebundle.Eval{Key: strconv.FormatInt(r.ID, 10), Delta: r.Delta.Map()})
 		}
 	}
-	alone, err := eng.Batch(evals, true)
+	alone, err := batch(evals, true)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, err
 	}
-	used := newSlots() // slot -> name of what holds it
+	held := newSlots()
 	for _, r := range rows {
 		c := 0.0
 		if r.Delta.Len() > 0 {
@@ -422,11 +428,51 @@ func choose(eng *enginebundle.Engine, rows []*Row, healer bool) ([]*Row, *Delta,
 		r.Gain = pyfmt.Round(alone[strconv.FormatInt(r.ID, 10)]-c, 2)
 		if r.OnYou != "" {
 			for _, s := range r.Slots {
-				used.set(s, r.OnYou)
+				held.set(s, r.OnYou)
 			}
 		}
 	}
-	held := used.copy() // the slots a buff of the snapshot holds
+	return held, nil
+}
+
+// markTaken says for every row outside the set what holds its place: a buff of the snapshot (held) or an
+// item of the set (used).
+func markTaken(rows []*Row, held, used *slots) {
+	for _, r := range rows {
+		if r.Chosen != 0 || r.Active {
+			continue
+		}
+		buff, holder := "", ""
+		for _, s := range r.Slots {
+			if v, ok := held.m[s]; ok && buff == "" {
+				buff = v
+			}
+			if v, ok := used.m[s]; ok && holder == "" {
+				holder = v
+			}
+		}
+		if buff != "" {
+			if r.onYouAt == 0 {
+				r.onYouAt = 2
+			}
+			r.OnYou = buff
+		} else if holder != "" {
+			r.BlockedBy = holder
+		}
+	}
+}
+
+// choose is consumables.choose: the best set. What each row adds alone (gain), then greedy by what a row adds
+// on top of the ones chosen before it, among the rows the character can get now whose slots are free. Of rows
+// that add the same, the one in the bags wins, then the cheaper one. For a healer the health an item costs
+// is taken off what it adds. Returns the chosen rows in order, their summed delta and what they add together.
+func choose(batch batchFunc, rows []*Row, healer bool) ([]*Row, *Delta, float64, error) {
+	cost := healthCost(healer)
+	held, err := rateAlone(batch, rows, cost)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	used := held.copy() // slot -> name of what holds it
 	var chosen []*Row
 	total, gained, paid := newDelta(), 0.0, 0.0 // paid: the health the set costs, per second
 	var pool []*Row
@@ -438,12 +484,7 @@ func choose(eng *enginebundle.Engine, rows []*Row, healer bool) ([]*Row, *Delta,
 	for {
 		var free []*Row
 		for _, r := range pool {
-			taken := false
-			for _, s := range r.Slots {
-				_, ok := used.m[s]
-				taken = taken || ok
-			}
-			if !taken {
+			if !used.any(r.Slots) {
 				free = append(free, r)
 			}
 		}
@@ -455,7 +496,7 @@ func choose(eng *enginebundle.Engine, rows []*Row, healer bool) ([]*Row, *Delta,
 		for i, r := range pool {
 			evals[i] = enginebundle.Eval{Key: strconv.FormatInt(r.ID, 10), Delta: addDelta(total, r.Delta).Map()}
 		}
-		gains, err := eng.Batch(evals, true)
+		gains, err := batch(evals, true)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -496,28 +537,7 @@ func choose(eng *enginebundle.Engine, rows []*Row, healer bool) ([]*Row, *Delta,
 			used.set(s, best.Name)
 		}
 	}
-	for _, r := range rows {
-		if r.Chosen != 0 || r.Active {
-			continue
-		}
-		buff, holder := "", ""
-		for _, s := range r.Slots {
-			if v, ok := held.m[s]; ok && buff == "" {
-				buff = v
-			}
-			if v, ok := used.m[s]; ok && holder == "" {
-				holder = v
-			}
-		}
-		if buff != "" {
-			if r.onYouAt == 0 {
-				r.onYouAt = 2
-			}
-			r.OnYou = buff
-		} else if holder != "" {
-			r.BlockedBy = holder
-		}
-	}
+	markTaken(rows, held, used)
 	return chosen, total, gained, nil
 }
 
@@ -526,6 +546,14 @@ type slots struct{ m map[string]string }
 
 func newSlots() *slots           { return &slots{m: map[string]string{}} }
 func (s *slots) set(k, v string) { s.m[k] = v }
+func (s *slots) any(keys []string) bool {
+	for _, k := range keys {
+		if _, ok := s.m[k]; ok {
+			return true
+		}
+	}
+	return false
+}
 func (s *slots) copy() *slots {
 	c := newSlots()
 	for k, v := range s.m {
@@ -549,6 +577,9 @@ type plan struct {
 	engine              string
 	active              []string
 	rows                []*Row
+	set                 Set
+	perHour             int64   // by value: what an hour of fighting with the set costs, in copper
+	steps               []*step // by value: how the set was built, the buying order
 }
 
 // Obj is the plan as fight_plan returns it.
@@ -587,15 +618,50 @@ func (p *plan) Obj() *pyjson.Obj {
 	for i, a := range p.active {
 		active[i] = a
 	}
-	return pyjson.New("metric", p.metric, "unit", p.unit, "title", p.title, "seconds", p.seconds,
+	o := pyjson.New("metric", p.metric, "unit", p.unit, "title", p.title, "seconds", p.seconds,
 		"targetDelta", p.targetDelta, "base", p.base, "value", p.value, "gain", p.gain, "gainPct", p.gainPct,
 		"cost", p.cost, "unpriced", p.unpriced, "chosen", chosen, "kinds", kindsOut, "delta", p.total.Obj(),
 		"engine", p.engine, "active", active)
+	if p.set.Value {
+		var budget any
+		if p.set.Budget > 0 {
+			budget = pyfmt.RoundInt(p.set.Budget * copperPerGold)
+		}
+		replacedBy := map[*Row]string{}
+		for _, s := range p.steps {
+			for _, x := range s.out {
+				replacedBy[x] = s.row.Name
+			}
+		}
+		steps := make([]any, len(p.steps))
+		for i, s := range p.steps {
+			replaces := make([]any, len(s.out))
+			for j, x := range s.out {
+				replaces[j] = pyjson.New("id", x.ID, "name", x.Name, "quality", x.Quality)
+			}
+			var worth, later any
+			if g := perGold(s.more, s.cost); g != nil {
+				worth = *g
+			}
+			if name, ok := replacedBy[s.row]; ok {
+				later = name
+			}
+			steps[i] = pyjson.New("n", i+1, "item", obj(s.row), "adds", pyfmt.Round(s.more, 2),
+				"costPerHour", pyfmt.RoundInt(s.cost), "perGold", worth, "value", pyfmt.Round(p.base+s.gained, 2),
+				"spent", pyfmt.RoundInt(s.spent), "replaces", replaces, "replacedBy", later)
+		}
+		o.Set("mode", "value")
+		o.Set("costPerHour", p.perHour)
+		o.Set("budget", budget)
+		o.Set("steps", steps)
+	}
+	return o
 }
 
 // fightPlan is consumables.fight_plan: the consumables for one metric, the rows per kind with their gain,
-// the best set and the metric with it.
-func fightPlan(metric string, start starter, candidates []*Row, seconds float64, top int) (*plan, error) {
+// the best set and the metric with it. With set.Value the set is the one by value (chooseValue) and the rows
+// of a kind come in the order of their value.
+func fightPlan(metric string, start starter, candidates []*Row, seconds float64, top int, set Set) (*plan, error) {
 	rows := make([]*Row, len(candidates))
 	for i, r := range candidates {
 		c := *r
@@ -605,7 +671,15 @@ func fightPlan(metric string, start starter, candidates []*Row, seconds float64,
 	if err != nil {
 		return nil, err
 	}
-	chosen, total, gained, err := choose(eng, rows, metric == "hps")
+	var chosen []*Row
+	var total *Delta
+	var gained float64
+	var steps []*step
+	if set.Value {
+		chosen, total, gained, steps, err = chooseValue(eng.Batch, rows, metric == "hps", seconds, set.Budget)
+	} else {
+		chosen, total, gained, err = choose(eng.Batch, rows, metric == "hps")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -638,6 +712,9 @@ func fightPlan(metric string, start starter, candidates []*Row, seconds float64,
 			}
 			return a.ID < b.ID
 		})
+		if set.Value {
+			byValue(mine)
+		}
 		var keep []*Row
 		for i, r := range mine {
 			if top == 0 || i < top || r.Chosen != 0 || r.Active {
@@ -664,11 +741,14 @@ func fightPlan(metric string, start starter, candidates []*Row, seconds float64,
 	p := &plan{metric: metric, unit: planUnits[metric], title: planTitle(metric), seconds: secondsOut,
 		targetDelta: eng.Fight.TargetDelta, base: pyfmt.Round(base, 2), value: pyfmt.Round(value, 2),
 		gain: pyfmt.Round(value-base, 2), chosen: chosen, kinds: kindsOut, total: total, engine: eng.Version,
-		rows: rows}
+		rows: rows, set: set, steps: steps}
 	if base != 0 {
 		p.gainPct = pyfmt.Round((value-base)/base*100, 1)
 	}
 	for _, r := range chosen {
+		if r.PerHour != nil {
+			p.perHour += *r.PerHour
+		}
 		if r.Owned == 0 {
 			p.cost += r.price()
 			if r.price() == 0 {
@@ -690,7 +770,7 @@ func fightPlan(metric string, start starter, candidates []*Row, seconds float64,
 // fightPlans is consumables.fight_plans: one plan per metric of the class (the spec's own first; the time
 // until the mana is gone only when asked for by name).
 func fightPlans(c *sv.Table, cat *Catalog, x *ctx, start starter, seconds float64, top int,
-	metrics []string) ([]*plan, error) {
+	metrics []string, set Set) ([]*plan, error) {
 	classFile := c.Tab("character").Str("classFile")
 	first := enginebundle.DefaultMetric(classFile, enginebundle.SpecOf(c))
 	if len(metrics) == 0 {
@@ -708,7 +788,7 @@ func fightPlans(c *sv.Table, cat *Catalog, x *ctx, start starter, seconds float6
 		if m == "" {
 			m = first
 		}
-		p, err := fightPlan(m, start, rows, seconds, top)
+		p, err := fightPlan(m, start, rows, seconds, top, set)
 		if err != nil {
 			return nil, err
 		}

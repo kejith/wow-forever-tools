@@ -14,6 +14,11 @@ func TestConsumablesGolden(t *testing.T) {
 			"--engine", "off"}},
 		{"consumables-ilse-fight-en.txt", []string{"--char", "Ilse", "--lang", "en", "--engine", "on",
 			"--fight-seconds", "120", "--target-delta", "3"}},
+		// The set by value; recorded from wowtools (the Python script had no such set).
+		{"consumables-brakk-value-en.txt", []string{"--char", "Brakk", "--lang", "en", "--engine", "on",
+			"--set", "value"}},
+		{"consumables-ilse-value-budget-de.txt", []string{"--char", "Ilse", "--lang", "de", "--engine", "on",
+			"--set", "value", "--budget", "0.05"}},
 	} {
 		out, code := runCmd(t, "consumables", append([]string{"--wow", fx}, c.args...)...)
 		if code != 0 {
@@ -23,5 +28,8 @@ func TestConsumablesGolden(t *testing.T) {
 	}
 	if _, code := runCmd(t, "consumables", "--wow", fx, "--char", "Nobody"); code != 1 {
 		t.Errorf("unknown character: exit %d, want 1", code)
+	}
+	if _, code := runCmd(t, "consumables", "--wow", fx, "--char", "Brakk", "--set", "cheapest"); code == 0 {
+		t.Errorf("unknown set: exit 0")
 	}
 }

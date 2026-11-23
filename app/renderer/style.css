@@ -415,6 +415,9 @@ tr.detail > td { background: #18140f; }
 .cons-set td { vertical-align: top; }
 .cons-set .gain { min-width: 150px; }
 .cons-set .gain b { width: 54px; }
+.cons-value .gain { min-width: 130px; }
+.cons-value tr.cons-replaced td { opacity: 0.55; }
+.cons-swap { color: var(--gold); }
 .cons-more { margin: 8px 0 0; }
 .cons-card h3 .badge { vertical-align: middle; font-weight: 400; }
 

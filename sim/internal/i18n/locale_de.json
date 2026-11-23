@@ -313,7 +313,15 @@
     "not in the AH": "nicht im AH",
     "instead: {name}": "stattdessen: {name}",
     "costs more than half your health": "kostet mehr als die Hälfte deiner Gesundheit",
-    "… and {n} more": "… und {n} weitere"
+    "… and {n} more": "… und {n} weitere",
+    "{n:.1f}/g": "{n:.1f}/g",
+    "{cost}/h": "{cost}/h",
+    "{base:.1f} {unit} without, {value:.1f} {unit} with the set by value ({gain:+.1f}, {pct:+.1f} %), {hour} per hour of fighting, to buy: {cost}": "{base:.1f} {unit} ohne, {value:.1f} {unit} mit dem Set nach Preis-Leistung ({gain:+.1f}, {pct:+.1f} %), {hour} pro Stunde Kampf, zu kaufen: {cost}",
+    "Budget: {budget} per hour of fighting": "Budget: {budget} pro Stunde Kampf",
+    "In buying order: what a step adds, what an hour of fighting costs more with it (a buff for the time it lasts, a potion in every fight), the gain per gold of that, then {unit} and cost so far.": "In Kaufreihenfolge: was ein Schritt bringt, was eine Stunde Kampf damit mehr kostet (ein Buff für seine Dauer, ein Trank in jedem Kampf), der Gewinn pro Gold davon, dann {unit} und Kosten bis dahin.",
+    "replaces {names}": "ersetzt {names}",
+    "no price known": "kein Preis bekannt",
+    "over the budget": "über dem Budget"
   },
   "ingame.py": {
     "AH upgrades": "AH-Upgrades",

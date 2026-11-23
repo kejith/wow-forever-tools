@@ -147,7 +147,7 @@ func TestBestForLevel(t *testing.T) {
 	alchemy.Set("1", &recipes.Recipe{Output: 11})
 	alchemy.Set("2", &recipes.Recipe{Output: 12})
 	recipeCat.Lines.Set("171", alchemy)
-	out, _, err := evaluate(c, cat, recipeCat, prices, sv.NewTable(), 5, false, nil, 60, nil)
+	out, _, err := evaluate(c, cat, recipeCat, prices, sv.NewTable(), 5, false, nil, 60, nil, Set{})
 	if err != nil {
 		t.Fatal(err)
 	}

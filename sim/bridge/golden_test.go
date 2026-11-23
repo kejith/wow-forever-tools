@@ -24,6 +24,8 @@ import (
 // 1e-9, the key order of an object is not compared (Python's was random where its source was a Lua table),
 // and paths are written as <wow> (the copy) and <cache> (WOW_TOOLS_CACHE). The recording also ran Python with
 // its clock 40 days ahead; the paths that changed then ("time" per case) depend on the day and are left out.
+// A case that says "recorded" is younger than the Python bridge (an option it never had): its answer is the
+// one wowtools gave when the case was added.
 func TestGolden(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short mode")

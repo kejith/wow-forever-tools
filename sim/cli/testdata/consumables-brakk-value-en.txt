@@ -1,0 +1,171 @@
+Brakk-Düsterfels  |  level 53  |  AH scan 2026-11-21
+
+== Healing potions ==
+ *Überragender verfärbter Heiltrank    restores 1500–1700 health                       35s 60c    Alchimie
+  Erheblicher Verjüngungstrank         restores 1440–1760 health                       73s 20c    Alchimie
+  Erheblicher Heiltrank                restores 1050–1750 health                       28s 10c  4 in bags  Erste Hilfe
+  Großer verfärbter Heiltrank          restores 975–1105 health                         6s 78c    Alchimie
+  Überragender Heiltrank               restores 700–900 health                          5s 02c    Erste Hilfe
+   next: Erheblicher verfärbter Heiltrank from level 60
+
+== Mana potions ==
+ *Erheblicher Manatrank                restores 1350–2250 mana                         74s 95c    Alchimie
+  Erheblicher Verjüngungstrank         restores 1440–1760 mana                         73s 20c    Alchimie
+  Überragender Manatrank               restores 900–1500 mana                          36s 99c  1 in bags  Alchimie
+  Studentenfutter                      restores 675–1125 mana                                –  8 in bags  
+  Großer Manatrank                     restores 700–900 mana                            5s 40c  5 in bags  Alchimie
+
+== Food ==
+  Dirges abgefahrene Chimaerokkotelett 2550 health over 30 sec.                              –    Kochkunst
+ *Frittierte Kochbanane                2148 health over 30 sec.                         2s 88c    
+  Scharfer geräucherter Barsch         2148 health over 30 sec.                              –    Kochkunst
+  Rotkiemenfilet                       1392 health over 30 sec.                         0s 27c    Kochkunst
+  Tüpfelgelbschwanz                    1392 health over 30 sec.                         0s 81c  5 in bags  Kochkunst
+   next: Pirschersteak from level 55
+
+== Drinks ==
+ *Angereicherter Manakeks              4410 mana over 30 sec.                          20s 99c    
+  Trichterwindentau                    2934 mana over 30 sec.                           5s 00c  24 in bags  
+  Mondbeerensaft                       1992 mana over 30 sec.                           3s 00c  1 in bags  
+  Verzaubertes Wasser                  1345 mana over 27 sec.                           1s 40c    
+  Golddorntee                          1345 mana over 27 sec.                           1s 58c  3 in bags  Kochkunst
+
+== Bandages ==
+  Kristalldurchdrungener Verband       2500 health over 10 sec.                              –    Erste Hilfe
+ *Schwerer Runenstoffverband           2000 health over 8 sec.                         11s 89c    Erste Hilfe
+  Runenstoffverband                    1360 health over 8 sec.                          5s 10c  5 in bags  Erste Hilfe
+  Schwerer Magiestoffverband           1104 health over 8 sec.                          6s 00c    Erste Hilfe
+  Magiestoffverband                    800 health over 8 sec.                           4s 00c    Erste Hilfe
+
+== Spell power ==
+ *Fläschchen mit oberster Macht        +150 Spell power                                19g 75s    Alchimie
+  Hervorragendes Zauberöl              +36 Spell power, +36 Healing, +1% Spell crit          –    Enchanting
+  Großes Arkanelixier                  +35 Spell power                                 89s 19c    Alchimie
+  Überragender Trank des Zauberschlags +33 Spell power                                 30s 46c    Alchimie
+  Hummereintopf                        +28 Spell power                                  7s 77c    Kochkunst
+
+== Shadow spell power ==
+ *Elixier der Schattenmacht            +40 Shadow spell power                           1g 34s    Alchimie
+
+== Fire spell power ==
+ *Elixier der Feuermacht               +10 Fire spell power                             0s 35c    Alchimie
+
+== Spell crit ==
+  Hervorragendes Zauberöl              +36 Spell power, +36 Healing, +1% Spell crit          –    Enchanting
+
+== Intellect ==
+ *Elixier der großen Intelligenz       +25 Intellect                                   12s 90c  3 in bags  Alchimie
+  Langsam gegarter prähistorischer Rap +20 Intellect                                   24s 98c    Kochkunst
+  Erhabener Rollbraten                 +20 Intellect                                         –    Kochkunst
+  Elixier der Weisen                   +18 Intellect, +18 Spirit                       52s 99c    Alchimie
+  Rolle der Intelligenz IV             +16 Intellect                                    8s 84c    
+
+== Spirit ==
+ *Heftiger Smoothie                    +20 Spirit                                      19s 64c    Kochkunst
+  Elixier der Weisen                   +18 Intellect, +18 Spirit                       52s 99c    Alchimie
+  Rolle der Willenskraft IV            +15 Spirit                                       3s 43c    
+  Muschelette Surprise                 +12 Stamina, +12 Spirit                          2s 99c    
+  Rolle der Willenskraft III           +11 Spirit                                       2s 15c    
+   next: Elixier der Weisen from level 55
+
+== Mana per 5 sec. ==
+  Hervorragendes Manaöl                +15 Mana per 5 sec., +30 Healing                      –    Enchanting
+  Magierblutelixier                    +12 Mana per 5 sec.                                   –    Alchimie
+ *Geringes Magierblutelixier           +6 Mana per 5 sec.                               7s 93c    Alchimie
+  Schwaches Manaöl                     +5 Mana per 5 sec., +10 Healing                  5s 00c    Enchanting
+  Schwaches Magierblutelixier          +3 Mana per 5 sec.                               7s 87c    Alchimie
+   next: Großes Magierblutelixier from level 55
+
+== Stamina ==
+  Dirges abgefahrene Chimaerokkotelett +25 Stamina                                           –    Kochkunst
+ *Pikanter Schildkröteneintopf         +20 Stamina                                     27s 27c    Kochkunst
+  Elixier der rohen Gewalt             +18 Strength, +18 Stamina                       56s 00c    Alchimie
+  Rolle der Ausdauer IV                +16 Stamina                                     16s 49c    
+  Spinnenwurst                         +15 Stamina                                      3s 60c    Kochkunst
+   next: Fläschchen der natürlichen Genauigkeit from level 55
+
+== Maximum health ==
+ *Fläschchen der Titanen               +1200 Maximum health                            21g 99s    Alchimie
+  Elixier der Seelenstärke             +200 Maximum health                             24s 00c    Alchimie
+  Elixier der geringen Seelenstärke    +120 Maximum health                              7s 47c    Alchimie
+  Elixier der schwachen Seelenstärke   +27 Maximum health                               3s 26c    Alchimie
+
+== All attributes ==
+  Elixier der verschmolzenen Reue      +1 All attributes                                     –    Alchimie
+
+=== Consumables for a fight of 60 s: Damage ===
+326.4 DPS without, 501.1 DPS with the set by value (+174.7, +53.5 %), 153g 91s per hour of fighting, to buy: 24g 78s
+In buying order: what a step adds, what an hour of fighting costs more with it (a buff for the time it lasts, a potion in every fight), the gain per gold of that, then DPS and cost so far.
+On you at the snapshot, so already in the numbers: Satt
+  1. Überragender Manatrank               Potions in the fight    +4.4 DPS             –          –    330.8 DPS      0s 00c/h  1 in bags
+  2. Elixier der großen Intelligenz       Elixirs                 +1.3 DPS             –          –    332.1 DPS      0s 00c/h  3 in bags
+  3. Schwaches Zauberöl                   Weapon oil              +5.1 DPS      5s 98c/h     85.3/g    337.2 DPS      5s 98c/h  
+  4. Schwaches Arkanelixier               Elixirs                 +3.2 DPS      3s 80c/h     83.9/g    340.4 DPS      9s 78c/h  
+  5. Elixier der Feuermacht               Elixirs                 +0.6 DPS      0s 70c/h     78.5/g    341.0 DPS     10s 48c/h  
+  6. Geringes Arkanelixier                Elixirs                 +6.4 DPS     13s 18c/h     48.4/g    347.3 DPS     23s 66c/h  replaces Schwaches Arkanelixier
+  7. Zauberöl                             Weapon oil             +10.2 DPS     53s 96c/h     18.9/g    357.5 DPS     77s 62c/h  replaces Schwaches Zauberöl
+  8. Rolle der Intelligenz II             Scrolls                 +0.5 DPS      2s 38c/h     19.0/g    358.0 DPS     80s 00c/h  
+  9. Großes Arkanelixier                  Elixirs                +12.8 DPS     72s 21c/h     17.7/g    370.8 DPS      1g 52s/h  replaces Geringes Arkanelixier
+ 10. Fläschchen mit oberster Macht        Flask                  +95.7 DPS      9g 88s/h      9.7/g    466.5 DPS     11g 40s/h  
+ 11. Elixier der Schattenmacht            Elixirs                +23.3 DPS      2g 68s/h      8.7/g    489.8 DPS     14g 08s/h  
+ 12. Rolle der Intelligenz III            Scrolls                 +0.3 DPS      5s 26c/h      6.0/g    490.1 DPS     14g 13s/h  replaces Rolle der Intelligenz II
+ 13. Rolle der Intelligenz IV             Scrolls                 +0.3 DPS     10s 04c/h      3.1/g    490.5 DPS     14g 23s/h  replaces Rolle der Intelligenz III
+ 14. Trank des Zauberschlags              Potions in the fight    +3.0 DPS      4g 80s/h      0.6/g    493.5 DPS     19g 03s/h  replaces Überragender Manatrank
+ 15. Geringes Magierblutelixier           Elixirs                 +0.7 DPS     15s 86c/h      4.4/g    494.2 DPS     19g 19s/h  
+ 16. Überragender Trank des Zauberschlags Potions in the fight    +5.5 DPS     13g 47s/h      0.4/g    499.6 DPS     32g 66s/h  replaces Trank des Zauberschlags
+ 17. Dunkelrune                           Runes and roots         +1.4 DPS    121g 24s/h      0.0/g    501.1 DPS    153g 91s/h  
+
+-- Flask: One flask at a time; its own text says so. It works next to elixirs, buff food and a weapon oil.
+ *Fläschchen mit oberster Macht        +150 Spell power                           +95.5 DPS      9.7/g     19g 75s    
+  Fläschchen der Titanen               +1200 Maximum health                        +0.0 DPS          –     21g 99s    instead: Fläschchen mit oberster Macht
+
+-- Elixirs: Elixirs for different stats work together: the game has no battle and guardian elixirs here. (Whether two elixirs for the same stat add up is not confirmed for Forever. The set takes one per stat.)
+ *Elixier der großen Intelligenz       +25 Intellect                               +2.5 DPS          –     12s 90c  3 in bags  
+  Schwaches Arkanelixier               +5 Spell power                              +3.2 DPS     83.7/g      1s 90c    instead: Großes Arkanelixier
+  Geringes Arkanelixier                +15 Spell power                             +9.6 DPS     56.2/g      8s 49c    instead: Großes Arkanelixier
+  Arkanes Elixier                      +20 Spell power                            +12.7 DPS     31.4/g     20s 25c    instead: Großes Arkanelixier
+ *Großes Arkanelixier                  +35 Spell power                            +22.3 DPS     25.0/g     89s 19c    
+ *Elixier der Schattenmacht            +40 Shadow spell power                     +25.5 DPS      9.5/g      1g 34s    
+ *Geringes Magierblutelixier           +6 Mana per 5 sec.                          +0.3 DPS      1.7/g      7s 93c    
+ *Elixier der Feuermacht               +10 Fire spell power                        +0.0 DPS          –      0s 35c    
+   … and 39 more
+
+-- Buff food: One Well Fed buff at a time: the next meal replaces it.
+  Tüpfelgelbschwanz                    +22 Spell power                            +14.0 DPS          –      0s 81c  5 in bags  Satt is on you already
+  Geräucherter Weisenfisch             +4 Spell power                              +2.5 DPS     91.1/g      0s 70c    Satt is on you already
+  Nachtflossensuppe                    +22 Spell power                            +14.0 DPS     89.1/g      3s 93c    Satt is on you already
+  Hummereintopf                        +28 Spell power                            +17.8 DPS     57.3/g      7s 77c    Satt is on you already
+  Weisenfisch Supreme                  +7 Spell power                              +4.5 DPS     54.4/g      2s 05c    Satt is on you already
+   … and 100 more
+
+-- Weapon oil: One temporary enchantment per weapon. By their texts a warlock's Spellstone and Firestone take the same place.
+  Schwaches Zauberöl                   +8 Spell power, +8 Healing                  +5.1 DPS     85.1/g      2s 99c    instead: Zauberöl
+ *Zauberöl                             +24 Spell power, +24 Healing               +15.3 DPS     25.5/g     29s 97c    
+  Schwaches Manaöl                     +5 Mana per 5 sec., +10 Healing             +0.1 DPS      1.2/g      5s 00c    instead: Zauberöl
+  Hervorragendes Zauberöl              +36 Spell power, +36 Healing, +1% Spell    +26.1 DPS          –           –    not in the AH
+  Prächtiger Trollschein               +36 Spell power, +36 Healing, +1% Spell    +26.1 DPS          –           –    not in the AH
+   … and 3 more
+
+-- Scrolls: One scroll per stat. (In the original game a scroll did not add to the class buff of the same stat (Arcane Intellect, Divine Spirit, Power Word: Fortitude). Not checked for Forever: the set counts the scroll in full.)
+  Rolle der Intelligenz II             +8 Intellect                                +1.3 DPS     55.0/g      1s 19c    instead: Rolle der Intelligenz IV
+  Rolle der Intelligenz III            +12 Intellect                               +1.8 DPS     23.3/g      3s 82c    instead: Rolle der Intelligenz IV
+  Rolle der Intelligenz                +4 Intellect                                +0.3 DPS     19.3/g      0s 88c    instead: Rolle der Intelligenz IV
+ *Rolle der Intelligenz IV             +16 Intellect                               +2.0 DPS     11.3/g      8s 84c    
+  Rolle der Stärke                     +5 Strength                                 +0.0 DPS          –      3s 99c    
+   … and 17 more
+
+-- Potions in the fight: All potions share one cooldown of 2 minutes. The gain is what the potion gives spread over the fight: its mana or health, or its buff for the seconds it lasts.
+  Überragender Manatrank               restores 900–1500 mana                      +4.4 DPS          –     36s 99c  1 in bags  instead: Überragender Trank des Zauberschlags
+  Großer Manatrank                     restores 700–900 mana                       +3.4 DPS          –      5s 40c  5 in bags  instead: Überragender Trank des Zauberschlags
+  Erheblicher Heiltrank                restores 1050–1750 health                   +0.0 DPS          –     28s 10c  4 in bags  instead: Überragender Trank des Zauberschlags
+  Schwacher Manatrank                  restores 140–180 mana                       +1.1 DPS     13.1/g      0s 14c    instead: Überragender Trank des Zauberschlags
+  Schwacher Verjüngungstrank           restores 90–150 mana, restores 90–150 he    +0.9 DPS      9.6/g      0s 15c    instead: Überragender Trank des Zauberschlags
+ *Überragender Trank des Zauberschlags +33 Spell power                            +10.5 DPS      0.6/g     30s 46c    
+   … and 33 more
+
+-- Runes and roots: Runes and the roots from Felwood share a cooldown of 2 minutes of their own, next to the potions.
+ *Dunkelrune                           restores 900–1500 mana, costs about 800     +4.4 DPS      0.0/g      2g 02s    
+
+-- Other buffs: The buffs from the Blasted Lands share a cooldown of an hour, and one Zanza potion works at a time. (For the others nothing says what they exclude: the set counts each of them on top.)
+  Oil of Olaf                          +50 Armor                                   +0.0 DPS          –      0s 88c    
+  Elixier der verschmolzenen Reue      +1 All attributes                           +0.1 DPS          –           –    not in the AH

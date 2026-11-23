@@ -27,6 +27,8 @@ type Args struct {
 	Method         string
 	Iterations     int
 	Consumables    bool
+	Set            string  // consumables: which set a plan holds, "best" or "value"
+	Budget         float64 // consumables --set value: gold per hour of fighting, 0 = no limit
 	Profession     string
 	IDs            string
 	Write          bool
@@ -42,6 +44,7 @@ var choices = map[string][]string{
 	"metric":  {"", "dps", "hps", "ttoom"},
 	"method":  {"", "expectation", "montecarlo"},
 	"lang":    {"auto", "en", "de"},
+	"set":     {"best", "value"},
 }
 
 // ParseArgs reads the options after the command. An unknown option or value is an error, as argparse
@@ -66,6 +69,8 @@ func ParseArgs(argv []string) (*Args, error) {
 	fs.StringVar(&a.Method, "method", "", "")
 	fs.IntVar(&a.Iterations, "iterations", 0, "")
 	fs.BoolVar(&a.Consumables, "consumables", false, "")
+	fs.StringVar(&a.Set, "set", "best", "")
+	fs.Float64Var(&a.Budget, "budget", 0, "")
 	fs.StringVar(&a.Profession, "profession", "", "")
 	fs.StringVar(&a.IDs, "ids", "", "")
 	fs.BoolVar(&a.Write, "write", false, "")
@@ -78,7 +83,7 @@ func ParseArgs(argv []string) (*Args, error) {
 		return nil, fmt.Errorf("unrecognized arguments: %s", strings.Join(fs.Args(), " "))
 	}
 	values := map[string]string{"profile": a.Profile, "sort": a.Sort, "engine": a.Engine, "metric": a.Metric,
-		"method": a.Method, "lang": a.Lang}
+		"method": a.Method, "lang": a.Lang, "set": a.Set}
 	for name, v := range values {
 		ok := false
 		for _, c := range choices[name] {
