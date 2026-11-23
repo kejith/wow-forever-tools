@@ -1,19 +1,21 @@
 # Dependencies and build output
 node_modules/
-app/out/
-app/dist/
 __pycache__/
 *.pyc
 
-# Downloaded game data (wago.tools), app screenshots, tools the release build downloads
+# Downloaded game data (wago.tools), app screenshots
 scripts/cache/
 app/captures/
+
+# The app's build (app/build.sh): the exe and the installer, and the Windows resources it generates
 app/build/bin/
+app/build/icon.ico
+app/rsrc_windows_*.syso
 
 # The combat engine's local build (go build -o simforever ./cmd/simforever)
 sim/simforever
 sim/simforever.exe
-# The Go bridge's local build (go build -o wowtools ./cmd/wowtools); main.js uses it in a checkout
+# The Go reports' local build (go build -o wowtools ./cmd/wowtools)
 sim/wowtools
 sim/wowtools.exe
 

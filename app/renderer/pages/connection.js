@@ -298,6 +298,33 @@ function charactersTable() {
   return `<div class="card"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+// The ready check at the top: every part the app needs at a glance, like the game's ready check.
+function readyCheck() {
+  const s = state.status;
+  const g = state.game || {};
+  const addon = (a) => (!a ? ['bad', t('not available')] : !a.installed ? ['bad', t('not installed')]
+    : !a.source || a.upToDate || a.ahead ? ['ok', t('up to date')] : ['warn', t('update available')]);
+  const au = s.auctionator;
+  const days = au?.scanDate ? Math.round((Date.now() - new Date(au.scanDate)) / 86400000) : null;
+  const scan = !au || au.error ? ['bad', t('No Auctionator data')] : days === null ? ['warn', '–'] : days <= 1 ? ['ok', t('fresh')] : ['warn', daysOld(days)];
+  const ex = s.itemExport;
+  const chars = (s.characters || []).filter((c) => !c.error);
+  const lists = state.ingame && !state.ingame.error ? listsState(state.ingame) : ['', state.ingame?.error ? t('not available') : t('Computing the lists …')];
+  const checks = [
+    [g.running ? 'ok' : 'warn', 'WoW Forever', g.running ? t('running') : g.otherClient ? t('another WoW client is open') : t('closed')],
+    [...addon(state.addon).slice(0, 1), t('{name} addon', { name: 'WoWMCP' }), addon(state.addon)[1]],
+    [...addon(state.gphAddon).slice(0, 1), t('{name} addon', { name: 'GoldPerHour' }), addon(state.gphAddon)[1]],
+    [scan[0], t('Auction house scan'), scan[1]],
+    [ex ? 'ok' : 'warn', t('Item export'), ex ? t('{n} items', { n: num(ex.count) }) : t('none yet')],
+    [lists[0], t('Lists in the game'), lists[1]],
+    [chars.length ? 'ok' : 'bad', t('Characters'), chars.length ? chars.map((c) => c.name).join(', ') : t('No character exported yet.')],
+  ];
+  const mark = { ok: '✓', warn: '!', bad: '✕', '': '…' };
+  return `<div class="ready">${checks.map(([cls, title, sub]) => `<div class="ready-item ${cls}">
+      <span class="ready-mark">${mark[cls] ?? '…'}</span>
+      <span class="ready-text"><b>${esc(title)}</b><span>${esc(sub)}</span></span></div>`).join('')}</div>`;
+}
+
 export async function renderConnection() {
   if (!state.status) {
     content.innerHTML = loading(t('Connecting to WoW Forever …'));
@@ -314,7 +341,7 @@ export async function renderConnection() {
     hint = `<div class="notice">${t('{names}: the source has a version other than the installed one. “Update addon” copies it into the game; type <code>/reload</code> in the game afterwards.',
       { names: esc(outdated.map((x) => x.name).join(', ')) })}</div>`;
   }
-  content.innerHTML = `${hint}
+  content.innerHTML = `${readyCheck()}${hint}
     <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${appCard()}${auctionatorCard()}${itemExportCard()}${listsCard()}${requestCard()}</div>
     <div class="section"><h2>${esc(t('Characters'))}</h2>${charactersTable()}</div>`;
 }

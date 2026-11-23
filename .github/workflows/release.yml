@@ -1,6 +1,6 @@
 name: Release
 
-# Runs for a version tag: pushed by hand, or created by CI when the version in app/package.json changes on main.
+# Runs for a version tag: pushed by hand, or created by CI when the version in app/VERSION changes on main.
 on:
   push:
     tags: ['v*']
@@ -20,9 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: |
-          version=$(node -p "require('./app/package.json').version")
+          version=$(tr -d '[:space:]' < app/VERSION)
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in app/package.json"
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in app/VERSION"
             exit 1
           fi
 

@@ -1,6 +1,6 @@
 // WoW Forever Tools, the desktop app: the page. This file wires the pages to the navigation, the character
 // selection and the language; core.js holds what the pages share, pages/*.js one page each.
-import { $, api, content, errorBox, esc, hydrateIcons, loadStatus, loading, pages, resetTips, restoreView, saveView, state, updateLiveState } from './core.js';
+import { $, api, content, errorBox, esc, hydrateIcons, hydrateNavIcons, loadStatus, loading, pages, resetTips, restoreView, saveView, showUnit, state, updateLiveState } from './core.js';
 import { mark, setLanguage, t } from './i18n.js';
 import { renderConnection, showUpdate } from './pages/connection.js';
 import { renderCharacter } from './pages/character.js';
@@ -73,6 +73,7 @@ $('#nav').addEventListener('click', (e) => {
 });
 $('#char-select').addEventListener('change', (e) => {
   state.char = e.target.value;
+  showUnit();
   showPage(state.page);
 });
 // The options of the pages change in their own handlers, which run before the event arrives here.
@@ -122,8 +123,10 @@ if (settings.capture && settings.captureChar) {
   // --char=<name> picks the character of the screenshots (the start of its name is enough).
   const wanted = settings.captureChar.toLowerCase();
   const found = (state.status?.characters || []).find((c) => !c.error && (c.name || c.key).toLowerCase().startsWith(wanted));
-  if (found) { state.char = found.key; $('#char-select').value = found.key; }
+  if (found) { state.char = found.key; $('#char-select').value = found.key; showUnit(); }
 }
+if (settings.capture) await hydrateNavIcons();
+else hydrateNavIcons();
 if (settings.capture) state.ingame = await api.gameData();
 else api.gameData().then((result) => { state.ingame ||= result; });
 api.updateState().then((update) => {

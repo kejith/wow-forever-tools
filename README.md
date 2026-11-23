@@ -20,11 +20,11 @@ App, command line tool and addons work with an English and a German game client 
 
 ### Install
 
-Download `WoW-Forever-Tools-Setup-<version>.exe` from the [latest release](https://github.com/kejith/wow-forever-tools/releases/latest) and run it. The installer is not code signed, so Windows SmartScreen asks once ("More info", then "Run anyway").
+Download `WoW-Forever-Tools-Setup-<version>.exe` from the [latest release](https://github.com/kejith/wow-forever-tools/releases/latest) and run it. It installs for your Windows user only, without administrator rights, into `%LOCALAPPDATA%\Programs\WoW Forever Tools`. The installer is not code signed, so Windows SmartScreen asks once ("More info", then "Run anyway").
 
-From the version after 1.12.0 on the installed app updates itself: it asks GitHub for a newer release when it starts and every six hours, downloads the installer in the background, compares it with the release's `SHA256SUMS.txt` and installs it when you close the app (or right away with "Restart and update" on the "Connection" page, where the switch "download and install updates automatically" also turns this off). Version 1.12.0 and older are updated by running the new installer once.
+From the version after 1.12.0 on the installed app updates itself: it asks GitHub for a newer release when it starts and every six hours, downloads the installer in the background, compares it with the release's `SHA256SUMS.txt` and installs it when you close the app (or right away with "Restart and update" on the "Connection" page, where the switch "download and install updates automatically" also turns this off). Version 1.12.0 and older are updated by running the new installer once; they were built with Electron and installed into another folder, so uninstall the old "WoW Forever Tools" once under Windows Settings > Apps (settings and downloaded data stay).
 
-The app brings everything it needs; nothing else is installed. It fetches game tables and item icons from wago.tools when a page first needs them. It finds the game under `C:\Program Files (x86)\World of Warcraft\_forever_`; for another place set `wowDir` in the settings file (see "Settings").
+The app brings everything it needs; nothing else is installed. Its window is Microsoft Edge WebView2, which is part of Windows 10 and 11. It fetches game tables and item icons from wago.tools when a page first needs them. It finds the game under `C:\Program Files (x86)\World of Warcraft\_forever_`; for another place set `wowDir` in the settings file (see "Settings").
 
 ### Pages
 
@@ -69,14 +69,13 @@ The language follows the game client (`SET textLocale` in `WTF\Config.wtf`): Ger
 | --- | --- |
 | `wowDir` | the `_forever_` folder, if the game is not in the default place. The environment variable `WOW_FOREVER_DIR` does the same. |
 | `language` | `auto` (default), `en` or `de` |
-| `wowtoolsPath` | another `wowtools` than the bundled one |
 | `sendToGame` | `false`: do not write the lists for the game by itself (the switch on the "Connection" page) |
 | `addonSources` | install an addon from a local checkout instead of the release: `{ "goldperhour": "<folder>", "wowmcp": "<folder>" }`. The environment variables `GOLDPERHOUR_ADDON_DIR` and `WOWMCP_ADDON_DIR` do the same. |
 
 ## Command line
 
-Everything the app computes is one Go program, `wowtools`. The app ships it (`resources\bin\wowtools.exe` in
-the installation folder); from a checkout build it with [Go](https://go.dev/dl/): `cd sim`, then
+Everything the app computes is Go code in `sim/`; the app has it built in, and the command line tool `wowtools`
+prints the same as reports. Build it from a checkout with [Go](https://go.dev/dl/): `cd sim`, then
 `go build -o wowtools ./cmd/wowtools` (`wowtools.exe` on Windows).
 
 | Command | Purpose |
@@ -149,20 +148,20 @@ Limits:
 
 ```
 cd app
-npm install
-npm start
+./build.sh --source
+"build/bin/WoW Forever Tools.exe"
 ```
 
-This needs Node.js 22 and a built `sim/wowtools` (see "Command line"). The app has no build step: plain JavaScript in `app/` (main process) and `app/renderer/` (window, ES modules). All numbers are computed by `wowtools bridge <command>` (Go, `sim/`).
+The app is one Windows exe built with Go and [Wails](https://wails.io): its window is WebView2 (part of Windows 10 and 11) showing the page in `app/renderer/` (plain JavaScript, ES modules, embedded in the exe), and the Go code in `app/` does everything else. All numbers come from the bridge (`sim/bridge`, Go), which is built into the same exe: the app starts itself as `"WoW Forever Tools.exe" bridge <command>` for every calculation. `build.sh` needs Go and runs in Git Bash on Windows or in WSL and Linux (cross-compiled, no C compiler needed); the exe started with `--source` finds the checkout above itself. Without `--source` it behaves like the installed app.
 
 | Check | Command |
 | --- | --- |
-| App: addon install, release download, requests, translations | `cd app && npm test` |
+| App: addon install, release download, update, translations | `cd app && go test ./...` |
+| Page: translations, the calls into the app | `cd app && node renderer.test.js` (Node, no packages) |
 | wowtools: calculations, reports, the app's JSON, translations, combat engine | `cd sim && go test ./...` |
 | MCP server | `uv run server/test_wow_mcp.py` |
-| Screenshots of every page | `cd app && npm run capture` (into `app/captures`; add `-- --lang=de` for German) |
-| The app as it will be installed, unpacked | `cd app && npm run pack` (into `app/dist`) |
-| The Windows installer | `cd app && npm run dist` (on Windows) |
+| Screenshots of every page | `"app/build/bin/WoW Forever Tools.exe" --capture=captures` (into `app/captures`; add `--lang=de` for German) |
+| The Windows installer | `cd app && ./build.sh --installer` (needs NSIS 3) |
 
 No test needs the game. The Go tests read the game tables of the test folder (`scripts/fixtures/forever`) from `scripts/cache`; the first run downloads them from wago.tools.
 
@@ -173,19 +172,19 @@ English is the language of the code. A text is written in English where it is us
 | Part | Mark a text | German catalog | Test |
 | --- | --- | --- | --- |
 | wowtools | `i18n.T("…")`, `i18n.Mark("…")` from `sim/internal/i18n` | `sim/internal/i18n/locale_de.json` | `cd sim && go test ./internal/i18n` |
-| App, main process | `t('…')` from `app/i18n.js` | `app/locales/de.js` | `app/i18n.test.js` |
-| App, window | `t('…')`, `mark('…')` from `app/renderer/i18n.js`; `data-i18n` in `index.html` | `app/renderer/locales/de.js` | `app/i18n.test.js` |
+| App (Go) | `t("…")` from `app/i18n.go` | `app/locale_de.go` | `cd app && go test ./...` |
+| App, window | `t('…')`, `mark('…')` from `app/renderer/i18n.js`; `data-i18n` in `index.html` | `app/renderer/locales/de.js` | `app/renderer.test.js` |
 
-The tests fail when a text has no German entry, when an entry is no longer used or when the placeholders differ. For another language add a catalog and its code to the language lists of `sim/internal/i18n`, `app/i18n.js` and `app/renderer/i18n.js`.
+The tests fail when a text has no German entry, when an entry is no longer used or when the placeholders differ. For another language add a catalog and its code to the language lists of `sim/internal/i18n`, `app/i18n.go` and `app/renderer/i18n.js`.
 
 ### Releases
 
-Releases are automatic. Raise `version` in `app/package.json` and push to `main`:
+Releases are automatic. Raise the version in `app/VERSION` and push to `main`:
 
-1. CI runs the tests on Linux and Windows, builds the Windows installer and starts the built app once against test data.
+1. CI runs the tests on Linux and Windows, builds the Windows installer, installs it and starts the installed app once against test data.
 2. If the version has no tag yet, CI creates the tag `v<version>` and starts the release workflow.
 3. The release workflow builds the installer again from the tag and publishes it as a GitHub release, with a checksum and the commits since the last release.
 
-A tag pushed by hand (`git tag v<version> && git push origin v<version>`) starts the same release workflow. The tag must match the version in `app/package.json`.
+A tag pushed by hand (`git tag v<version> && git push origin v<version>`) starts the same release workflow. The tag must match the version in `app/VERSION`.
 
 The addons are released the same way from their own repositories, and from there also to CurseForge and Wago Addons once the project ids and API tokens are set (see the README of each addon). CurseForge and Wago host addons only, so the desktop app is published here on GitHub.

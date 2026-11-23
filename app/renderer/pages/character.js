@@ -25,6 +25,24 @@ function talentLine(tree) {
   return points + (tree.unspent ? ` <span class="muted">· ${esc(t('{n} unspent', { n: tree.unspent }))}</span>` : '');
 }
 
+// The tabs: a click scrolls to the section, and scrolling marks the tab of the section in view.
+content.addEventListener('click', (e) => {
+  const tab = e.target.closest('#c-tabs [data-jump]');
+  if (!tab) return;
+  const target = $(tab.dataset.jump);
+  if (target) content.scrollTo({ top: target.offsetTop - $('#c-tabs').offsetHeight - 14, behavior: 'smooth' });
+});
+content.addEventListener('scroll', () => {
+  const bar = $('#c-tabs');
+  if (!bar) return;
+  let current = bar.querySelector('[data-jump]');
+  for (const tab of bar.querySelectorAll('[data-jump]')) {
+    const target = $(tab.dataset.jump);
+    if (target && target.offsetTop - bar.offsetHeight - 40 <= content.scrollTop) current = tab;
+  }
+  for (const tab of bar.querySelectorAll('[data-jump]')) tab.classList.toggle('active', tab === current);
+}, { passive: true });
+
 export async function renderCharacter() {
   if (!state.status) await loadStatus();
   if (!state.char) { content.innerHTML = `<div class="notice">${esc(t('No character exported.'))}</div>`; return; }
@@ -89,8 +107,14 @@ export async function renderCharacter() {
     + (c.rested ? ` · ${t('rested {n}', { n: num(c.rested) })}` : '');
   const heal = d.heals ? `<div class="section" id="c-heal">${loading(t('Computing every heal rank …'))}</div>` : '';
   const dmg = d.deals ? `<div class="section" id="c-dmg">${loading(t('Playing the fights and computing every damage spell …'))}</div>` : '';
-  content.innerHTML = `
-    <div class="paperdoll">
+  // Tabs like the ones under a game window; they jump to the sections of this long page.
+  const sections = [['#c-gear', t('Gear')], ['#c-prof', t('Professions')],
+    ...(d.metric === 'dps' ? [[d.deals, '#c-dmg', t('Damage')], [d.heals, '#c-heal', t('Healing')]]
+      : [[d.heals, '#c-heal', t('Healing')], [d.deals, '#c-dmg', t('Damage')]]).filter(([on]) => on).map(([, id, label]) => [id, label]),
+    ['#c-cons', t('Consumables')]];
+  const tabs = `<div class="tabs" id="c-tabs">${sections.map(([id, label], i) => `<button type="button" class="tab${i ? '' : ' active'}" data-jump="${id}">${esc(label)}</button>`).join('')}</div>`;
+  content.innerHTML = `${tabs}
+    <div class="paperdoll" id="c-gear">
       <div class="pd-head">
         <div><div class="pd-title">${esc(c.name)} <span>${esc(c.surname || '')}</span></div>
           <div class="pd-sub">${esc(t('Level {level}', { level: c.level }))} ${esc(c.race)} ${esc(c.class)}</div></div>
@@ -106,7 +130,7 @@ export async function renderCharacter() {
       <div class="pd-xp"><div class="bar"><span style="width:${xpPct}%"></span></div>
         <div class="pd-xp-text">${esc(xp)}</div></div>
     </div>
-    <div class="grid section"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
+    <div class="grid section" id="c-prof"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
       <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>
     ${(d.metric === 'dps' ? [dmg, heal] : [heal, dmg]).join('')}
     <div id="c-cons">${loading(t('Rating the consumables for a fight …'))}</div>`;

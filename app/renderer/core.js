@@ -1,5 +1,5 @@
 // Shared parts of the page: state, formatting, item tooltips, item icons and the data every page needs.
-// Plain DOM, no framework; all data comes from window.wow (preload.js).
+// Plain DOM, no framework; all data comes from window.wow (wails.js).
 import { language, locale, t } from './i18n.js';
 
 export const api = window.wow;
@@ -182,7 +182,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('scroll', hidePop, true);
 window.addEventListener('resize', hidePop);
 window.__showHelp = async (selector) => {
-  // Used by "npm run capture" to screenshot an explanation.
+  // Used by the capture mode (--capture) to screenshot an explanation.
   const el = document.querySelector(selector);
   if (!el) return false;
   el.scrollIntoView({ block: 'center' });
@@ -262,7 +262,7 @@ document.addEventListener('mouseout', (e) => {
   if (el && !el.contains(e.relatedTarget)) tipBox.classList.remove('show');
 });
 window.__showTip = (index) => {
-  // Used by "npm run capture" to screenshot a tooltip.
+  // Used by the capture mode (--capture) to screenshot a tooltip.
   const el = document.querySelectorAll('[data-tip]')[index];
   if (!el) return false;
   const r = el.getBoundingClientRect();
@@ -271,12 +271,13 @@ window.__showTip = (index) => {
 };
 
 // ---------- Item icons ----------
-// itemIcon() renders a placeholder with data-icon="<itemId>"; hydrateIcons() asks the main process for the
-// FileDataIDs (the first time it downloads the PNGs via the bridge) and sets them as background images.
+// itemIcon() renders a placeholder with data-icon="<itemId>"; hydrateIcons() asks the app for the
+// FileDataIDs (the first time it downloads the PNGs via the bridge) and sets them as background images, which
+// the app serves as /wowicon/<FileDataID>.png.
 
 const iconOf = new Map(); // item ID -> FileDataID or null (no icon known)
 let iconFallback = null; // question mark
-const iconUrl = (fdid) => `url(wowicon://${fdid}.png)`;
+const iconUrl = (fdid) => `url(/wowicon/${fdid}.png)`;
 
 export function itemIcon(id, q, size = '') {
   if (!id) return `<span class="icon empty ${size}"></span>`;
@@ -335,6 +336,14 @@ export async function loadStatus() {
   updateLiveState();
 }
 
+// The game's class colours (RAID_CLASS_COLORS), for names.
+export const CLASS_COLORS = {
+  WARRIOR: '#c69b6d', PALADIN: '#f48cba', HUNTER: '#aad372', ROGUE: '#fff468', PRIEST: '#ffffff', SHAMAN: '#0070dd',
+  MAGE: '#3fc7eb', WARLOCK: '#8788ee', DRUID: '#ff7c0a', DEATHKNIGHT: '#c41e3a', MONK: '#00ff98', DEMONHUNTER: '#a330c9',
+  EVOKER: '#33937f',
+};
+export const classColor = (classFile) => CLASS_COLORS[classFile] || '#ffd100';
+
 function fillCharacterSelect() {
   const select = $('#char-select');
   const chars = (state.status?.characters || []).filter((c) => !c.error);
@@ -342,6 +351,28 @@ function fillCharacterSelect() {
   select.innerHTML = chars.map((c) => `<option value="${esc(c.key)}" ${c.key === state.char ? 'selected' : ''}>`
     + `${esc(c.name || c.key)} · ${esc(c.level ?? '?')} ${esc(c.class || '')}</option>`).join('');
   select.disabled = chars.length === 0;
+  showUnit();
+}
+
+// The unit frame in the top bar shows the selected character: level, name in its class colour, class and gold.
+export function showUnit() {
+  const c = (state.status?.characters || []).find((x) => x.key === state.char);
+  $('#unit-level').textContent = c?.level ?? '–';
+  const name = $('#unit-name');
+  name.textContent = c ? (c.name || c.key) : t('No character exported.');
+  name.style.color = c ? classColor(c.classFile) : 'var(--muted)';
+  $('#unit-sub').innerHTML = c ? [esc(c.class || ''), c.money != null ? money(c.money) : ''].filter(Boolean).join(' · ') : '';
+}
+
+// The icons of the navigation: the same item icons as on the pages.
+export async function hydrateNavIcons() {
+  const els = [...document.querySelectorAll('[data-icon-item]')];
+  const r = await api.icons(els.map((el) => Number(el.dataset.iconItem)));
+  if (!r || r.error) return;
+  for (const el of els) {
+    const fdid = r.icons?.[el.dataset.iconItem];
+    if (fdid) el.style.backgroundImage = iconUrl(fdid);
+  }
 }
 
 function connectionHealth() {

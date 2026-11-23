@@ -14,7 +14,7 @@ jobs:
 
   tag:
     name: Tag a new version
-    # A push to main whose version in app/package.json has no tag yet becomes a release: this job creates
+    # A push to main whose version in app/VERSION has no tag yet becomes a release: this job creates
     # the tag and starts the release workflow for it. Nothing happens while the version stays the same.
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -28,7 +28,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(node -p "require('./app/package.json').version")
+          version=$(tr -d '[:space:]' < app/VERSION)
           tag="v$version"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
             echo "::notice::$tag exists, nothing to release."

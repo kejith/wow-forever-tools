@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7 # only for the page's catalog test (app/renderer.test.js), no npm packages
         with:
           node-version: 22
       - uses: astral-sh/setup-uv@v10.3.3 # only for the MCP server (server/), which stays in Python
@@ -27,14 +27,15 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-          cache: false # the module has no dependencies, so there is no go.sum to key a cache on
-      - name: Install the app's dependencies
-        # The tests need no Electron binary; this checks that package-lock.json fits package.json.
+          cache-dependency-path: app/go.sum # sim/ has no dependencies; the app has Wails
+      - name: Page tests (translations, window.wow)
+        run: node app/renderer.test.js
+      - name: App tests (addon install, releases, update, translations)
+        # Without the Wails build tags the app compiles on any system; the tests need no window.
         working-directory: app
-        run: npm ci --ignore-scripts
-      - name: App tests (addon install, releases, translations)
-        working-directory: app
-        run: npm test
+        run: |
+          go vet ./...
+          go test ./...
       - name: Game tables for the Go tests
         # The bridge's golden test and the tool packages read the DB2 tables of the test folder's client build;
         # the first run downloads them from wago.tools (about 100 MB), later runs take them from the cache.
@@ -69,47 +70,42 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-          cache: false # the module has no dependencies, so there is no go.sum to key a cache on
-      - name: Build the bridge into the app
-        # main.js runs every calculation through resources/bin/wowtools.exe.
+          cache-dependency-path: app/go.sum
+      - name: NSIS
         run: |
-          go build -C sim -o ../app/build/bin/wowtools.exe ./cmd/wowtools
-          app/build/bin/wowtools.exe bridge --list
-      - name: Install the app's dependencies
-        working-directory: app
-        run: npm ci
-      - name: Build the installer
-        working-directory: app
-        run: npm run dist
-      - name: Start the built app once
-        # Renders every page against the test data and fails when the app or its bundled wowtools do not
-        # work. The screenshots are uploaded below.
-        working-directory: app
+          if ! command -v makensis > /dev/null && [ ! -x "/c/Program Files (x86)/NSIS/makensis.exe" ]; then
+            choco install nsis -y --no-progress
+          fi
+      - name: Build the app and the installer
+        run: bash app/build.sh --installer
+      - name: Install it and start it once
+        # Installs silently into a temporary folder, renders every page of the installed app against the test
+        # data and fails when a required page does not work. The screenshots are uploaded below.
+        shell: pwsh
         env:
           WOW_FOREVER_DIR: ${{ github.workspace }}\scripts\fixtures\goldperhour
         run: |
-          status=0
-          "dist/win-unpacked/WoW Forever Tools.exe" --capture=smoke --lang=en --require=connection,goldperhour || status=$?
-          cat smoke/report.json || true
-          if [ "$status" != 0 ]; then
-            echo "::error::The built app failed its smoke test (exit code $status)"
-            exit 1
-          fi
-          node -e "
-            const report = require('./smoke/report.json');
-            if (!report.packaged) throw new Error('not the packaged app');
-            if (!/resources[\\\\/]bin[\\\\/]wowtools\.exe$/.test(report.wowtools || '')) throw new Error('the bundled wowtools was not used: ' + report.wowtools);
-          "
+          $version = (Get-Content app/VERSION -Raw).Trim()
+          $dir = Join-Path $env:RUNNER_TEMP 'wow-forever-tools'
+          $setup = Start-Process -FilePath "app/build/bin/WoW-Forever-Tools-Setup-$version.exe" -ArgumentList '/S', '--updated', "/D=$dir" -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { throw "the installer failed with exit code $($setup.ExitCode)" }
+          $exe = Join-Path $dir 'WoW Forever Tools.exe'
+          if (-not (Test-Path (Join-Path $dir 'scripts/data/item_names.json'))) { throw 'the installer left out scripts/data' }
+          $app = Start-Process -FilePath $exe -ArgumentList '--capture=smoke', '--lang=en', '--require=connection,goldperhour' -WorkingDirectory app -PassThru -Wait
+          Get-Content app/smoke/report.json -ErrorAction SilentlyContinue
+          if ($app.ExitCode -ne 0) { throw "the installed app failed its smoke test (exit code $($app.ExitCode))" }
+          $report = Get-Content app/smoke/report.json -Raw | ConvertFrom-Json
+          if (-not $report.packaged) { throw 'not the installed app' }
+          if ($report.bridge -ne $exe) { throw "the bridge was not the installed app: $($report.bridge)" }
+          $uninstall = Start-Process -FilePath (Join-Path $dir 'Uninstall.exe') -ArgumentList '/S' -PassThru -Wait
+          if ($uninstall.ExitCode -ne 0) { throw "the uninstaller failed with exit code $($uninstall.ExitCode)" }
       - uses: actions/upload-artifact@v7
         with:
           name: installer
-          path: app/dist/*.exe
+          path: app/build/bin/WoW-Forever-Tools-Setup-*.exe
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         if: always()

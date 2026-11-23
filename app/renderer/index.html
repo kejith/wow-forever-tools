@@ -2,29 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: wowicon:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
   <title>WoW Forever Tools</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">W</div>
+      <div class="brand-mark">F</div>
       <div>
         <div class="brand-name">Forever Tools</div>
         <div class="brand-sub">WoW: Forever <span id="app-version"></span></div>
       </div>
     </div>
+    <!-- data-icon-item: the item whose icon stands for the page (Hearthstone, Lionheart Helm, a writ, Thunderfury,
+         a spell book, Blacksmith Hammer, Major Healing Potion, a crystal ball, a gold bar). -->
     <nav id="nav">
-      <button data-page="connection"><span class="dot" id="nav-dot"></span><span data-i18n="Connection">Connection</span></button>
-      <button data-page="character" data-i18n="Character">Character</button>
-      <button data-page="writs" data-i18n="Writs">Writs</button>
-      <button data-page="upgrades" data-i18n="AH upgrades">AH upgrades</button>
-      <button data-page="rotations" data-i18n="Rotations">Rotations</button>
-      <button data-page="recipes" data-i18n="Professions">Professions</button>
-      <button data-page="consumables" data-i18n="Consumables">Consumables</button>
-      <button data-page="pricehistory" data-i18n="Price history">Price history</button>
-      <button data-page="goldperhour" data-i18n="Gold per hour">Gold per hour</button>
+      <button data-page="connection"><span class="nav-icon" data-icon-item="6948"><span class="dot" id="nav-dot"></span></span><span data-i18n="Connection">Connection</span></button>
+      <button data-page="character"><span class="nav-icon" data-icon-item="12640"></span><span data-i18n="Character">Character</span></button>
+      <button data-page="writs"><span class="nav-icon" data-icon-item="264012"></span><span data-i18n="Writs">Writs</span></button>
+      <button data-page="upgrades"><span class="nav-icon" data-icon-item="19019"></span><span data-i18n="AH upgrades">AH upgrades</span></button>
+      <button data-page="rotations"><span class="nav-icon" data-icon-item="18600"></span><span data-i18n="Rotations">Rotations</span></button>
+      <button data-page="recipes"><span class="nav-icon" data-icon-item="5956"></span><span data-i18n="Professions">Professions</span></button>
+      <button data-page="consumables"><span class="nav-icon" data-icon-item="13446"></span><span data-i18n="Consumables">Consumables</span></button>
+      <button data-page="pricehistory"><span class="nav-icon" data-icon-item="9149"></span><span data-i18n="Price history">Price history</span></button>
+      <button data-page="goldperhour"><span class="nav-icon" data-icon-item="3577"></span><span data-i18n="Gold per hour">Gold per hour</span></button>
     </nav>
     <div class="sidebar-foot">
       <button type="button" id="update-pill" class="update-pill" hidden></button>
@@ -43,9 +45,16 @@
     <header class="topbar">
       <h1 id="page-title"></h1>
       <div class="topbar-right">
-        <label class="char-select"><span data-i18n="Character">Character</span>
-          <select id="char-select"></select>
-        </label>
+        <!-- The character as a unit frame; the select lies invisible over it and opens on a click. -->
+        <div class="unit" id="unit">
+          <div class="unit-level" id="unit-level">–</div>
+          <div class="unit-text">
+            <div class="unit-name" id="unit-name"></div>
+            <div class="unit-sub" id="unit-sub"></div>
+          </div>
+          <span class="unit-caret">▼</span>
+          <select id="char-select" data-i18n-title="Character"></select>
+        </div>
         <button id="refresh" class="ghost" data-i18n="↻ Refresh" data-i18n-title="Reload">↻ Refresh</button>
       </div>
     </header>
@@ -53,6 +62,7 @@
   </main>
   <div id="wtip"></div>
   <div id="pop" role="tooltip"></div>
+  <script src="wails.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
