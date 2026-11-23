@@ -1,6 +1,6 @@
 // Page "Connection": is the game running, the two addons the app installs, the Auctionator scan, the item
 // export, the lists the app sends into the game, the character snapshots and requests to the WoWMCP addon.
-import { ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, rerender, state, th, when } from '../core.js';
+import { $, ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, percent, rerender, state, th, when } from '../core.js';
 import { t } from '../i18n.js';
 
 // Where an install takes its files from: the latest GitHub release, or a local checkout from the settings.
@@ -51,6 +51,93 @@ export function addonCard(a, about = '') {
 }
 
 export const gphAbout = () => t('Gold per hour, split into herbalism and loot. The app shows sessions, history and settings.');
+
+// ---------- The app itself ----------
+// state.update is the updater of the main process (update.js): the newest release of the app, and how far
+// its installer is (found, downloading, ready). Every change arrives through api.onUpdate.
+
+const megabytes = (bytes) => num(bytes / (1024 * 1024), 0);
+const loaded = (p) => (p?.total ? Math.min(100, Math.floor((p.received / p.total) * 100)) : 0);
+const loadedText = (p) => t('{done} of {total} MB', { done: megabytes(p?.received || 0), total: megabytes(p?.total || 0) });
+
+const UPDATE_BADGE = {
+  idle: () => ['', t('not checked yet')],
+  checking: () => ['', t('checking …')],
+  current: () => ['ok', t('up to date')],
+  available: () => ['warn', t('update available')],
+  downloading: () => ['warn', t('downloading …')],
+  ready: () => ['ok', t('ready to install')],
+  installing: () => ['warn', t('installing …')],
+};
+
+export function appCard() {
+  const u = state.update;
+  const title = `<h2>WoW Forever Tools ${help(esc(t('The app asks GitHub for its newest release when it starts and every six hours. A newer version is downloaded in the background, compared with the checksum of the release and installed when you close the app, or right away with “Restart and update”. Settings and downloaded data stay. Without the switch the app only tells you that there is a new version.')))}</h2>`;
+  if (!u) return `<div class="card" id="app-update">${title}${loading(t('Looking for updates …'))}</div>`;
+  const [cls, label] = (UPDATE_BADGE[u.phase] || UPDATE_BADGE.idle)();
+  const newer = ['available', 'downloading', 'ready', 'installing'].includes(u.phase);
+  const busy = ['checking', 'downloading', 'installing'].includes(u.phase);
+  let note = '';
+  if (u.reason === 'source') note = t('Started from source: update it with <code>git pull</code>. Only the installed app updates itself.');
+  else if (u.reason === 'platform') note = esc(t('The app updates itself only when it is installed on Windows. Take a new version from the release page.'));
+  else if (u.phase === 'ready') {
+    note = esc(u.automatic
+      ? t('Version {version} is downloaded and goes in when you close the app. “Restart and update” does it now.', { version: u.latest.version })
+      : t('Version {version} is downloaded. “Restart and update” installs it.', { version: u.latest.version }));
+  } else if (u.phase === 'installing') note = esc(t('The installer is running. The app closes and starts again by itself.'));
+  const progress = u.phase !== 'downloading' ? '' : `<div class="bar" style="margin:10px 0 4px"><span style="width:${loaded(u.progress)}%"></span></div>
+    <div class="small muted u-progress">${esc(loadedText(u.progress))}</div>`;
+  const buttons = [
+    u.phase === 'ready' && u.canInstall ? `<button class="primary" data-action="update-install">${esc(t('Restart and update'))}</button>` : '',
+    u.phase === 'available' && u.canInstall ? `<button class="primary" data-action="update-download">${esc(t('Download update'))}</button>` : '',
+    `<button class="ghost" data-action="update-check" ${busy ? 'disabled' : ''}>${esc(t('Check for updates'))}</button>`,
+    newer && u.latest ? `<button class="ghost" data-action="update-notes"${hintAttr(t('Opens the page of the release in the browser.'))}>${esc(t('What is new'))}</button>` : '',
+  ].join('');
+  return `<div class="card" id="app-update" data-phase="${esc(u.phase)}">${title}
+    <h3><span class="badge ${cls}">${esc(label)}</span></h3>
+    <dl class="kv small">
+      <dt>${esc(t('Installed'))}</dt><dd>${esc(u.current)}${u.updated ? ` <span class="badge ok">${esc(t('just updated'))}</span>` : ''}</dd>
+      <dt>${esc(t('Newest release'))}</dt><dd>${u.latest ? `${esc(u.latest.version)} <span class="muted">${esc(when(Date.parse(u.latest.publishedAt) / 1000))}</span>` : '–'}</dd>
+      <dt>${esc(t('Checked'))}</dt><dd>${u.checkedAt ? `${when(u.checkedAt / 1000)} (${esc(ago(u.checkedAt / 1000))})` : '–'}</dd>
+    </dl>
+    ${progress}
+    ${note ? `<div class="notice small" style="margin:10px 0 0">${note}</div>` : ''}
+    ${u.error ? `<div class="notice small" style="margin:10px 0 0"><span class="badge warn">${esc(t('not possible right now'))}</span> ${esc(u.error)}</div>` : ''}
+    <div class="row" style="margin-top:10px">${buttons}</div>
+    ${u.canInstall ? `<label class="check" style="margin-top:10px"><input type="checkbox" id="u-auto" ${u.automatic ? 'checked' : ''}> ${esc(t('download and install updates automatically'))}</label>` : ''}
+  </div>`;
+}
+
+// Brings the card and the note in the sidebar up to date. While a download runs only its progress moves,
+// so the card under the mouse is not rebuilt four times a second.
+export function showUpdate() {
+  const u = state.update;
+  const pill = $('#update-pill');
+  const version = u?.latest?.version;
+  const text = !u || !version ? '' : u.phase === 'available' ? t('Update {version} available', { version })
+    : u.phase === 'downloading' ? t('Loading update {version} … {percent}', { version, percent: percent(loaded(u.progress)) })
+    : u.phase === 'ready' ? (u.canInstall ? t('Restart to update to {version}', { version }) : t('Update {version} available', { version }))
+    : u.phase === 'installing' ? t('Installing update {version} …', { version }) : '';
+  pill.hidden = !text;
+  pill.textContent = text;
+  pill.classList.toggle('ready', u?.phase === 'ready');
+  const card = $('#app-update');
+  if (!card || state.page !== 'connection') return;
+  if (u?.phase === 'downloading' && card.dataset.phase === 'downloading') {
+    card.querySelector('.bar > span').style.width = `${loaded(u.progress)}%`;
+    card.querySelector('.u-progress').textContent = loadedText(u.progress);
+  } else {
+    card.outerHTML = appCard();
+  }
+}
+
+// The buttons of the card. Each step answers through api.onUpdate, which redraws the card.
+function updateAction(action) {
+  if (action === 'update-check') api.checkUpdate();
+  else if (action === 'update-download') api.downloadUpdate();
+  else if (action === 'update-install') api.installUpdate();
+  else if (action === 'update-notes') api.openReleaseNotes();
+}
 
 function gameCard() {
   const s = state.status;
@@ -228,7 +315,7 @@ export async function renderConnection() {
       { names: esc(outdated.map((x) => x.name).join(', ')) })}</div>`;
   }
   content.innerHTML = `${hint}
-    <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${auctionatorCard()}${itemExportCard()}${listsCard()}${requestCard()}</div>
+    <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${appCard()}${auctionatorCard()}${itemExportCard()}${listsCard()}${requestCard()}</div>
     <div class="section"><h2>${esc(t('Characters'))}</h2>${charactersTable()}</div>`;
 }
 
@@ -238,6 +325,7 @@ content.addEventListener('click', async (e) => {
   if (!button) return;
   const action = button.dataset.action;
   if (action.startsWith('gph-')) return; // pages/goldperhour.js
+  if (action.startsWith('update-')) { updateAction(action); return; }
   const key = button.dataset.addon === 'goldperhour' ? 'goldperhour' : 'wowmcp';
   const slot = key === 'goldperhour' ? 'gphAddon' : 'addon';
   button.disabled = true;
@@ -263,6 +351,8 @@ content.addEventListener('click', async (e) => {
 
 // The switch of the card "Lists in the game"; the main process syncs again and reports through onGameData.
 content.addEventListener('change', async (e) => {
+  // The switch of the app's card: the main process answers through onUpdate.
+  if (e.target.id === 'u-auto') { await api.setSettings({ autoUpdate: e.target.checked }); return; }
   if (e.target.id !== 'g-auto') return;
   if (state.ingame) state.ingame.automatic = e.target.checked;
   await api.setSettings({ sendToGame: e.target.checked });

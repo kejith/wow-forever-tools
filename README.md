@@ -22,6 +22,8 @@ App, command line tool and addons work with an English and a German game client 
 
 Download `WoW-Forever-Tools-Setup-<version>.exe` from the [latest release](https://github.com/kejith/wow-forever-tools/releases/latest) and run it. The installer is not code signed, so Windows SmartScreen asks once ("More info", then "Run anyway").
 
+From the version after 1.12.0 on the installed app updates itself: it asks GitHub for a newer release when it starts and every six hours, downloads the installer in the background, compares it with the release's `SHA256SUMS.txt` and installs it when you close the app (or right away with "Restart and update" on the "Connection" page, where the switch "download and install updates automatically" also turns this off). Version 1.12.0 and older are updated by running the new installer once.
+
 The app brings everything it needs; nothing else is installed. It fetches game tables and item icons from wago.tools when a page first needs them. It finds the game under `C:\Program Files (x86)\World of Warcraft\_forever_`; for another place set `wowDir` in the settings file (see "Settings").
 
 ### Pages

@@ -110,12 +110,14 @@ function compareVersions(a, b) {
 
 // ---------- GitHub ----------
 
-async function request(fetchFn, url, accept) {
+// One GET to the GitHub API. The default signal gives the whole answer 15 s; a long download (update.js)
+// brings its own.
+async function request(fetchFn, url, accept, signal = AbortSignal.timeout(15000)) {
   let res;
   try {
     res = await fetchFn(url, {
       headers: { Accept: accept, 'User-Agent': 'wow-forever-tools', 'X-GitHub-Api-Version': '2022-11-28' },
-      signal: AbortSignal.timeout(15000),
+      signal,
     });
   } catch (err) {
     throw new Error(t('GitHub cannot be reached ({reason})', { reason: err.cause?.code || err.name || err.message }));
@@ -190,4 +192,4 @@ async function latestRelease({ repo, name, cacheDir, api = API, fetchFn = fetch,
   }
 }
 
-module.exports = { latestRelease, readZip, extractAddon, crc32, tocVersion, compareVersions };
+module.exports = { API, latestRelease, request, readZip, extractAddon, crc32, tocVersion, compareVersions };

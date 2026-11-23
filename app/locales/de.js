@@ -36,4 +36,14 @@ module.exports = {
   'The zip of release {tag} contains no {toc}': 'Zip von Release {tag} enthält keine {toc}',
   '{repo} has no release yet.': '{repo} hat noch kein Release.',
   'Release of {repo} not loaded: {reason}': 'Release von {repo} nicht geladen: {reason}',
+
+  // update.js
+  'Release {tag} has no installer': 'Release {tag} hat keinen Installer',
+  'The installer of release {tag} is too large': 'Der Installer von Release {tag} ist zu groß',
+  'Release {tag} has no checksum for {name}': 'Release {tag} hat keine Prüfsumme für {name}',
+  'The checksums of release {tag} do not agree': 'Die Prüfsummen von Release {tag} widersprechen sich',
+  'no data for {n} s': '{n} s lang keine Daten',
+  'The download of the update stopped ({reason})': 'Der Download des Updates ist abgebrochen ({reason})',
+  'The downloaded installer does not match its checksum.': 'Der heruntergeladene Installer passt nicht zu seiner Prüfsumme.',
+  'The installer could not be started ({reason})': 'Der Installer ließ sich nicht starten ({reason})',
 };

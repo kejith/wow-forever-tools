@@ -61,6 +61,13 @@ button, select, input { font: inherit; color: inherit; }
 .dot.warn { background: var(--warn); }
 .dot.bad { background: var(--bad); }
 .sidebar-foot { margin-top: auto; color: var(--muted); font-size: 12px; padding: 8px; }
+.update-pill {
+  display: block; width: 100%; margin-bottom: 12px; padding: 7px 9px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--gold-dim); background: var(--panel-2); color: var(--gold); font-size: 12px; text-align: left;
+}
+.update-pill[hidden] { display: none; }
+.update-pill:hover { filter: brightness(1.1); }
+.update-pill.ready { background: linear-gradient(180deg, #e8b64c, #b9852a); color: #23170a; border-color: #c48f33; font-weight: 600; }
 .lang-select { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .lang-select select { width: 100%; font-size: 12px; }
 

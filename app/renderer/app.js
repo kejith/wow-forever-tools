@@ -2,7 +2,7 @@
 // selection and the language; core.js holds what the pages share, pages/*.js one page each.
 import { $, api, content, errorBox, esc, hydrateIcons, loadStatus, loading, pages, resetTips, restoreView, saveView, state, updateLiveState } from './core.js';
 import { mark, setLanguage, t } from './i18n.js';
-import { renderConnection } from './pages/connection.js';
+import { renderConnection, showUpdate } from './pages/connection.js';
 import { renderCharacter } from './pages/character.js';
 import { renderWrits } from './pages/writs.js';
 import { renderUpgrades } from './pages/upgrades.js';
@@ -100,6 +100,17 @@ api.onGameData((result) => {
   if (state.page === 'connection' && window.__idle) showPage('connection');
 });
 
+// The app's own update: the main process reports every step (found, the progress of the download, ready).
+api.onUpdate((update) => {
+  state.update = update;
+  showUpdate();
+});
+// The note in the sidebar: a downloaded update is installed from here, anything else is on the Connection page.
+$('#update-pill').addEventListener('click', () => {
+  if (state.update?.phase === 'ready' && state.update.canInstall) api.installUpdate();
+  else showPage('connection');
+});
+
 // ---------- Start ----------
 
 const settings = await api.getSettings();
@@ -115,6 +126,10 @@ if (settings.capture && settings.captureChar) {
 }
 if (settings.capture) state.ingame = await api.gameData();
 else api.gameData().then((result) => { state.ingame ||= result; });
+api.updateState().then((update) => {
+  state.update ||= update;
+  showUpdate();
+});
 showPage(pages[state.page] ? state.page : 'connection');
 // Game process and snapshot ages change without file writes; refresh the light status every 30 s.
 setInterval(async () => {

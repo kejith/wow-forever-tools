@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('wow', {
   gameData: () => ipcRenderer.invoke('gamedata:get'),
   sendGameData: () => ipcRenderer.invoke('gamedata:send'),
   onGameData: (fn) => ipcRenderer.on('game-data', (_e, result) => fn(result)),
+  // The app's own update: updateState() is what the updater knows, onUpdate(fn) hears every change (also the
+  // progress of a download); the three steps answer with the state they reached.
+  updateState: () => ipcRenderer.invoke('update:get'),
+  checkUpdate: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  openReleaseNotes: () => ipcRenderer.invoke('update:notes'),
+  onUpdate: (fn) => ipcRenderer.on('app-update', (_e, state) => fn(state)),
   icons: (itemIds) => ipcRenderer.invoke('icons', itemIds),
   wowRunning: () => ipcRenderer.invoke('wow:running'),
   openPath: (p) => ipcRenderer.invoke('open:path', p),

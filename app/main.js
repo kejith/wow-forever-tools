@@ -8,6 +8,7 @@
 // folder; settings.addonSources = { wowmcp: <folder>, goldperhour: <folder> } installs from a checkout instead.
 // Language: settings.language (auto, en, de); auto follows the game client (textLocale in WTF/Config.wtf) and,
 // without a client, the operating system. The bridge gets the same language, so its texts match the page.
+// The installed app updates itself from the releases of its own repository (update.js).
 
 const { app, BrowserWindow, ipcMain, net, protocol, shell } = require('electron');
 const { execFile } = require('node:child_process');
@@ -16,6 +17,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const addon = require('./addon');
 const i18n = require('./i18n');
+const update = require('./update');
 
 const { t } = i18n;
 
@@ -207,6 +209,42 @@ function syncGameData(write = sendsToGame()) {
   return gameDataRun;
 }
 
+// ---------- App update ----------
+// The installed app looks for a newer release of its repository at the start and every six hours
+// (update.js). Unless settings.autoUpdate is false it downloads the installer right away and runs it when
+// the app closes; "Restart and update" runs it now. Started from source, or not on Windows, the app only
+// tells that there is a newer version.
+
+const UPDATE_EVERY_MS = 6 * 60 * 60 * 1000;
+let updater;
+let quitting = false;
+
+function startUpdater() {
+  updater = update.createUpdater({
+    dir: path.join(app.getPath('userData'), 'update'),
+    current: app.getVersion(),
+    reason: !app.isPackaged ? 'source' : process.platform !== 'win32' ? 'platform' : null,
+    automatic: () => settings.autoUpdate !== false,
+    updated: process.argv.includes('--updated'), // the installer started the app after an update
+    onState: (state) => { if (win && !win.isDestroyed()) win.webContents.send('app-update', state); },
+    // For trying an update against a stand-in for the GitHub API (update.test.js has one).
+    ...(process.env.WOW_TOOLS_UPDATE_API ? { api: process.env.WOW_TOOLS_UPDATE_API } : {}),
+  });
+  if (argValue('capture')) return; // screenshots do not ask GitHub
+  updater.check();
+  setInterval(() => updater.check(), UPDATE_EVERY_MS);
+}
+
+// The installer waits for the app to exit, replaces it and starts it again.
+async function installUpdate() {
+  const result = await updater.install({ relaunch: true });
+  if (result.started) {
+    quitting = true;
+    app.quit();
+  }
+  return result;
+}
+
 // ---------- Game process ----------
 
 function wowRunning() {
@@ -273,6 +311,15 @@ ipcMain.handle('gph:clear', () => {
 ipcMain.handle('request:create', (_e, action, opts) => {
   try { return addon.writeRequest(settings.wowDir, action, opts); } catch (err) { return { error: err.message }; }
 });
+ipcMain.handle('update:get', () => updater.state());
+ipcMain.handle('update:check', () => updater.check(true));
+ipcMain.handle('update:download', () => updater.download());
+ipcMain.handle('update:install', () => installUpdate());
+// The release page of the version the updater found; the address is built here, not handed in.
+ipcMain.handle('update:notes', () => {
+  const version = updater.state().latest?.version;
+  if (version) shell.openExternal(update.releaseUrl(version));
+});
 ipcMain.handle('icons', (_e, ids) => resolveIcons(Array.isArray(ids) ? ids : []));
 ipcMain.handle('wow:running', () => wowRunning());
 ipcMain.handle('open:path', (_e, p) => shell.openPath(p));
@@ -280,11 +327,13 @@ ipcMain.handle('settings:get', () => publicSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
   const { activeLanguage, clientLocale, version, capture, ...rest } = patch || {};
   const before = `${settings.wowDir}|${sendsToGame()}`;
+  const autoUpdate = settings.autoUpdate !== false;
   Object.assign(settings, rest);
   saveSettings();
   applyLanguage();
   startWatcher();
   if (before !== `${settings.wowDir}|${sendsToGame()}`) syncGameData();
+  if (autoUpdate !== (settings.autoUpdate !== false)) updater.settingsChanged();
   return publicSettings();
 });
 
@@ -346,7 +395,10 @@ async function capturePages(out, required) {
     report.pages[page] = { idle, error, notices: notices.filter((text) => text !== error) };
     const image = await win.webContents.capturePage();
     fs.writeFileSync(path.join(out, `${page}.png`), image.toPNG());
-    if (page === 'connection') await captureScrolled(out, wait, '#lists', 'connection-lists');
+    if (page === 'connection') {
+      await captureScrolled(out, wait, '#lists', 'connection-lists');
+      await captureUpdate(out, wait);
+    }
     if (page === 'character') {
       // A class that heals has the heal table below the character window.
       await captureScrolled(out, wait, '#c-heal', 'character-healing');
@@ -413,6 +465,21 @@ async function captureConsumablesByValue(out, wait) {
   await idle();
 }
 
+// The Connection page with an update of the app that waits to be installed. Screenshots never ask GitHub,
+// so the state is made up: the next patch version, downloaded.
+async function captureUpdate(out, wait) {
+  const real = updater.state();
+  const [major, minor, patch] = real.current.split('.').map(Number);
+  const version = `${major}.${minor}.${patch + 1}`;
+  win.webContents.send('app-update', { ...real, canInstall: true, reason: null, phase: 'ready', checkedAt: Date.now(), error: null,
+    latest: { version, tag: `v${version}`, url: update.releaseUrl(version), publishedAt: new Date().toISOString(), size: 128 * 1024 * 1024 } });
+  await wait(400);
+  const image = await win.webContents.capturePage();
+  fs.writeFileSync(path.join(out, 'connection-update.png'), image.toPNG());
+  win.webContents.send('app-update', real);
+  await wait(300);
+}
+
 // Second shot of a long page, scrolled to `selector`; scrolls back to the top afterwards.
 async function captureScrolled(out, wait, selector, name) {
   const found = await win.webContents.executeJavaScript(
@@ -477,5 +544,13 @@ app.whenReady().then(() => {
   createWindow();
   startWatcher();
   syncGameData();
+  startUpdater();
 });
 app.on('window-all-closed', () => app.quit());
+// A downloaded update goes in when the app closes: the quit waits until the installer is started.
+app.on('before-quit', (event) => {
+  if (quitting || !updater?.installsOnQuit()) return;
+  quitting = true;
+  event.preventDefault();
+  updater.install({ relaunch: false }).finally(() => app.quit());
+});
