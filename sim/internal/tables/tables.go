@@ -20,7 +20,7 @@ var Localized = map[string]bool{"ItemSparse": true, "SpellName": true}
 const DefaultLocale = "enUS"
 
 // userAgent is what icons._get sends.
-const userAgent = "Mozilla/5.0 (wow-forever-tools)"
+const userAgent = "Mozilla/5.0 (wow-tools-forever)"
 
 // CacheDir is icons.CACHE: WOW_TOOLS_CACHE, else scripts/cache of the repo the binary was built in (the
 // binary lives in sim/), else scripts/cache below the working folder.

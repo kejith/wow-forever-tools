@@ -14,9 +14,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pycsv"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pycsv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // line is one record of the log: when it happened (seconds) and its fields.

@@ -3,8 +3,8 @@
 // they come from and what they cost.
 //
 // Sources: the recipe catalog from Forever's DB2 tables (BuildCatalog, cached as JSON per build and client
-// locale and shared with the Python scripts), the learned recipes from the addon (WoWMCP_Char.recipes),
-// Auctionator's prices and the vendor prices the addon saw (WoWMCP_Account.vendor).
+// locale and shared with the Python scripts), the learned recipes from the addon (WoWToolsForever_Char.recipes),
+// Auctionator's prices and the vendor prices the addon saw (WoWToolsForever_Account.vendor).
 //
 // Profit per craft = AH price × amount × (1 − 5 % AH cut) − reagents. Reagents at the cheaper price of AH
 // and vendor; own reagents count at the market price.
@@ -17,13 +17,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/internal/tables"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/tables"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // AHCut is recipes.AH_CUT. A variable, so that 1 − AHCut is computed in float64 as Python computes it.
@@ -540,7 +540,7 @@ func less(a, b *Row) bool {
 func Compute(wow, char, profession string, top int, prices *sv.Table) (*pyjson.Obj, error) {
 	files := game.FindChars(wow, char)
 	if len(files) == 0 {
-		return nil, errors.New(i18n.T("No WoWMCP export found for \"{char}\".", "char", char))
+		return nil, errors.New(i18n.T("No WoW Tools Forever export found for \"{char}\".", "char", char))
 	}
 	c, err := upgrades.LoadChar(files[0])
 	if err != nil {
@@ -559,8 +559,8 @@ func Compute(wow, char, profession string, top int, prices *sv.Table) (*pyjson.O
 		}
 	}
 	vendor := sv.NewTable()
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
-		acct, err := sv.LoadTable(path, "WoWMCP_Account")
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
+		acct, err := sv.LoadTable(path, "WoWToolsForever_Account")
 		if err != nil {
 			return nil, err
 		}

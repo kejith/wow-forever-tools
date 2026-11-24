@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 func situation(t *testing.T, out Output, key string) Situation {

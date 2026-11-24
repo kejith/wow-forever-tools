@@ -1,8 +1,8 @@
 package bridge
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 func init() { register("upgrades", upgradesCmd) }

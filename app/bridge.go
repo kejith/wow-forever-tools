@@ -1,7 +1,7 @@
 package main
 
 // Every calculation runs in the bridge (sim/bridge, the same code as `wowtools bridge`). The app starts itself
-// for each command: `"WoW Forever Tools.exe" bridge <command> --wow … --lang …` answers with one JSON object
+// for each command: `"WoW Tools Forever.exe" bridge <command> --wow … --lang …` answers with one JSON object
 // on stdout. A process per command keeps the commands apart (the bridge selects its language for the whole
 // process, and the engine keeps tables in memory), lets the pages ask several things at once, and a crash of
 // a calculation never takes the window with it.
@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/bridge"
+	"github.com/kejith/wow-tools-forever/sim/bridge"
 )
 
 const bridgeTimeout = 2 * time.Minute

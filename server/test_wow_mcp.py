@@ -21,7 +21,7 @@ import wow_mcp as server  # noqa: E402
 NOW = int(time.time())
 
 THRALL = """
-WoWMCP_Char = {
+WoWToolsForever_Char = {
   updated = %d,
   addon = { version = "1.6.0" },
   character = { name = "Thrall", surname = "Testhammer", level = 20, class = "Shaman", race = "Orc",
@@ -64,7 +64,7 @@ WoWMCP_Char = {
 
 # An older snapshot of a second character, written without a bank visit and with a failed section.
 JAINA = """
-WoWMCP_Char = {
+WoWToolsForever_Char = {
   updated = %d,
   character = { name = "Jaina", level = 12, class = "Mage", race = "Human", money = 99 },
   bags = { { id = 0, size = 16, free = 16, items = {} } },
@@ -78,7 +78,7 @@ def make_wow() -> Path:
     for name, text in (("Thrall - Testrealm", THRALL), ("Jaina - Testrealm", JAINA)):
         folder = root / "WTF" / "Account" / "TEST" / "93" / name / "SavedVariables"
         folder.mkdir(parents=True)
-        (folder / "WoWMCP.lua").write_text(text, encoding="utf-8")
+        (folder / "WoWToolsForever.lua").write_text(text, encoding="utf-8")
     return root
 
 
@@ -151,10 +151,10 @@ def test_quests_reputation_skills_talents():
 
 def test_half_written_file_keeps_the_last_snapshot():
     path = next(c.path for c in server.store.characters() if c.first_name == "Jaina")
-    path.write_text("WoWMCP_Char = { updated = 1, character = {", encoding="utf-8")  # WoW is still writing
+    path.write_text("WoWToolsForever_Char = { updated = 1, character = {", encoding="utf-8")  # WoW is still writing
     os.utime(path, (NOW + 10, NOW + 10))
     assert server.get_character("Jaina")["level"] == 12
-    path.write_text('os.execute("echo no")\nWoWMCP_Char = {}', encoding="utf-8")  # no stdlib in the sandbox
+    path.write_text('os.execute("echo no")\nWoWToolsForever_Char = {}', encoding="utf-8")  # no stdlib in the sandbox
     os.utime(path, (NOW + 20, NOW + 20))
     assert server.get_character("Jaina")["level"] == 12
     print("ok test_half_written_file_keeps_the_last_snapshot")

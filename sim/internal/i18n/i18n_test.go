@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 )
 
 // literal is the text of a string literal, or of string literals joined with + (a long text over several

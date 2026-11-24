@@ -12,7 +12,7 @@
     gphRequest: (req) => call('GphRequest', req ?? {}),
     gphClearRequest: () => call('GphClearRequest'),
     createRequest: (action, opts) => call('CreateRequest', action, opts ?? null),
-    // What the WoWMCP addon shows in the game: gameData() is the last sync (or waits for the running one),
+    // What the WoWToolsForever addon shows in the game: gameData() is the last sync (or waits for the running one),
     // sendGameData() computes and writes now, onGameData(fn) hears every finished sync.
     gameData: () => call('GameData'),
     sendGameData: () => call('SendGameData'),

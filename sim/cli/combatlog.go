@@ -7,11 +7,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/combatlog"
-	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/combatlog"
+	"github.com/kejith/wow-tools-forever/sim/tools/rotations"
 )
 
 // combatlogMaxBuffs is how many buffs the report names (combatlog.MAX_BUFFS).

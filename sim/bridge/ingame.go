@@ -1,8 +1,8 @@
 package bridge
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/ingame"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/ingame"
 )
 
 // ingame is app_bridge's ingame: what the addon shows in the game, and with --write the file it loads.

@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/internal/tables"
-	"github.com/kejith/wow-forever-tools/sim/run"
+	"github.com/kejith/wow-tools-forever/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/tables"
+	"github.com/kejith/wow-tools-forever/sim/run"
 )
 
 // Tables are the DB2 tables the engine reads from the shared cache (sim/catalog). The three trait tables
@@ -281,7 +281,7 @@ func numMap(t *sv.Table) map[string]float64 {
 	return m
 }
 
-// Start is simengine.start: builds the bundle from a WoWMCP snapshot and returns a ready Engine. lifeTap is
+// Start is simengine.start: builds the bundle from a WoW Tools Forever snapshot and returns a ready Engine. lifeTap is
 // parsed from the spell text by the caller; fight has negative kills for automatic (the answer has the
 // fight as evaluated, Engine.Fight).
 func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric string, lifeTap engine.LifeTap,
@@ -294,7 +294,7 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 	}
 	client := c.Tab("client")
 	if !sv.Truthy(client.Get("version")) || !sv.Truthy(client.Get("build")) {
-		return nil, fmt.Errorf("%s", i18n.T("The snapshot does not name the client build; /wowmcp sync and /reload first."))
+		return nil, fmt.Errorf("%s", i18n.T("The snapshot does not name the client build; /wtf sync and /reload first."))
 	}
 	build := pyfmt.Str(client.Get("version")) + "." + pyfmt.Str(client.Get("build"))
 	locale := client.Str("locale")

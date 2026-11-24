@@ -12,10 +12,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // Categories are the two kinds of income the addon tells apart.

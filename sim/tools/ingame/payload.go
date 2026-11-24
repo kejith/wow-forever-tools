@@ -14,24 +14,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/tools/consumables"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
-	"github.com/kejith/wow-forever-tools/sim/tools/recipes"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
-	"github.com/kejith/wow-forever-tools/sim/tools/writs"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/consumables"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/recipes"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/tools/writs"
 )
 
 const (
-	// Version is the format of the data file (WoWMCP_AppData.version).
+	// Version is the format of the data file (WoWToolsForever_AppData.version).
 	Version = 1
 	// DataFile is the file in the addon folder.
 	DataFile   = "AppData.lua"
-	global     = "WoWMCP_AppData"
+	global     = "WoWToolsForever_AppData"
 	defaultLoc = "enUS"
 )
 
@@ -76,7 +76,7 @@ func (c *Char) value() *pyjson.Obj {
 	return out
 }
 
-// Payload is WoWMCP_AppData: {version, generated, locale, scanDate, chars, hash}.
+// Payload is WoWToolsForever_AppData: {version, generated, locale, scanDate, chars, hash}.
 type Payload struct {
 	Generated int64
 	Locale    string
@@ -454,8 +454,8 @@ func join(parts []string, oneLine bool, pad, inner string) string {
 	return b.String()
 }
 
-const note = "-- Written by the WoW Forever Tools desktop app (github.com/kejith/wow-forever-tools). The client reads this\n" +
-	"-- file on /reload; the WoWMCP addon shows it (/wowmcp show). Do not edit: the app overwrites it.\n"
+const note = "-- Written by the WoW Tools Forever desktop app (github.com/kejith/wow-tools-forever). The client reads this\n" +
+	"-- file on /reload; the WoW Tools Forever addon shows it (/wtf show). Do not edit: the app overwrites it.\n"
 
 // ToLua is the data file. Time and hash come first: FileState reads them from the head of the file.
 func ToLua(p *Payload) (string, error) {
@@ -487,7 +487,7 @@ func hasKey(o *pyjson.Obj, k string) bool {
 
 // ---------- File ----------
 
-func addonDir(wow string) string { return game.Join(wow, "Interface", "AddOns", "WoWMCP") }
+func addonDir(wow string) string { return game.Join(wow, "Interface", "AddOns", "WoWToolsForever") }
 
 var tocVersion = regexp.MustCompile(`(?m)^## Version:\s*(\S+)`)
 
@@ -505,7 +505,7 @@ func splitLines(s string) []string {
 // AddonState is ingame.addon_state: is the addon installed, and does its .toc load AppData.lua (1.7 and
 // newer)?
 func AddonState(wow string) *pyjson.Obj {
-	data, err := os.ReadFile(game.Join(addonDir(wow), "WoWMCP.toc"))
+	data, err := os.ReadFile(game.Join(addonDir(wow), "WoWToolsForever.toc"))
 	if err != nil {
 		return pyjson.New("installed", false, "ready", false, "version", nil)
 	}
@@ -554,7 +554,7 @@ func FileState(wow string) *pyjson.Obj {
 // savedTime is when the game last wrote the addon's account data (on /reload or logout); nil if never.
 func savedTime(wow string) any {
 	var best any
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
 		if t, err := game.Mtime(path); err == nil && (best == nil || t > best.(float64)) {
 			best = t
 		}
@@ -562,11 +562,11 @@ func savedTime(wow string) any {
 	return best
 }
 
-// loadedState is what the game had loaded when it last saved: WoWMCP_Account.appData.
+// loadedState is what the game had loaded when it last saved: WoWToolsForever_Account.appData.
 func loadedState(wow string) any {
 	var newest *sv.Table
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
-		account, err := sv.LoadTable(path, "WoWMCP_Account")
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
+		account, err := sv.LoadTable(path, "WoWToolsForever_Account")
 		if err != nil || account == nil {
 			continue
 		}
@@ -589,7 +589,7 @@ func Write(wow string, p *Payload) (*pyjson.Obj, error) {
 	state := AddonState(wow)
 	path := game.Join(addonDir(wow), DataFile)
 	if state.Get("installed") != true {
-		return pyjson.New("written", false, "reason", i18n.T("The WoWMCP addon is not installed.")), nil
+		return pyjson.New("written", false, "reason", i18n.T("The WoW Tools Forever addon is not installed.")), nil
 	}
 	if state.Get("ready") != true {
 		version, _ := state.Get("version").(string)
@@ -597,7 +597,7 @@ func Write(wow string, p *Payload) (*pyjson.Obj, error) {
 			version = "?"
 		}
 		return pyjson.New("written", false, "reason",
-			i18n.T("WoWMCP {version} cannot show lists. Update the addon to 1.7 or newer.", "version", version)), nil
+			i18n.T("WoW Tools Forever {version} cannot show lists. Update the addon to 1.7 or newer.", "version", version)), nil
 	}
 	if old := FileState(wow); old != nil && old.Get("hash") == p.Hash {
 		return pyjson.New("written", false, "unchanged", true, "file", path, "generated", old.Get("generated")), nil

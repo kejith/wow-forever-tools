@@ -43,20 +43,20 @@ func main() {
 		log.Fatal(err)
 	}
 	rs.SetManifest(winres.AppManifest{
-		Identity:            winres.AssemblyIdentity{Name: "io.github.kejith.wowforevertools"},
+		Identity:            winres.AssemblyIdentity{Name: "io.github.kejith.wowtoolsforever"},
 		DPIAwareness:        winres.DPIPerMonitorV2,
 		UseCommonControlsV6: true,
 		ExecutionLevel:      winres.AsInvoker,
 	})
 	var info version.Info
-	if err := info.Set(version.LangDefault, version.ProductName, "WoW Forever Tools"); err != nil {
+	if err := info.Set(version.LangDefault, version.ProductName, "WoW Tools Forever"); err != nil {
 		log.Fatal(err)
 	}
 	for k, val := range map[string]string{
-		version.FileDescription:  "WoW Forever Tools",
+		version.FileDescription:  "WoW Tools Forever",
 		version.CompanyName:      "kejith",
 		version.LegalCopyright:   "Copyright © 2026 kejith",
-		version.OriginalFilename: "WoW Forever Tools.exe",
+		version.OriginalFilename: "WoW Tools Forever.exe",
 		version.ProductVersion:   *v,
 		version.FileVersion:      *v,
 	} {

@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/talents"
+	"github.com/kejith/wow-tools-forever/sim/talents"
 )
 
 // A warlock who knows the two spells for several enemies. In the fixture

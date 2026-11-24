@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/goldperhour"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/goldperhour"
 )
 
 // goldperhour is scripts/goldperhour.py run by itself: the GoldPerHour sessions of the account as indented

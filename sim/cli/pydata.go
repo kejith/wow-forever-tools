@@ -7,9 +7,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 )
 
 // The scripts printed their text from the dict compute() returned. The Go compute functions return the same

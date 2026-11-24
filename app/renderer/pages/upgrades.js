@@ -16,18 +16,18 @@ const slotTerms = (engine, unit) => terms([
 export async function renderUpgrades() {
   if (!state.status) await loadStatus();
   const o = state.upgrades;
-  const fightControls = o.engine === 'off' ? '' : `
-      <label><span class="label">${esc(t('Fight length (s)'))} ${help(esc(t('The combat model computes DPS over a fight of this length. A longer fight makes mana, regeneration and Life Tap matter more.')))}</span>
+  const fightControls = o.engine === 'off'
+    ? `<label>${esc(t('Scale'))}<select id="u-profile">${selectOption('', t('automatic'), o.profile)}${selectOption('leveling', t('Leveling'), o.profile)}${selectOption('dungeon', t('Dungeon/raid'), o.profile)}</select></label>`
+    : `<label><span class="label">${esc(t('Fight length (s)'))} ${help(esc(t('The combat model computes DPS over a fight of this length. A longer fight makes mana, regeneration and Life Tap matter more.')))}</span>
         <input type="number" id="u-fight" min="10" max="600" step="10" value="${o.fight}"></label>
-      <label>${esc(t('Enemy level'))}<select id="u-target">${selectOption('', t('from the scale (+2/+3)'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
+      <label>${esc(t('Enemy level'))}<select id="u-target">${selectOption('', t('automatic (+2/+3)'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
       <label id="u-metric" style="display:none"></label>
       <label id="u-kills" style="display:none"></label>
       <label class="check"><input type="checkbox" id="u-cons" ${o.consumables ? 'checked' : ''}> <span class="label">${esc(t('with consumables'))} ${help(esc(t('Rates the gear with the best set of consumables active (the page “Consumables” shows it). A flask’s spell power makes hit and crit worth more, a potion’s mana makes intellect worth less.')))}</span></label>`;
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Budget (gold)'))}<input type="number" id="u-max" class="wide" min="0" step="0.5" value="${esc(o.maxPrice)}" placeholder="${esc(t('your own gold'))}"></label>
       <label><span class="label">${esc(t('Rating'))} ${help(esc(t('The combat model simulates your rotation over the fight; when it cannot run, the weight scale answers instead. Monte-Carlo plays the rotation with real rolls: slower, adds the spread and replays the biggest gains. The weight scale rates stats with fixed weights.')))}</span>
-        <select id="u-engine">${selectOption('auto', t('Combat model'), o.engine)}${selectOption('mc', t('Combat model (Monte-Carlo)'), o.engine)}${selectOption('off', t('Weight scale'), o.engine)}</select></label>
-      <label>${esc(t('Scale'))}<select id="u-profile">${selectOption('', t('automatic'), o.profile)}${selectOption('leveling', t('Leveling'), o.profile)}${selectOption('dungeon', t('Dungeon/raid'), o.profile)}</select></label>${fightControls}
+        <select id="u-engine">${selectOption('auto', t('Combat model'), o.engine)}${selectOption('mc', t('Combat model (Monte-Carlo)'), o.engine)}${selectOption('off', t('Weight scale'), o.engine)}</select></label>${fightControls}
       <label>${esc(t('Sorting'))}<select id="u-sort">${selectOption('gain', t('biggest gain'), o.sort)}${selectOption('price', t('points per gold'), o.sort)}</select></label>
       <label><span class="label">${esc(t('Preview (levels)'))} ${help(esc(t('Also lists items you can only equip within this many levels. They are marked “from level …” and never part of the shopping list.')))}</span>
         <input type="number" id="u-pre" min="0" max="10" value="${o.preview}"></label>
@@ -87,13 +87,20 @@ export async function renderUpgrades() {
   // Gear the account already has: where it is instead of a price.
   const price = (c) => (c.price ? money(c.price) : `<span class="badge ok">${esc(c.where || t('owned'))}</span>`);
   const perGold = (c) => (c.price ? num(c.perGold, 1) : '–');
-  const itemCell = (c, compare) => `<span class="item">${itemIcon(c.id, c.quality)}<span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span></span>
-          ${c.isNew ? `<span class="badge new">${esc(t('NEW in Forever'))}</span>` : ''}
-          ${c.soon ? `<span class="badge warn">${esc(t('from level {n}', { n: c.reqLevel }))}</span>` : ''}
-          ${c.twoHand ? `<span class="badge">${esc(t('Two-hand, also replaces the off hand'))}</span>` : ''}
+  const itemCell = (c, compare) => `<div class="item-cell">${itemIcon(c.id, c.quality)}<div class="item-body">
+          <div class="item-head"><span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span>
+            ${c.isNew ? `<span class="badge forever">${esc(t('NEW in Forever'))}</span>` : ''}
+            ${c.soon ? `<span class="badge warn">${esc(t('from level {n}', { n: c.reqLevel }))}</span>` : ''}
+            ${c.twoHand ? `<span class="badge">${esc(t('Two-hand, also replaces the off hand'))}</span>` : ''}</div>
           <div class="small muted">${esc(c.stats)}</div>
-          ${c.effects.map((text) => `<div class="effects">${esc(text)}</div>`).join('')}`;
-  const slots = d.slots.map((s) => {
+          ${c.effects.map((text) => `<div class="effects">${esc(text)}</div>`).join('')}</div></div>`;
+  const activeSlot = d.slots.some((s) => s.slotName === o.slot) ? o.slot : '';
+  const visibleSlots = activeSlot ? d.slots.filter((s) => s.slotName === activeSlot) : d.slots;
+  const slotPills = d.slots.length > 1 ? `<div class="slot-pills">
+      <button type="button" class="pill-btn${activeSlot === '' ? ' active' : ''}" data-u-slot="">${esc(t('All slots'))} <span class="count">${d.slots.length}</span></button>
+      ${d.slots.map((s) => `<button type="button" class="pill-btn${activeSlot === s.slotName ? ' active' : ''}" data-u-slot="${esc(s.slotName)}">${esc(s.slotName)} <span class="count">${s.candidates.length}</span></button>`).join('')}
+    </div>` : '';
+  const slots = visibleSlots.map((s) => {
     const cur = s.current;
     const rows = s.candidates.map((c) => `<tr>
         <td><div class="gain"><b>${signed(c.gain)}</b><div class="bar"><span style="width:${Math.round((c.gain / maxGain) * 100)}%"></span></div></div></td>
@@ -103,9 +110,11 @@ export async function renderUpgrades() {
         <td>${itemCell(c, cur?.tip)}</td></tr>`).join('');
     return `<div class="card section slot-card">
       <div><div class="slot-name">${esc(s.slotName)}</div>
-        <div class="small muted" style="margin-top:4px">${esc(t('now:'))}</div>
-        <div class="small"><span class="item">${itemIcon(cur?.id, cur?.quality)}<span class="${quality(cur?.quality)}"${tipAttr(cur?.tip)}>${esc(cur?.name || '–')}</span></span></div>
-        <div class="small muted">${esc(cur?.stats || '')}</div></div>
+        <div class="slot-current">
+          <div class="small muted">${esc(t('Equipped'))}</div>
+          <div class="small" style="margin-top:3px"><span class="item">${itemIcon(cur?.id, cur?.quality)}<span class="${quality(cur?.quality)}"${tipAttr(cur?.tip)}>${esc(cur?.name || '–')}</span></span></div>
+          <div class="small muted" style="margin-top:2px">${esc(cur?.stats || '')}</div>
+        </div></div>
       <table><thead><tr>${th([t('Gain')], [t('vs. item'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')])}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
   const pk = d.package;
@@ -120,7 +129,7 @@ export async function renderUpgrades() {
       <table><thead><tr>${th([t('Slot')], [t('Gain'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')], [t('replaces')],
         [t('up to here'), 'num', esc(t('Cost and gain in total if you buy from the top down to this row.'))])}</tr></thead><tbody>
       ${pk.items.map((c) => `<tr><td class="muted">${esc(c.slotName)}</td>
-        <td class="num"><b class="${c.gain < 0 ? '' : 'good'}">${signed(c.gain)}</b></td>
+        <td class="num"><b class="${c.gain < 0 ? 'warn-text' : 'good'}">${signed(c.gain)}</b>${c.gain < 0 ? `<div class="small muted"${hintAttr(t('Only pays together with its paired main hand or ring further down in the list (replaces a two-hander on its own).'))}>${esc(t('paired swap'))}</div>` : ''}</td>
         <td class="num">${price(c)}</td><td class="num muted">${perGold(c)}</td>
         <td>${itemCell(c, c.compareTip)}</td><td class="small muted">${esc(c.replaces.join(' + ') || '–')}</td>
         <td class="num small">${money(c.cumCost)}<div class="muted">${signed(c.cumGain)}</div></td></tr>`).join('')}</tbody></table>
@@ -156,7 +165,7 @@ export async function renderUpgrades() {
   };
   // The model's numbers per spell rank next to the game's own spell texts.
   const check = eng?.tooltipCheck;
-  const tipCheck = check ? `<h3>${esc(t('Checked against the game'))} ${help(esc(t('The spell texts in your spellbook hold the numbers of your character: spell power, talents and the loss of an outgrown rank are in them. For every rank of the spells above, the model computes the same numbers; here is how many agree. With WoWMCP 1.12 or newer the mana cost and the cast time of every rank are compared as well. A rank that differs means the model misses something for it.')))}</h3>
+  const tipCheck = check ? `<h3>${esc(t('Checked against the game'))} ${help(esc(t('The spell texts in your spellbook hold the numbers of your character: spell power, talents and the loss of an outgrown rank are in them. For every rank of the spells above, the model computes the same numbers; here is how many agree. With WoW Tools Forever 1.12 or newer the mana cost and the cast time of every rank are compared as well. A rank that differs means the model misses something for it.')))}</h3>
       <p class="small ${check.off.length ? '' : 'muted'}">${esc(check.text)}</p>
       ${check.off.length ? `<table><tbody>${check.off.map((o) => `<tr><td><span class="badge warn">${esc(t('differs'))}</span></td>
         <td>${esc(o.label)}</td><td class="small muted">${esc(o.model)}</td><td class="small">${esc(o.text)}</td></tr>`).join('')}</tbody></table>` : ''}` : '';
@@ -167,7 +176,7 @@ export async function renderUpgrades() {
       <h3>${esc(t('Spells'))}</h3>${covRows(cov.spells)}<h3>${esc(t('Talents'))}</h3>${covRows(cov.talents)}${tipCheck}</details>` : '';
   // Owned gear an older addon exported by name only cannot be rated.
   const unknown = d.owned?.unknown || [];
-  const unknownNote = unknown.length ? `<div class="notice" style="margin-top:10px"${hintAttr(unknown.map((u) => `${u.name} (${u.where})`).join(', '))}>${esc(t('{n} items you own are only known by name and cannot be rated: open the bank once with WoWMCP 1.12 or newer, then /reload.', { n: unknown.length }))}</div>` : '';
+  const unknownNote = unknown.length ? `<div class="notice" style="margin-top:10px"${hintAttr(unknown.map((u) => `${u.name} (${u.where})`).join(', '))}>${esc(t('{n} items you own are only known by name and cannot be rated: open the bank once with WoW Tools Forever 1.12 or newer, then /reload.', { n: unknown.length }))}</div>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(t('Budget'))}</h2><div class="big">${money(d.budget)}</div></div>
       <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng
@@ -176,10 +185,17 @@ export async function renderUpgrades() {
         <div class="big">${num(d.setValue)}</div>${eng?.mc
     ? `<div class="small muted">${esc(t('spread ±{sd}, worst tenth {p10}', { sd: num(eng.mc.stdDev, 1), p10: num(eng.mc.p10, 1) }))}</div>` : ''}</div>
       <div><h2>${esc(t('AH scan'))}</h2><div class="big">${esc(d.scanDate)}</div></div>
-      <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoWMCP addon has read in the game. Only these can be compared.')))}</h2>
+      <div><h2>${esc(t('Item export'))} ${help(esc(t('Items of the last AH scans whose stats the WoW Tools Forever addon has read in the game. Only these can be compared.')))}</h2>
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>
       <span class="spacer"></span></div>
       ${scale}${eng?.downrank?.text ? `<div class="notice" style="margin-top:10px">${esc(eng.downrank.text)}</div>` : ''}${eng?.consumables ? `<div class="notice" style="margin-top:10px">${esc(eng.consumables.text)}</div>` : ''}${eng?.buffs ? `<p class="small muted" style="margin:8px 0 0">${esc(eng.buffs.text)}</p>` : ''}${unknownNote}${healRanks}${coverage}</div>
     ${packageHtml}
-    ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
+    ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slotPills}${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
 }
+
+content.addEventListener('click', (e) => {
+  const pill = e.target.closest('[data-u-slot]');
+  if (!pill || state.page !== 'upgrades') return;
+  state.upgrades.slot = pill.dataset.uSlot;
+  renderUpgrades();
+});

@@ -15,18 +15,19 @@ export const state = {
   update: null, // the app's own update as the main process knows it (api.updateState(), api.onUpdate)
   cache: new Map(),
   lastLoad: null,
-  writs: { top: 3, ownedAtAhPrice: false },
-  upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain', engine: 'auto', fight: 60, target: '', metric: '', kills: '', consumables: false },
-  recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false },
-  consumables: { top: 5, onlyAvailable: false, allBuffs: false, fight: 60, target: '', set: 'best', budget: '' },
+  writs: { top: 3, ownedAtAhPrice: false, tab: 'writs' },
+  upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain', engine: 'auto', fight: 60, target: '', metric: '', kills: '', consumables: false, slot: '' },
+  recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false, query: '', tab: 'learned' },
+  consumables: { top: 5, onlyAvailable: false, allBuffs: false, fight: 60, target: '', set: 'best', budget: '', tab: 'fight' },
   rotations: { fight: 60, target: '', consumables: false },
-  prices: { query: '', item: null, cls: -1, sort: 'name', recent: false },
+  prices: { query: '', item: null, cls: -1, sort: 'offers', recent: false },
+  character: { tab: 'gear' },
   gph: { open: null, notice: null, more: {} },
 };
 
 // What the user chose survives a restart: the open page, the character and the options of the pages.
-const VIEW_KEY = 'wow-forever-tools:view';
-const VIEW = ['writs', 'upgrades', 'recipes', 'consumables', 'rotations', 'prices'];
+const VIEW_KEY = 'wow-tools-forever:view';
+const VIEW = ['writs', 'upgrades', 'recipes', 'consumables', 'rotations', 'prices', 'character'];
 
 export function saveView() {
   try {
@@ -53,6 +54,36 @@ export function restoreView() {
 
 export const $ = (sel) => document.querySelector(sel);
 export const content = $('#content');
+
+// Page-level tab bar docked between the topbar and the scrollable #content area.
+const tabBar = $('#page-tabs');
+let onTabChange = null;
+
+export function clearTabs() {
+  onTabChange = null;
+  if (!tabBar) return;
+  tabBar.innerHTML = '';
+  tabBar.hidden = true;
+}
+
+export function setTabs(items, activeKey, onSelect) {
+  if (!tabBar) return;
+  if (!items || !items.length) { clearTabs(); return; }
+  const active = items.some((i) => i.key === activeKey) ? activeKey : items[0].key;
+  onTabChange = onSelect;
+  tabBar.innerHTML = items.map((i) => `<button type="button" class="tab${i.key === active ? ' active' : ''}" data-tab="${esc(i.key)}">${esc(i.label)}${
+    i.meta !== undefined && i.meta !== '' ? ` <span class="tab-meta">${esc(i.meta)}</span>` : ''
+  }</button>`).join('');
+  tabBar.hidden = false;
+}
+
+tabBar?.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-tab]');
+  if (!btn || !onTabChange) return;
+  const key = btn.dataset.tab;
+  for (const b of tabBar.querySelectorAll('button[data-tab]')) b.classList.toggle('active', b === btn);
+  onTabChange(key);
+});
 
 // The pages register themselves here (app.js), so one page can redraw whichever page is open.
 export const pages = {};
@@ -325,7 +356,7 @@ export async function cached(key, fn) {
 
 export async function loadStatus() {
   const [status, addon, gphAddon, game] = await Promise.all([
-    api.bridge('status'), api.addonInfo('wowmcp'), api.addonInfo('goldperhour'), api.wowRunning(),
+    api.bridge('status'), api.addonInfo('wowtoolsforever'), api.addonInfo('goldperhour'), api.wowRunning(),
   ]);
   state.status = status;
   state.addon = addon;
@@ -362,6 +393,16 @@ export function showUnit() {
   name.textContent = c ? (c.name || c.key) : t('No character exported.');
   name.style.color = c ? classColor(c.classFile) : 'var(--muted)';
   $('#unit-sub').innerHTML = c ? [esc(c.class || ''), c.money != null ? money(c.money) : ''].filter(Boolean).join(' · ') : '';
+}
+
+export function selectChar(key) {
+  if (!key || key === state.char) return;
+  state.char = key;
+  const select = $('#char-select');
+  if (select) select.value = key;
+  showUnit();
+  saveView();
+  rerender();
 }
 
 // The icons of the navigation: the same item icons as on the pages.

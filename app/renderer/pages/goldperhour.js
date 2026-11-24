@@ -92,12 +92,12 @@ function gphSettingsCard(d) {
   const disabled = state.gphAddon?.installed ? '' : 'disabled';
   const check = (id, on, label) => `<label class="check"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}> ${esc(label)}</label>`;
   return `<div class="card" id="gph-settings"><h2>${esc(t('Settings in the addon'))}</h2>
-    <div class="controls" style="margin-bottom:12px">
+    <div class="gph-form-checks">
       ${check('gph-shown', s.shown, t('Show the window'))}
       ${check('gph-resume', s.resumeAfterReload, t('keeps running after /reload'))}
       ${check('gph-auto', s.autoStart, t('starts with the first loot'))}
     </div>
-    <div class="controls">
+    <div class="gph-form-fields">
       <label>${esc(t('Window scale'))}<input type="number" id="gph-scale" min="0.5" max="2" step="0.05" value="${esc(s.scale)}"></label>
       <label>${esc(t('Items in the tooltip'))}<input type="number" id="gph-tooltip" min="1" max="30" value="${esc(s.tooltipItems)}"></label>
       <label><span class="label">${esc(t('Prices'))} ${help(esc(t('Applies to newly looted items; what was looted before keeps its value.')))}</span><select id="gph-price">
@@ -168,21 +168,26 @@ export async function renderGoldPerHour() {
   const sum = d.summary;
   const zoneRows = c.zones.map((z) => `<tr><td>${esc(z.zone)}</td><td class="num">${money(z.value)}</td>
     <td class="num muted">${percent(c.total ? Math.round((z.value / c.total) * 100) : 0)}</td></tr>`).join('');
-  content.innerHTML = `${top.join('')}
-    <div class="page-meta">${esc(t('As of the last save {when} ({ago})', { when: when(saved), ago: ago(saved) }))}
-      ${help(t('WoW writes the values only on <code>/reload</code> or logout; a running session keeps counting in the game.'))}</div>
-    <div class="grid">
-      <div class="card"><h2>${esc(t('Current session'))}</h2><div class="big">${money(c.total)}</div>
+  const sessionHelp = help(t('Takes effect at the next <code>/reload</code>. In the game it is immediate: <code>/gph start</code>, <code>/gph stop</code>, the reset button in the window.'));
+  const sessionBtns = `<div class="row" style="flex-wrap:nowrap">
+      <button class="primary" data-action="gph-start" ${disabled}>${esc(t(ACTIONS.start))}</button>
+      <button class="ghost" data-action="gph-stop" ${disabled}>${esc(t(ACTIONS.stop))}</button>
+      <button class="ghost" data-action="gph-reset" ${disabled}>${esc(t(ACTIONS.reset))}</button>
+    </div>`;
+  const emptySession = !c.elapsed && !c.total;
+  const sessionBody = emptySession
+    ? `<div class="card"><h2>${esc(t('Current session'))} ${sessionHelp}</h2>
+        <div class="gph-empty-bar">
+          <div><div class="row">${runBadge}<span class="muted small">${esc(t('No active session yet. Start one here or in the game with /gph start.'))}</span></div></div>
+          <span class="spacer"></span>${sessionBtns}
+        </div>${gphRequestState(d)}</div>`
+    : `<div class="grid">
+      <div class="card"><h2>${esc(t('Current session'))} ${sessionHelp}</h2><div class="big">${money(c.total)}</div>
         <h3 style="margin-top:4px">${rate(c.perHour)} <span class="muted small">${esc(t('per hour'))}</span></h3>
         <dl class="kv small"><dt>${esc(t('Duration'))}</dt><dd>${duration(c.elapsed)} ${runBadge}</dd>
           ${c.started ? `<dt>${esc(t('Started at'))}</dt><dd>${when(c.started)}</dd>` : ''}
           ${c.chars.length ? `<dt>${esc(t('Character'))}</dt><dd>${esc(c.chars.join(', '))}</dd>` : ''}</dl>
-        <div class="row" style="margin-top:12px">
-          <button class="primary" data-action="gph-start" ${disabled}>${esc(t(ACTIONS.start))}</button>
-          <button class="ghost" data-action="gph-stop" ${disabled}>${esc(t(ACTIONS.stop))}</button>
-          <button class="ghost" data-action="gph-reset" ${disabled}>${esc(t(ACTIONS.reset))}</button>
-          ${help(t('Takes effect at the next <code>/reload</code>. In the game it is immediate: <code>/gph start</code>, <code>/gph stop</code>, the reset button in the window.'))}
-        </div>
+        <div style="margin-top:12px">${sessionBtns}</div>
         ${gphRequestState(d)}</div>
       ${GPH_CATS.map(catCard).join('')}
     </div>
@@ -192,7 +197,11 @@ export async function renderGoldPerHour() {
       <div class="card"><h2>${esc(t('Zones'))}</h2>${c.zones.length ? `<table class="compact"><thead><tr>${th([t('Zone')], [t('Gold'), 'num'], [t('Share'), 'num'])}</tr></thead><tbody>
         ${zoneRows}</tbody></table>`
         : `<p class="muted small">${esc(d.legacy ? t('The addon records zones from version 0.3 on.') : t('Nothing looted yet.'))}</p>`}</div>
-    </div>
+    </div>`;
+  content.innerHTML = `${top.join('')}
+    <div class="page-meta">${esc(t('As of the last save {when} ({ago})', { when: when(saved), ago: ago(saved) }))}
+      ${help(t('WoW writes the values only on <code>/reload</code> or logout; a running session keeps counting in the game.'))}</div>
+    ${sessionBody}
     <div class="section">${gphSettingsCard(d)}</div>
     <div class="section"><h2>${esc(t('History'))}</h2>
       ${sum.sessions ? `<p class="small muted" style="margin-top:0">${t(sum.sessions === 1 ? mark('1 session, {duration} and {money} in total, {rate} per hour on average.')

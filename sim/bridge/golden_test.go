@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 )
 
 // TestGolden runs every bridge command the app uses, with the options the app passes, on a copy of the test
@@ -242,7 +242,7 @@ func copyFixture(src, dst string) error {
 		if err := os.WriteFile(target, data, 0o644); err != nil {
 			return err
 		}
-		if d.Name() == "WoWMCP.lua" && filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(path)))) != "Account" {
+		if d.Name() == "WoWToolsForever.lua" && filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(path)))) != "Account" {
 			chars = append(chars, target)
 		}
 		return os.Chtimes(target, base, base)

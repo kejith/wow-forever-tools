@@ -1,7 +1,7 @@
 package writs
 
 // The tests of scripts/test_writs.py (same data, same assertions), plus the readers that copy a Python
-// quirk: the regular expressions over WoWMCP.lua, the shortcut through the ItemSparse CSV and Python's slice.
+// quirk: the regular expressions over WoWToolsForever.lua, the shortcut through the ItemSparse CSV and Python's slice.
 
 import (
 	"os"
@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/internal/tables"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/tables"
 )
 
 func tab(pairs ...any) *sv.Table {
@@ -297,7 +297,7 @@ func TestDataDirFindsTheNames(t *testing.T) {
 // for the same text: an item counts only in an innermost table with a link (765 has a nested table, 2447 no
 // link), counts of the same item add up, the writ faction's standing is the reputation.
 func TestLoadOwned(t *testing.T) {
-	text := strings.Join([]string{`WoWMCP_Char = {`, `["bags"] = {`,
+	text := strings.Join([]string{`WoWToolsForever_Char = {`, `["bags"] = {`,
 		`{`, `["id"] = 3383,`, `["count"] = 2,`, `["link"] = "|cff1eff00|Hitem:3383|h[Elixir]|h|r",`, `},`,
 		`{`, `["count"] = 3,`, `["id"] = 3383,`, `["link"] = "x",`, `},`,
 		`{`, `["id"] = 2447,`, `["count"] = 5,`, `},`,
@@ -307,7 +307,7 @@ func TestLoadOwned(t *testing.T) {
 		`["value"] = 9125,`, `["max"] = 21000,`, `},`,
 		`{`, `["id"] = 76,`, `["name"] = "Orgrimmar",`, `["standing"] = "Honored",`, `["value"] = 1,`,
 		`["max"] = 2,`, `},`, `},`, `}`, ``}, "\r\n")
-	path := filepath.Join(t.TempDir(), "WoWMCP.lua")
+	path := filepath.Join(t.TempDir(), "WoWToolsForever.lua")
 	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["mcp>=2.3,<3", "lupa>=2.0"]
 # ///
-"""MCP server for WoW Forever character data exported by the WoWMCP addon.
+"""MCP server for WoW Forever character data exported by the WoW Tools Forever addon.
 
 The addon writes one SavedVariables file per character, which the client flushes to disk on /reload
 or logout. This server parses those files in a sandboxed Lua runtime and serves them as MCP tools.
@@ -28,8 +28,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 # Under WSL the Windows install is reached through /mnt/c.
 DEFAULT_ROOT = ("/mnt/c/Program Files (x86)/World of Warcraft/_forever_" if os.name == "posix"
                 else r"C:\Program Files (x86)\World of Warcraft\_forever_")
-SV_FILE = "WoWMCP.lua"
-SV_GLOBAL = "WoWMCP_Char"
+SV_FILE = "WoWToolsForever.lua"
+SV_GLOBAL = "WoWToolsForever_Char"
 
 QUALITY = {0: "Poor", 1: "Common", 2: "Uncommon", 3: "Rare", 4: "Epic", 5: "Legendary", 6: "Artifact", 7: "Heirloom"}
 SLOTS = {
@@ -98,7 +98,7 @@ class Character:
 
     @property
     def ruleset(self) -> str:
-        # WTF/Account/<account>/<ruleset>/<character>/SavedVariables/WoWMCP.lua
+        # WTF/Account/<account>/<ruleset>/<character>/SavedVariables/WoWToolsForever.lua
         return self.path.parents[2].name
 
     @property
@@ -140,7 +140,7 @@ class Store:
     def resolve(self, name: str | None) -> Character:
         chars = self.characters()
         if not chars:
-            raise ToolError("No WoWMCP data yet. Enable the addon, log in, then /reload or log out so WoW writes it to disk.")
+            raise ToolError("No WoW Tools Forever data yet. Enable the addon, log in, then /reload or log out so WoW writes it to disk.")
         if not name or not name.strip():
             return max(chars, key=lambda c: c.updated)
         needle = name.strip().casefold()
@@ -158,9 +158,9 @@ store = Store(Path(os.environ.get("WOW_FOREVER_DIR", DEFAULT_ROOT)))
 mcp = MCPServer(
     "wow-forever",
     instructions=(
-        "Character data from World of Warcraft: Forever, exported by the WoWMCP addon. Every result is a snapshot "
+        "Character data from World of Warcraft: Forever, exported by the WoW Tools Forever addon. Every result is a snapshot "
         "from the player's last /reload or logout; check snapshot_age and, if it matters for the answer, ask the "
-        "player to type /wowmcp sync in-game. Bank contents are as of the last bank visit (bank_scanned). "
+        "player to type /wtf sync in-game. Bank contents are as of the last bank visit (bank_scanned). "
         "The `character` argument takes a full or partial name; omit it for the most recently played character."
     ),
 )

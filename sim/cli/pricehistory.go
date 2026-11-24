@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/tools/pricehistory"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/pricehistory"
 )
 
 // pricehistory is scripts/pricehistory.py: the price history of the items in Auctionator's database.

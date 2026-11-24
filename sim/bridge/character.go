@@ -4,13 +4,13 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // orList is `x or []`.
@@ -26,7 +26,7 @@ func orList(v any) any {
 func character(a *Args) (*pyjson.Obj, error) {
 	files := game.FindChars(a.Wow, a.Char)
 	if len(files) == 0 {
-		return nil, errors.New(i18n.T("No WoWMCP export found for \"{char}\".", "char", a.Char))
+		return nil, errors.New(i18n.T("No WoW Tools Forever export found for \"{char}\".", "char", a.Char))
 	}
 	c, err := loadChar(files[0])
 	if err != nil {

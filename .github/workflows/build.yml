@@ -44,8 +44,8 @@ jobs:
           path: scripts/cache/*.csv
           # A new code version may read another table: it restores the last cache, downloads what is missing
           # and saves the whole set under its own key.
-          key: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}-${{ hashFiles('sim/**/*.go') }}
-          restore-keys: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWMCP.lua') }}-
+          key: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWToolsForever.lua') }}-${{ hashFiles('sim/**/*.go') }}
+          restore-keys: db2-${{ hashFiles('scripts/fixtures/forever/WTF/Account/*/93/*/SavedVariables/WoWToolsForever.lua') }}-
       - name: Go tests (sim/)
         # Includes the bridge's golden test: every command on the test folder against the answers the Python
         # bridge gave before it was removed (notes/go-migration.md).
@@ -89,10 +89,10 @@ jobs:
           WOW_FOREVER_DIR: ${{ github.workspace }}\scripts\fixtures\goldperhour
         run: |
           $version = (Get-Content app/VERSION -Raw).Trim()
-          $dir = Join-Path $env:RUNNER_TEMP 'wow-forever-tools'
-          $setup = Start-Process -FilePath "app/build/bin/WoW-Forever-Tools-Setup-$version.exe" -ArgumentList '/S', '--updated', "/D=$dir" -PassThru -Wait
+          $dir = Join-Path $env:RUNNER_TEMP 'wow-tools-forever'
+          $setup = Start-Process -FilePath "app/build/bin/WoW-Tools-Forever-Setup-$version.exe" -ArgumentList '/S', '--updated', "/D=$dir" -PassThru -Wait
           if ($setup.ExitCode -ne 0) { throw "the installer failed with exit code $($setup.ExitCode)" }
-          $exe = Join-Path $dir 'WoW Forever Tools.exe'
+          $exe = Join-Path $dir 'WoW Tools Forever.exe'
           if (-not (Test-Path (Join-Path $dir 'scripts/data/item_names.json'))) { throw 'the installer left out scripts/data' }
           $app = Start-Process -FilePath $exe -ArgumentList '--capture=smoke', '--lang=en', '--require=connection,goldperhour' -WorkingDirectory app -PassThru -Wait
           Get-Content app/smoke/report.json -ErrorAction SilentlyContinue
@@ -105,7 +105,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: installer
-          path: app/build/bin/WoW-Forever-Tools-Setup-*.exe
+          path: app/build/bin/WoW-Tools-Forever-Setup-*.exe
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         if: always()

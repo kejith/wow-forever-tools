@@ -29,7 +29,7 @@ Downranking lohnt sich: Heile mit Heilen (Rang 1) statt Heilen (Rang 2) (+2 % He
    Mit den Zaubertexten, Manakosten und Zauberzeiten des Spiels verglichen: 12 von 13 Zauberrängen stimmen überein.
       Machtwort: Schild (Rang 1): das Modell hat 73 | Nutzt die Seelenkraft des Gruppenmitglieds zum Abschirmen und absorbiert dabei 83 Punkt(e) Schaden. Hält 30 Sek. lang an. Solange der Schild hält, wird das Zaub
 Preise = Mindest-Sofortkauf beim Scan.
-7 Gegenstände, die du besitzt, sind nur dem Namen nach bekannt (Szepter des Verlasseneren auf deiner Bank, Geisterhafter Mantel auf deiner Bank, Monstrositätenhautreste auf deiner Bank, Zerfledderte Fäustlinge auf deiner Bank, Reich mit Juwelen besetzter Ring auf deiner Bank, Banditen-Umhang der Magie auf deiner Bank, ...): öffne die Bank einmal mit WoWMCP 1.12 oder neuer, dann /reload.
+7 Gegenstände, die du besitzt, sind nur dem Namen nach bekannt (Szepter des Verlasseneren auf deiner Bank, Geisterhafter Mantel auf deiner Bank, Monstrositätenhautreste auf deiner Bank, Zerfledderte Fäustlinge auf deiner Bank, Reich mit Juwelen besetzter Ring auf deiner Bank, Banditen-Umhang der Magie auf deiner Bank, ...): öffne die Bank einmal mit WoW Tools Forever 1.12 oder neuer, dann /reload.
 
 == Bestes Paket für 47g 17s: +14.5 HPS (+11%) für 1g 82s
    Brust        +4.3  +69%  vorhanden            Gewand des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [ZS 4, Int 10]  id 286978

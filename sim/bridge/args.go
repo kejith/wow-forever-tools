@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
 )
 
 // Args are the options of app_bridge.py, with its defaults.

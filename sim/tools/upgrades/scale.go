@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // Profile is one of upgrades.PROFILES: the enemies' level above the character, how much one percent more mana
@@ -88,8 +88,8 @@ var SlotName = map[int64]string{1: i18n.Mark("Head"), 2: i18n.Mark("Neck"), 3: i
 	13: i18n.Mark("Trinket"), 14: i18n.Mark("Trinket"), 15: i18n.Mark("Back"), 16: i18n.Mark("Main Hand"),
 	17: i18n.Mark("Off Hand"), 18: i18n.Mark("Wand")}
 
-// LoadChar is upgrades.load_char: the WoWMCP_Char table of a snapshot, empty if the file has none.
-func LoadChar(path string) (*sv.Table, error) { return sv.LoadTable(path, "WoWMCP_Char") }
+// LoadChar is upgrades.load_char: the WoWToolsForever_Char table of a snapshot, empty if the file has none.
+func LoadChar(path string) (*sv.Table, error) { return sv.LoadTable(path, "WoWToolsForever_Char") }
 
 // SlotLabel is upgrades.slot_name: the slot's name in the selected language.
 func SlotLabel(slot int64) string { return i18n.T(SlotName[slot]) }

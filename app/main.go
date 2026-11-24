@@ -1,9 +1,9 @@
-// WoW Forever Tools, the desktop app: a Wails window (WebView2 on Windows) around the page in renderer/, with
+// WoW Tools Forever, the desktop app: a Wails window (WebView2 on Windows) around the page in renderer/, with
 // the calculations of sim/ built in.
 //
-//	"WoW Forever Tools.exe"                       the window
-//	"WoW Forever Tools.exe" --capture=<folder>    screenshots of every page, then exit (capture.go)
-//	"WoW Forever Tools.exe" bridge <command> …    one bridge answer on stdout (what wowtools bridge answers)
+//	"WoW Tools Forever.exe"                       the window
+//	"WoW Tools Forever.exe" --capture=<folder>    screenshots of every page, then exit (capture.go)
+//	"WoW Tools Forever.exe" bridge <command> …    one bridge answer on stdout (what wowtools bridge answers)
 //
 // Build: build.sh (Windows resources, the exe and the installer); from source also
 // `go build -tags desktop,production .` in app/.
@@ -44,7 +44,7 @@ func main() {
 		panic(err)
 	}
 	err = wails.Run(&options.App{
-		Title:            "WoW Forever Tools",
+		Title:            "WoW Tools Forever",
 		Width:            1280,
 		Height:           860,
 		MinWidth:         980,

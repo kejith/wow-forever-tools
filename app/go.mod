@@ -1,9 +1,9 @@
-module github.com/kejith/wow-forever-tools/app
+module github.com/kejith/wow-tools-forever/app
 
 go 1.27
 
 require (
-	github.com/kejith/wow-forever-tools/sim v0.0.0
+	github.com/kejith/wow-tools-forever/sim v0.0.0
 	github.com/tc-hib/winres v0.3.1
 	github.com/wailsapp/wails/v2 v2.17.1
 	golang.org/x/sys v0.50.0
@@ -41,4 +41,4 @@ require (
 	golang.org/x/text v0.42.0 // indirect
 )
 
-replace github.com/kejith/wow-forever-tools/sim => ../sim
+replace github.com/kejith/wow-tools-forever/sim => ../sim

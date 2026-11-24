@@ -1,7 +1,6 @@
 // Page "Character": the character window as in the game (gear left and right, weapons below, stats in the
-// middle), then professions and talents, for a class that heals the heal table (pages/healing.js) and for one
-// that deals damage with spells the damage analysis (pages/damage.js), the spec's own of the two first.
-import { $, DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, state, tipAttr } from '../core.js';
+// middle), with tabs for Damage, Healing and Consumables so each view stays focused.
+import { $, DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, saveView, setTabs, state, tipAttr } from '../core.js';
 import { mark, t } from '../i18n.js';
 import { consumablesSection, loadConsumables } from './consumables.js';
 import { damageSection } from './damage.js';
@@ -16,6 +15,10 @@ const PAPERDOLL = {
   bottom: [[16, mark('Main Hand')], [17, mark('Off Hand')], [18, mark('Ranged')]],
 };
 const SCHOOLS = [['arcane', mark('Arcane')], ['fire', mark('Fire')], ['nature', mark('Nature')], ['frost', mark('Frost')], ['shadow', mark('Shadow')]];
+const DAMAGE_SCHOOLS = {
+  holy: mark('Holy damage'), fire: mark('Fire damage'), nature: mark('Nature damage'),
+  frost: mark('Frost damage'), shadow: mark('Shadow damage'), arcane: mark('Arcane damage'),
+};
 
 // Points per talent tree, e.g. "Affliction 37 / Demonology 1 / Destruction 0 · 1 unspent".
 function talentLine(tree) {
@@ -25,23 +28,29 @@ function talentLine(tree) {
   return points + (tree.unspent ? ` <span class="muted">· ${esc(t('{n} unspent', { n: tree.unspent }))}</span>` : '');
 }
 
-// The tabs: a click scrolls to the section, and scrolling marks the tab of the section in view.
-content.addEventListener('click', (e) => {
-  const tab = e.target.closest('#c-tabs [data-jump]');
-  if (!tab) return;
-  const target = $(tab.dataset.jump);
-  if (target) content.scrollTo({ top: target.offsetTop - $('#c-tabs').offsetHeight - 14, behavior: 'smooth' });
-});
-content.addEventListener('scroll', () => {
-  const bar = $('#c-tabs');
-  if (!bar) return;
-  let current = bar.querySelector('[data-jump]');
-  for (const tab of bar.querySelectorAll('[data-jump]')) {
-    const target = $(tab.dataset.jump);
-    if (target && target.offsetTop - bar.offsetHeight - 40 <= content.scrollTop) current = tab;
+// Picks the school with the highest spell power so non-warlocks do not show Shadow damage.
+function topSpellSchool(st) {
+  const dmg = st.spellDamage || {};
+  let bestKey = 'shadow', bestVal = -1;
+  for (const [k, v] of Object.entries(dmg)) {
+    if (DAMAGE_SCHOOLS[k] && typeof v === 'number' && v > bestVal) { bestKey = k; bestVal = v; }
   }
-  for (const tab of bar.querySelectorAll('[data-jump]')) tab.classList.toggle('active', tab === current);
-}, { passive: true });
+  const vals = Object.values(dmg).filter((v) => typeof v === 'number');
+  const uniform = vals.length > 1 && vals.every((v) => v === vals[0]);
+  return {
+    key: bestKey,
+    label: uniform ? t('Spell damage') : t(DAMAGE_SCHOOLS[bestKey] || mark('Spell damage')),
+    value: bestVal >= 0 ? bestVal : dmg.shadow,
+    crit: st.spellCrit?.[bestKey] ?? st.spellCrit?.shadow,
+  };
+}
+
+function activateCharTab(key) {
+  state.character.tab = key;
+  for (const panel of content.querySelectorAll('[data-char-panel]')) panel.hidden = panel.dataset.charPanel !== key;
+  content.scrollTop = 0;
+  saveView();
+}
 
 export async function renderCharacter() {
   if (!state.status) await loadStatus();
@@ -83,13 +92,18 @@ export async function renderCharacter() {
   const durs = d.equipment.filter((e) => e.durability).map((e) => e.durability[0] / e.durability[1]);
   const ilvls = d.equipment.map((e) => e.ilvl).filter(Boolean);
   const lowest = durs.length ? Math.min(...durs) : null;
+  const school = topSpellSchool(st);
+  const talents = [...(d.talents || []), ...(d.legacy || [])].map(talentLine).filter(Boolean).join('<br>');
+  const buffs = (c.buffs || []).filter((b) => b?.name);
+  const buffsBox = buffs.length ? `<div class="pd-stats"><h4>${esc(t('Active buffs'))}</h4>
+    <div class="pd-buffs">${buffs.map((b) => `<span class="pd-buff">${esc(b.name)}</span>`).join('')}</div></div>` : '';
   const center = `<div class="pd-center">
       <div class="pd-res">${resist}</div>
       <div class="pd-grid">
         ${statBox(t('Attributes'), [[t('Strength'), value(st.strength)], [t('Agility'), value(st.agility)], [t('Stamina'), value(st.stamina)],
           [t('Intellect'), value(st.intellect)], [t('Spirit'), value(st.spirit)]])}
-        ${statBox(t('Spells'), [[t('Shadow damage'), value(st.spellDamage?.shadow)], [t('Healing'), value(st.healing)],
-          [t('Spell crit'), pct(st.spellCrit?.shadow)], [t('Spell hit'), st.spellHit !== undefined ? percent(value(st.spellHit)) : '–']])}
+        ${statBox(t('Spells'), [[school.label, value(school.value)], [t('Healing'), value(st.healing)],
+          [t('Spell crit'), pct(school.crit)], [t('Spell hit'), st.spellHit !== undefined ? percent(value(st.spellHit)) : '–']])}
         ${statBox(t('Defense'), [[t('Health'), value(st.healthMax)], [st.powerType === 'MANA' || !st.powerType ? t('Mana') : t('Energy'), value(st.powerMax)],
           [t('Armor'), value(st.armor)], [t('Dodge'), pct(st.dodge)]])}
         ${statBox(t('Gear'), [[t('Gear value'), value(d.setValue, 1)], [t('Avg. iLvl'), ilvls.length ? value(ilvls.reduce((a, b) => a + b, 0) / ilvls.length, 1) : '–'],
@@ -97,43 +111,47 @@ export async function renderCharacter() {
           [t('Scale'), esc(d.profileLabel)]],
         esc(t('pts = points: what the gear would lack without the item, on the scale “{scale}” of the AH upgrades ({weights}). {total} in total.',
           { scale: d.profileLabel, weights: d.weights, total: num(d.setValue) })))}
-      </div></div>`;
+      </div>
+      ${buffsBox ? `<div class="pd-extra">${buffsBox}</div>` : ''}</div>`;
 
   const profs = d.professions.map((p) => `<div style="margin-bottom:8px">
       <div class="row small"><span>${esc(p.name)}</span><span class="spacer"></span><span class="muted">${p.rank}/${p.max}</span></div>
       <div class="bar"><span style="width:${Math.round((p.rank / p.max) * 100)}%"></span></div></div>`).join('');
-  const talents = [...(d.talents || []), ...(d.legacy || [])].map(talentLine).filter(Boolean).join('<br>');
   const xp = t('Experience {xp} / {max} ({pct})', { xp: num(c.xp || 0), max: num(c.xpMax || 0), pct: percent(xpPct) })
     + (c.rested ? ` · ${t('rested {n}', { n: num(c.rested) })}` : '');
-  const heal = d.heals ? `<div class="section" id="c-heal">${loading(t('Computing every heal rank …'))}</div>` : '';
-  const dmg = d.deals ? `<div class="section" id="c-dmg">${loading(t('Playing the fights and computing every damage spell …'))}</div>` : '';
-  // Tabs like the ones under a game window; they jump to the sections of this long page.
-  const sections = [['#c-gear', t('Gear')], ['#c-prof', t('Professions')],
-    ...(d.metric === 'dps' ? [[d.deals, '#c-dmg', t('Damage')], [d.heals, '#c-heal', t('Healing')]]
-      : [[d.heals, '#c-heal', t('Healing')], [d.deals, '#c-dmg', t('Damage')]]).filter(([on]) => on).map(([, id, label]) => [id, label]),
-    ['#c-cons', t('Consumables')]];
-  const tabs = `<div class="tabs" id="c-tabs">${sections.map(([id, label], i) => `<button type="button" class="tab${i ? '' : ' active'}" data-jump="${id}">${esc(label)}</button>`).join('')}</div>`;
-  content.innerHTML = `${tabs}
-    <div class="paperdoll" id="c-gear">
-      <div class="pd-head">
-        <div><div class="pd-title">${esc(c.name)} <span>${esc(c.surname || '')}</span></div>
-          <div class="pd-sub">${esc(t('Level {level}', { level: c.level }))} ${esc(c.race)} ${esc(c.class)}</div></div>
-        <span class="spacer"></span>
-        <div class="pd-money">${money(c.money)}<div class="small muted">${esc(c.zone || '')} · Snapshot ${esc(ago(d.updated))}</div></div>
+
+  // Real panel tabs docked above the scroll area.
+  const tabDefs = [{ key: 'gear', label: t('Gear') },
+    ...(d.metric === 'dps' ? [[d.deals, 'dmg', t('Damage')], [d.heals, 'heal', t('Healing')]]
+      : [[d.heals, 'heal', t('Healing')], [d.deals, 'dmg', t('Damage')]]).filter(([on]) => on).map(([, key, label]) => ({ key, label })),
+    { key: 'cons', label: t('Consumables') }];
+  const activeTab = tabDefs.some((x) => x.key === state.character.tab) ? state.character.tab : 'gear';
+  state.character.tab = activeTab;
+  if (state.page === 'character') setTabs(tabDefs, activeTab, activateCharTab);
+  const heal = d.heals ? `<div class="tab-panel" data-char-panel="heal" id="c-heal"${activeTab === 'heal' ? '' : ' hidden'}>${loading(t('Computing every heal rank …'))}</div>` : '';
+  const dmg = d.deals ? `<div class="tab-panel" data-char-panel="dmg" id="c-dmg"${activeTab === 'dmg' ? '' : ' hidden'}>${loading(t('Playing the fights and computing every damage spell …'))}</div>` : '';
+  content.innerHTML = `<div class="tab-panel" data-char-panel="gear" id="c-gear"${activeTab === 'gear' ? '' : ' hidden'}>
+      <div class="paperdoll">
+        <div class="pd-head">
+          <div><div class="pd-title">${esc(c.name)} <span>${esc(c.surname || '')}</span></div>
+            <div class="pd-sub">${esc(t('Level {level}', { level: c.level }))} ${esc(c.race)} ${esc(c.class)}</div></div>
+          <span class="spacer"></span>
+          <div class="pd-money">${money(c.money)}<div class="small muted">${esc(c.zone || '')} · Snapshot ${esc(ago(d.updated))}</div></div>
+        </div>
+        <div class="pd-body">
+          <div class="pd-col">${column(PAPERDOLL.left, 'left')}</div>
+          ${center}
+          <div class="pd-col">${column(PAPERDOLL.right, 'right')}</div>
+          <div class="pd-weapons">${column(PAPERDOLL.bottom, 'bottom')}</div>
+        </div>
+        <div class="pd-xp"><div class="bar"><span style="width:${xpPct}%"></span></div>
+          <div class="pd-xp-text">${esc(xp)}</div></div>
       </div>
-      <div class="pd-body">
-        <div class="pd-col">${column(PAPERDOLL.left, 'left')}</div>
-        ${center}
-        <div class="pd-col">${column(PAPERDOLL.right, 'right')}</div>
-        <div class="pd-weapons">${column(PAPERDOLL.bottom, 'bottom')}</div>
-      </div>
-      <div class="pd-xp"><div class="bar"><span style="width:${xpPct}%"></span></div>
-        <div class="pd-xp-text">${esc(xp)}</div></div>
+      <div class="grid section" id="c-prof"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
+        <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>
     </div>
-    <div class="grid section" id="c-prof"><div class="card"><h2>${esc(t('Professions'))}</h2>${profs || DASH}</div>
-      <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>
     ${(d.metric === 'dps' ? [dmg, heal] : [heal, dmg]).join('')}
-    <div id="c-cons">${loading(t('Rating the consumables for a fight …'))}</div>`;
+    <div class="tab-panel" data-char-panel="cons" id="c-cons"${activeTab === 'cons' ? '' : ' hidden'}>${loading(t('Rating the consumables for a fight …'))}</div>`;
   // The heal table, the damage analysis and the consumables take a few engine runs each: the page stands,
   // the sections follow.
   const char = state.char;

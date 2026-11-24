@@ -6,12 +6,12 @@ package healing
 import (
 	"fmt"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
-	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
+	"github.com/kejith/wow-tools-forever/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/rotations"
 )
 
 // Metric is the engine metric of the heal table.

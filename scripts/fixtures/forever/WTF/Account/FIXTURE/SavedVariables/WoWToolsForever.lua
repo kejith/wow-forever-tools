@@ -1,5 +1,5 @@
 
-WoWMCP_Account = {
+WoWToolsForever_Account = {
 ["appData"] = {
 ["generated"] = 1795248351,
 ["hash"] = "69a63b5a1055419e",
@@ -47,11 +47,11 @@ WoWMCP_Account = {
 2320,
 },
 ["listNames"] = {
-["WoWMCP: AH-Upgrades"] = true,
-["WoWMCP: Berufe"] = true,
-["WoWMCP: Handelskisten"] = true,
-["WoWMCP: Verbrauchsgüter"] = true,
-["WoWMCP: Verfügungen"] = true,
+["WoWToolsForever: AH-Upgrades"] = true,
+["WoWToolsForever: Berufe"] = true,
+["WoWToolsForever: Handelskisten"] = true,
+["WoWToolsForever: Verbrauchsgüter"] = true,
+["WoWToolsForever: Verfügungen"] = true,
 },
 ["lists"] = true,
 ["point"] = {
@@ -1478,7 +1478,7 @@ WoWMCP_Account = {
 },
 },
 }
-WoWMCP_Items = {
+WoWToolsForever_Items = {
 ["build"] = 71037,
 ["count"] = 605,
 ["items"] = {

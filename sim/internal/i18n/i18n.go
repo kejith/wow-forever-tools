@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 )
 
 //go:embed locale_de.json

@@ -4,11 +4,11 @@ import (
 	"errors"
 	"os"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // orNull is a value as Python's `x or None` would leave it for JSON: nil stays nil.
@@ -79,12 +79,12 @@ func status(a *Args) (*pyjson.Obj, error) {
 	}
 	out.Set("characters", chars)
 
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
 		f, err := sv.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
-		items, account := tableOr(f.Get("WoWMCP_Items")), tableOr(f.Get("WoWMCP_Account"))
+		items, account := tableOr(f.Get("WoWToolsForever_Items")), tableOr(f.Get("WoWToolsForever_Account"))
 		out.Set("itemExport", pyjson.New("updated", items.Get("updated"), "count", lenOf(items.Get("items")),
 			"missing", lenOf(items.Get("missing")), "build", items.Get("build"), "lastRun", items.Get("lastRun"),
 			"auto", account.Get("autoItems")))

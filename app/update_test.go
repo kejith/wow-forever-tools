@@ -78,8 +78,8 @@ func (s *appStandIn) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.hits = append(s.hits, r.URL.Path)
 	rel := s.rel
 	s.mu.Unlock()
-	asset := regexp.MustCompile(`^/repos/kejith/wow-forever-tools/releases/assets/(\d+)$`).FindStringSubmatch(r.URL.Path)
-	if rel == nil || (asset == nil && r.URL.Path != "/repos/kejith/wow-forever-tools/releases/latest") {
+	asset := regexp.MustCompile(`^/repos/kejith/wow-tools-forever/releases/assets/(\d+)$`).FindStringSubmatch(r.URL.Path)
+	if rel == nil || (asset == nil && r.URL.Path != "/repos/kejith/wow-tools-forever/releases/latest") {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"message":"Not Found"}`))
@@ -185,16 +185,16 @@ func TestUpdater(t *testing.T) {
 	defer setLanguage("en")
 	// ---------- small parts ----------
 	hexA := strings.Repeat("ab", 32)
-	if got := parseSums(strings.Repeat("cd", 32)+"  other.exe\n"+strings.ToUpper(hexA)+" *WoW-Forever-Tools-Setup-1.13.0.exe\r\n", "WoW-Forever-Tools-Setup-1.13.0.exe"); got != hexA {
+	if got := parseSums(strings.Repeat("cd", 32)+"  other.exe\n"+strings.ToUpper(hexA)+" *WoW-Tools-Forever-Setup-1.13.0.exe\r\n", "WoW-Tools-Forever-Setup-1.13.0.exe"); got != hexA {
 		t.Fatalf("parseSums %q", got)
 	}
-	if parseSums(hexA+"  WoW-Forever-Tools-Setup-1.13.0.exe.blockmap\n", "WoW-Forever-Tools-Setup-1.13.0.exe") != "" || parseSums("<html>", "x.exe") != "" {
+	if parseSums(hexA+"  WoW-Tools-Forever-Setup-1.13.0.exe.blockmap\n", "WoW-Tools-Forever-Setup-1.13.0.exe") != "" || parseSums("<html>", "x.exe") != "" {
 		t.Fatal("parseSums found a wrong line")
 	}
 	if strings.Join(installerArgs(true), " ") != "--updated /S --force-run" || strings.Join(installerArgs(false), " ") != "--updated /S" {
 		t.Fatal("installer arguments")
 	}
-	if releaseURL("1.13.0", "") != "https://github.com/kejith/wow-forever-tools/releases/tag/v1.13.0" {
+	if releaseURL("1.13.0", "") != "https://github.com/kejith/wow-tools-forever/releases/tag/v1.13.0" {
 		t.Fatal("release url")
 	}
 
@@ -234,7 +234,7 @@ func TestUpdater(t *testing.T) {
 		t.Fatalf("start %+v", s)
 	}
 	s := app.u.check(false)
-	if s.Phase != "idle" || s.Latest != nil || s.CheckedAt != nil || !strings.Contains(errOf(s), "kejith/wow-forever-tools has no release yet") {
+	if s.Phase != "idle" || s.Latest != nil || s.CheckedAt != nil || !strings.Contains(errOf(s), "kejith/wow-tools-forever has no release yet") {
 		t.Fatalf("no release %+v", s)
 	}
 
@@ -256,19 +256,19 @@ func TestUpdater(t *testing.T) {
 	if s.Phase != "available" || s.Latest.Version != "1.13.0" || s.Latest.Size != int64(len(fakeInstaller("1.13.0"))) || gh.count(before, "/assets/21") != 0 {
 		t.Fatalf("available %+v", s)
 	}
-	if s.Latest.URL != "https://github.com/kejith/wow-forever-tools/releases/tag/v1.13.0" || deref(s.Latest.PublishedAt) != "2026-11-23T10:00:00Z" {
+	if s.Latest.URL != "https://github.com/kejith/wow-tools-forever/releases/tag/v1.13.0" || deref(s.Latest.PublishedAt) != "2026-11-23T10:00:00Z" {
 		t.Fatalf("latest %+v", s.Latest) // the address is built, not taken from the answer
 	}
 	if app.u.installsOnQuit() || app.u.install(true).Started {
 		t.Fatal("installs before a download")
 	}
 	s = app.u.download()
-	exe := filepath.Join(app.dir, "WoW-Forever-Tools-Setup-1.13.0.exe")
+	exe := filepath.Join(app.dir, "WoW-Tools-Forever-Setup-1.13.0.exe")
 	data, _ := os.ReadFile(exe)
 	if s.Phase != "ready" || s.Progress != nil || s.Error != nil || !bytes.Equal(data, fakeInstaller("1.13.0")) {
 		t.Fatalf("downloaded %+v", s)
 	}
-	if dirNames(app.dir) != "WoW-Forever-Tools-Setup-1.13.0.exe,update.json" {
+	if dirNames(app.dir) != "WoW-Tools-Forever-Setup-1.13.0.exe,update.json" {
 		t.Fatalf("update folder %s", dirNames(app.dir))
 	}
 	want := []string{"checking", "idle", "checking", "current", "checking", "current", "checking", "available", "downloading", "ready"}
@@ -325,12 +325,12 @@ func TestUpdater(t *testing.T) {
 
 	// A newer release replaces the download that waited.
 	gh.set(newRelease("1.14.0"))
-	if s = app.u.check(true); s.Phase != "ready" || s.Latest.Version != "1.14.0" || dirNames(app.dir) != "WoW-Forever-Tools-Setup-1.14.0.exe,update.json" {
+	if s = app.u.check(true); s.Phase != "ready" || s.Latest.Version != "1.14.0" || dirNames(app.dir) != "WoW-Tools-Forever-Setup-1.14.0.exe,update.json" {
 		t.Fatalf("newer release %+v %s", s, dirNames(app.dir))
 	}
 
 	// After the update the new version tidies up and says so.
-	os.WriteFile(filepath.Join(app.dir, "WoW-Forever-Tools-Setup-1.15.0.exe.part"), []byte("half"), 0o644)
+	os.WriteFile(filepath.Join(app.dir, "WoW-Tools-Forever-Setup-1.15.0.exe.part"), []byte("half"), 0o644)
 	app = start("b", "1.14.0", func(o *updaterOpts) { o.updated = true })
 	if dirNames(app.dir) != "update.json" {
 		t.Fatalf("not tidied: %s", dirNames(app.dir))
@@ -341,11 +341,11 @@ func TestUpdater(t *testing.T) {
 
 	// A file that cannot be removed yet (the installer that still runs right after the update; here a folder of
 	// that name) does not keep the rest from going, and the next check tries again.
-	locked := filepath.Join(app.dir, "WoW-Forever-Tools-Setup-1.13.0.exe")
+	locked := filepath.Join(app.dir, "WoW-Tools-Forever-Setup-1.13.0.exe")
 	os.MkdirAll(filepath.Join(locked, "in-use"), 0o755)
-	os.WriteFile(filepath.Join(app.dir, "WoW-Forever-Tools-Setup-1.14.0.exe"), []byte("done"), 0o644)
+	os.WriteFile(filepath.Join(app.dir, "WoW-Tools-Forever-Setup-1.14.0.exe"), []byte("done"), 0o644)
 	app = start("b", "1.14.0", nil)
-	if dirNames(app.dir) != "WoW-Forever-Tools-Setup-1.13.0.exe,update.json" {
+	if dirNames(app.dir) != "WoW-Tools-Forever-Setup-1.13.0.exe,update.json" {
 		t.Fatalf("locked file: %s", dirNames(app.dir))
 	}
 	os.RemoveAll(locked)
@@ -401,7 +401,7 @@ func TestUpdater(t *testing.T) {
 	noSums := newRelease("1.13.0")
 	none := "-"
 	noSums.sums = &none
-	refused("r3", noSums, `Release v1\.13\.0 has no checksum for WoW-Forever-Tools-Setup-1\.13\.0\.exe`, "idle")
+	refused("r3", noSums, `Release v1\.13\.0 has no checksum for WoW-Tools-Forever-Setup-1\.13\.0\.exe`, "idle")
 	otherSums := newRelease("1.13.0")
 	other := hexA + "  another-file.exe\n"
 	otherSums.sums = &other

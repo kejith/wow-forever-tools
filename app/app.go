@@ -1,11 +1,11 @@
 package main
 
 // The app between the page and the game. It talks to the game only through files: it reads the SavedVariables
-// the WoWMCP and GoldPerHour addons and Auctionator write on /reload or logout, and it writes AppRequest.lua
+// the WoWToolsForever and GoldPerHour addons and Auctionator write on /reload or logout, and it writes AppRequest.lua
 // into the installed addons, which the client loads on the next /reload. All calculations run in the bridge
-// (bridge.go), which also writes AppData.lua into the WoWMCP addon: the lists the addon shows in the game.
+// (bridge.go), which also writes AppData.lua into the WoWToolsForever addon: the lists the addon shows in the game.
 // The addons themselves come from their GitHub releases (addon.go, releases.go), cached in the app's data
-// folder; settings.addonSources = { wowmcp: <folder>, goldperhour: <folder> } installs from a checkout instead.
+// folder; settings.addonSources = { wowtoolsforever: <folder>, goldperhour: <folder> } installs from a checkout instead.
 // Language: settings.language (auto, en, de); auto follows the game client (textLocale in WTF/Config.wtf) and,
 // without a client, the operating system. The bridge gets the same language, so its texts match the page.
 // The installed app updates itself from the releases of its own repository (update.go).
@@ -219,7 +219,7 @@ func addonKey(key string) string {
 	if _, ok := addons[key]; ok {
 		return key
 	}
-	return "wowmcp"
+	return "wowtoolsforever"
 }
 
 func (a *App) autoUpdate() bool {
@@ -313,7 +313,7 @@ func (a *App) InstallAddon(key string) any {
 	if err != nil {
 		return fail(err)
 	}
-	if addonKey(key) == "wowmcp" {
+	if addonKey(key) == "wowtoolsforever" {
 		a.syncGameData(a.sendsToGame()) // a new addon may be the first one that can show lists
 	}
 	return info
@@ -338,7 +338,7 @@ func (a *App) GphClearRequest() any {
 	return r
 }
 
-// CreateRequest asks WoWMCP for an item export or a snapshot.
+// CreateRequest asks WoWToolsForever for an item export or a snapshot.
 func (a *App) CreateRequest(action string, opts map[string]any) any {
 	r, err := writeRequest(a.wowDir(), action, opts != nil && opts["full"] == true)
 	if err != nil {

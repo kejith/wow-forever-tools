@@ -1,6 +1,6 @@
 package main
 
-// The app's own update: the newest release of kejith/wow-forever-tools. The Windows installer of a newer
+// The app's own update: the newest release of kejith/wow-tools-forever. The Windows installer of a newer
 // version is downloaded into the app's data folder, compared with the release's SHA256SUMS.txt and started
 // silently; it replaces the installation where it is and starts the app again.
 // Nothing here needs the window (app.go hands in the folder, the version and what happens on a change of
@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	appRepo           = "kejith/wow-forever-tools"
+	appRepo           = "kejith/wow-tools-forever"
 	updateCheckAge    = time.Hour // a start within the hour does not ask GitHub again
 	maxInstallerBytes = 512 << 20
 	maxSumsBytes      = 64 << 10
@@ -39,12 +39,12 @@ const (
 var (
 	plainVersion = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 	sha256Hex    = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	installerRe  = regexp.MustCompile(`^WoW-Forever-Tools-Setup-(\d+\.\d+\.\d+)\.exe$`)
+	installerRe  = regexp.MustCompile(`^WoW-Tools-Forever-Setup-(\d+\.\d+\.\d+)\.exe$`)
 	sumsLine     = regexp.MustCompile(`^([0-9a-fA-F]{64})\s+\*?(.+)$`)
 	digestRe     = regexp.MustCompile(`^sha256:([0-9a-f]{64})$`)
 )
 
-func installerName(version string) string { return "WoW-Forever-Tools-Setup-" + version + ".exe" }
+func installerName(version string) string { return "WoW-Tools-Forever-Setup-" + version + ".exe" }
 
 // releaseURL is the release page, built from the checked version, never taken from an answer.
 func releaseURL(version, repo string) string {
@@ -278,7 +278,7 @@ func checkRelease(dir, current string, s updateSource, force bool) checkResult {
 	return checkResult{latest: latest, available: newer(latest), checkedAt: &now}
 }
 
-// downloadInstaller fetches the installer of latest to `<dir>/WoW-Forever-Tools-Setup-<version>.exe` and
+// downloadInstaller fetches the installer of latest to `<dir>/WoW-Tools-Forever-Setup-<version>.exe` and
 // returns the path. The file gets its name only after size and checksum fit; a download that is already
 // there is kept.
 func downloadInstaller(dir string, latest *latestInstaller, s updateSource, onProgress func(received, total int64)) (string, error) {

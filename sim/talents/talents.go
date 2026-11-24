@@ -19,9 +19,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/kejith/wow-forever-tools/sim/catalog"
-	"github.com/kejith/wow-forever-tools/sim/data"
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/data"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 // Aura numbers of the client the decoder knows.

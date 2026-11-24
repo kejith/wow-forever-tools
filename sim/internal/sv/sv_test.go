@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 func mustParse(t *testing.T, src string) *sv.File {
@@ -30,10 +30,10 @@ func asJSON(t *testing.T, v any) string {
 
 func TestGameFormat(t *testing.T) {
 	// The way the game writes a file: one field per line, list entries without keys.
-	f := mustParse(t, "\nWoWMCP_Char = {\n[\"name\"] = \"Brakk\",\n[\"level\"] = 53,\n[\"crit\"] = 0.0224,\n"+
+	f := mustParse(t, "\nWoWToolsForever_Char = {\n[\"name\"] = \"Brakk\",\n[\"level\"] = 53,\n[\"crit\"] = 0.0224,\n"+
 		"[\"whole\"] = 2.0,\n[\"ok\"] = true,\n[\"list\"] = {\n10,\n45,\n},\n[\"empty\"] = {\n},\n"+
 		"[\"map\"] = {\n[3402] = {\n[\"quantity\"] = 7,\n},\n},\n}\nOther = 5\n")
-	c := f.Tab("WoWMCP_Char")
+	c := f.Tab("WoWToolsForever_Char")
 	if c.Str("name") != "Brakk" || c.Get("level") != int64(53) || c.Get("crit") != 0.0224 || c.Get("ok") != true {
 		t.Fatalf("fields: %s", asJSON(t, c))
 	}
@@ -188,7 +188,7 @@ func TestPrices(t *testing.T) {
 // TestFixture reads every SavedVariables file of the test folder.
 func TestFixture(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "scripts", "fixtures", "forever", "WTF")
-	paths, _ := filepath.Glob(filepath.Join(root, "Account", "*", "*", "*", "SavedVariables", "WoWMCP.lua"))
+	paths, _ := filepath.Glob(filepath.Join(root, "Account", "*", "*", "*", "SavedVariables", "WoWToolsForever.lua"))
 	acct, _ := filepath.Glob(filepath.Join(root, "Account", "*", "SavedVariables", "*.lua"))
 	paths = append(paths, acct...)
 	if len(paths) < 4 {

@@ -1,6 +1,6 @@
 // Page "Connection": is the game running, the two addons the app installs, the Auctionator scan, the item
-// export, the lists the app sends into the game, the character snapshots and requests to the WoWMCP addon.
-import { $, ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, percent, rerender, state, th, when } from '../core.js';
+// export, the lists the app sends into the game, the character snapshots and requests to the WoW Tools Forever addon.
+import { $, ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, percent, rerender, selectChar, state, th, when } from '../core.js';
 import { t } from '../i18n.js';
 
 // Where an install takes its files from: the latest GitHub release, or a local checkout from the settings.
@@ -13,7 +13,7 @@ function addonSource(a) {
   return `${esc(s.version || '?')} <span class="muted">${esc(t('Release {tag} from github.com/{repo}', { tag: s.tag, repo: s.repo }))}</span>${stale}`;
 }
 
-// One card per addon the app installs; `key` is the addon key in addon.js (wowmcp, goldperhour).
+// One card per addon the app installs; `key` is the addon key in addon.js (wowtoolsforever, goldperhour).
 export function addonCard(a, about = '') {
   const key = esc(a.key);
   const title = esc(t('{name} addon', { name: a.name }));
@@ -23,11 +23,11 @@ export function addonCard(a, about = '') {
     ? t('Installed. Type <code>/reload</code> in the game. If it does not show up in the addon list afterwards, restart WoW once.')
     : t('Updated. Type <code>/reload</code> in the game.')}</div>`;
   if (!a.installed) {
-    return `<div class="card"><h2>${title}</h2>
+    return `<div class="card" id="card-${key}"><h2>${title}</h2>
       <h3><span class="badge bad">${esc(t('not installed'))}</span></h3>
       ${about ? `<p class="small">${esc(about)}</p>` : ''}
       <dl class="kv small"><dt>${esc(t('Source'))}</dt><dd>${addonSource(a)}</dd><dt>${esc(t('Target'))}</dt><dd>${esc(a.installedDir)}</dd></dl>
-      <div class="row" style="margin-top:10px">
+      <div class="card-actions">
         <button class="primary" data-action="install" data-addon="${key}" ${a.source ? '' : 'disabled'}>${esc(t('Install addon'))}</button>
         ${check}
       </div></div>`;
@@ -35,7 +35,7 @@ export function addonCard(a, about = '') {
   const badge = !a.source ? `<span class="badge">${esc(t('installed'))}</span>`
     : a.ahead ? `<span class="badge ok">${esc(t('newer than the source'))}</span>`
     : a.upToDate ? `<span class="badge ok">${esc(t('up to date'))}</span>` : `<span class="badge warn">${esc(t('update available'))}</span>`;
-  return `<div class="card"><h2>${title}</h2>
+  return `<div class="card" id="card-${key}"><h2>${title}</h2>
     <h3>${badge}</h3>
     <dl class="kv small">
       <dt>${esc(t('Installed'))}</dt><dd>${esc(a.installedVersion || '?')}</dd>
@@ -43,7 +43,7 @@ export function addonCard(a, about = '') {
       ${a.changed.length && !a.upToDate ? `<dt>${esc(t('Changed'))}</dt><dd>${esc(a.changed.join(', '))}</dd>` : ''}
       <dt>Auctionator</dt><dd>${a.auctionatorInstalled ? esc(t('installed')) : `<span class="badge bad">${esc(t('missing'))}</span>`}</dd>
     </dl>${hint}
-    <div class="row" style="margin-top:10px">
+    <div class="card-actions">
       ${a.upToDate ? '' : `<button class="primary" data-action="install" data-addon="${key}">${esc(t('Update addon'))}</button>`}
       ${check}
       <button class="ghost" data-action="open-addon" data-addon="${key}">${esc(t('Open folder'))}</button>
@@ -72,7 +72,7 @@ const UPDATE_BADGE = {
 
 export function appCard() {
   const u = state.update;
-  const title = `<h2>WoW Forever Tools ${help(esc(t('The app asks GitHub for its newest release when it starts and every six hours. A newer version is downloaded in the background, compared with the checksum of the release and installed when you close the app, or right away with “Restart and update”. Settings and downloaded data stay. Without the switch the app only tells you that there is a new version.')))}</h2>`;
+  const title = `<h2>WoW Tools Forever ${help(esc(t('The app asks GitHub for its newest release when it starts and every six hours. A newer version is downloaded in the background, compared with the checksum of the release and installed when you close the app, or right away with “Restart and update”. Settings and downloaded data stay. Without the switch the app only tells you that there is a new version.')))}</h2>`;
   if (!u) return `<div class="card" id="app-update">${title}${loading(t('Looking for updates …'))}</div>`;
   const [cls, label] = (UPDATE_BADGE[u.phase] || UPDATE_BADGE.idle)();
   const newer = ['available', 'downloading', 'ready', 'installing'].includes(u.phase);
@@ -103,7 +103,7 @@ export function appCard() {
     ${progress}
     ${note ? `<div class="notice small" style="margin:10px 0 0">${note}</div>` : ''}
     ${u.error ? `<div class="notice small" style="margin:10px 0 0"><span class="badge warn">${esc(t('not possible right now'))}</span> ${esc(u.error)}</div>` : ''}
-    <div class="row" style="margin-top:10px">${buttons}</div>
+    <div class="card-actions">${buttons}</div>
     ${u.canInstall ? `<label class="check" style="margin-top:10px"><input type="checkbox" id="u-auto" ${u.automatic ? 'checked' : ''}> ${esc(t('download and install updates automatically'))}</label>` : ''}
   </div>`;
 }
@@ -145,7 +145,7 @@ function gameCard() {
   const running = g.running ? `<span class="badge ok">${esc(t('running'))}</span>`
     : g.otherClient ? `<span class="badge warn">${esc(t('another WoW client is open'))}</span>` : `<span class="badge">${esc(t('closed'))}</span>`;
   const client = s.characters?.[0]?.client;
-  return `<div class="card"><h2>WoW Forever</h2>
+  return `<div class="card" id="card-game"><h2>WoW Forever</h2>
     <h3>${running}</h3>
     <dl class="kv small">
       <dt>${esc(t('Folder'))}</dt><dd>${s.wowFound ? esc(s.wowDir) : `<span class="badge bad">${esc(t('not found'))}</span> ${esc(s.wowDir)}`}</dd>
@@ -156,10 +156,10 @@ function gameCard() {
 function auctionatorCard() {
   const au = state.status.auctionator;
   const title = `<h2>${esc(t('Auction house scan'))} ${help(t('Prices are the lowest buyout at the last scan, not live offers. For fresh prices run a full Auctionator scan in the game, then type <code>/reload</code>.'))}</h2>`;
-  if (!au || au.error) return `<div class="card">${title}${errorBox(au?.error || t('No Auctionator data'))}</div>`;
+  if (!au || au.error) return `<div class="card" id="card-scan">${title}${errorBox(au?.error || t('No Auctionator data'))}</div>`;
   const days = au.scanDate ? Math.round((Date.now() - new Date(au.scanDate)) / 86400000) : null;
   const badge = days === null ? '' : days <= 1 ? `<span class="badge ok">${esc(t('fresh'))}</span>` : `<span class="badge warn">${esc(daysOld(days))}</span>`;
-  return `<div class="card">${title}
+  return `<div class="card" id="card-scan">${title}
     <div class="big">${esc(au.scanDate || '–')} ${badge}</div>
     <dl class="kv small">
       <dt>${esc(t('Items'))}</dt><dd>${num(au.items)}</dd>
@@ -179,7 +179,7 @@ function itemExportCard() {
         <dt>${esc(t('Automatic'))}</dt><dd>${esc(auto)}</dd>
       </dl>`
     : `<div class="big muted">${esc(t('none yet'))}</div>`;
-  return `<div class="card"><h2>${esc(t('Item export'))} ${help(esc(t('Stats and tooltips of the gear in the auction house, read by the WoWMCP addon in the game. The page “AH upgrades” compares these items with your gear.')))}</h2>${body}</div>`;
+  return `<div class="card" id="card-export"><h2>${esc(t('Item export'))} ${help(esc(t('Stats and tooltips of the gear in the auction house, read by the WoW Tools Forever addon in the game. The page “AH upgrades” compares these items with your gear.')))}</h2>${body}</div>`;
 }
 
 function requestCard() {
@@ -190,7 +190,7 @@ function requestCard() {
   if (pending && (!done || done.id !== pending.id)) {
     stateHtml = `<div class="notice"><b>${esc(t('Request #{id} is waiting', { id: pending.id }))}</b> (${esc(pending.action === 'sync' ? t('snapshot') : t('item export'))})
       <ol class="steps"><li>${t('Type <code>/reload</code> in the game; the addon starts the request.')}</li>
-      <li>${esc(t('Wait for the chat message from WoWMCP.'))}</li>
+      <li>${esc(t('Wait for the chat message from WoW Tools Forever.'))}</li>
       <li>${t('Type <code>/reload</code> again, then the app updates itself.')}</li></ol></div>`;
   } else if (done) {
     const err = done.error ? ` <span class="badge bad">${esc(done.error)}</span>` : '';
@@ -214,27 +214,29 @@ function requestCard() {
 
 // Where the lists are: [badge class, badge text, hint (HTML)].
 function listsState(g) {
-  if (!g.addon?.installed) return ['bad', t('addon not installed'), esc(t('Install the WoWMCP addon above.'))];
+  if (!g.addon?.installed) return ['bad', t('addon not installed'), esc(t('Install the WoW Tools Forever addon above.'))];
   if (!g.addon.ready) {
-    return ['warn', t('needs WoWMCP 1.7'), t('WoWMCP {version} cannot show lists. Update the addon above, then type <code>/reload</code> in the game.',
+    return ['warn', t('needs WoW Tools Forever 1.7'), t('WoW Tools Forever {version} cannot show lists. Update the addon above, then type <code>/reload</code> in the game.',
       { version: esc(g.addon.version || '?') })];
   }
   if (!g.file) return ['', t('not sent yet'), ''];
   if (g.file.hash !== g.hash) return ['warn', t('changed since sent'), esc(t('The game still gets the lists as of {time}.', { time: when(g.file.generated) }))];
   // The game read the file if the addon says so, or if it saved (so it reloaded) after the file was written.
   const loaded = g.loaded?.hash === g.file.hash || (g.saved || 0) > (g.file.modified || 0);
-  if (loaded) return ['ok', t('in the game'), t('<code>/wowmcp show</code> opens the window; it also opens with the auction house.')];
+  if (loaded) return ['ok', t('in the game'), t('<code>/wtf show</code> opens the window; it also opens with the auction house.')];
   if (state.game?.running) return ['warn', t('waiting for /reload'), t('Type <code>/reload</code> in the game to load the lists.')];
   return ['ok', t('ready for the next login'), ''];
 }
 
 function listsTable(g) {
   const rows = (g.chars || []).map((c) => {
-    const lists = c.lists.map((l) => `${esc(l.title)} <span class="muted">${num(l.rows)}</span>`).join(' · ');
+    const lists = c.lists.length
+      ? `<div class="pill-list">${c.lists.map((l) => `<span class="pill-tag">${esc(l.title)} <b>${num(l.rows)}</b></span>`).join('')}</div>`
+      : '<span class="muted">–</span>';
     const errors = Object.entries(c.errors || {});
     return `<tr>
       <td style="white-space:nowrap"><b>${esc(c.name)}</b> <span class="muted">${esc(c.level ?? '')}</span></td>
-      <td>${lists || '<span class="muted">–</span>'}</td>
+      <td>${lists}</td>
       <td class="num">${num(c.lists.reduce((n, l) => n + l.shop, 0))}</td>
       <td class="num">${num(c.tips)}</td>
       <td class="num">${num(c.vendor)}</td>
@@ -244,7 +246,7 @@ function listsTable(g) {
   if (!rows) return `<p class="muted small">${esc(t('No character exported yet.'))}</p>`;
   const head = th([t('Character')],
     [t('Lists'), '', esc(t('The tabs of the window in the game, each with its number of rows.'))],
-    [t('To buy'), 'num', esc(t('Rows the app suggests buying. They are also in the Auctionator shopping lists “WoWMCP: …”, one per list of the character that is logged in.'))],
+    [t('To buy'), 'num', esc(t('Rows the app suggests buying. They are also in the Auctionator shopping lists “WoW Tools Forever: …”, one per list of the character that is logged in.'))],
     [t('Tooltips'), 'num', esc(t('Items that get a line from the app in their tooltip in the game, for example the gain of an upgrade or the profit of a recipe.'))],
     [t('Vendor hints'), 'num', esc(t('Recipes worth buying that a vendor sells. The addon names them in the chat when you open such a vendor.'))],
     [t('Errors')]);
@@ -253,7 +255,7 @@ function listsTable(g) {
 
 function listsCard() {
   const g = state.ingame;
-  const title = `<h2>${esc(t('Lists in the game'))} ${help(t('The WoWMCP addon shows what this app found in the game: a window with AH upgrades, writs, trade crates, recipes and consumables. A click on a row searches the auction house for the item, a shift-click puts its link into the chat or the search box. The app writes the lists into the addon folder and the game reads them on <code>/reload</code>. After a new AH scan that takes two: the first <code>/reload</code> saves the scan for the app, the second loads the new lists.'))}</h2>`;
+  const title = `<h2>${esc(t('Lists in the game'))} ${help(t('The WoW Tools Forever addon shows what this app found in the game: a window with AH upgrades, writs, trade crates, recipes and consumables. A click on a row searches the auction house for the item, a shift-click puts its link into the chat or the search box. The app writes the lists into the addon folder and the game reads them on <code>/reload</code>. After a new AH scan that takes two: the first <code>/reload</code> saves the scan for the app, the second loads the new lists.'))}</h2>`;
   const wide = 'class="card" id="lists" style="grid-column: 1 / -1"';
   if (!g) return `<div ${wide}>${title}${loading(t('Computing the lists …'))}</div>`;
   if (g.error) return `<div ${wide}>${title}${errorBox(g.error)}</div>`;
@@ -277,13 +279,14 @@ function listsCard() {
 function charactersTable() {
   const chars = state.status.characters || [];
   if (!chars.length) {
-    return `<div class="notice">${t('No character exported yet. Log in and type <code>/wowmcp sync</code>.')}</div>`;
+    return `<div class="notice">${t('No character exported yet. Log in and type <code>/wtf sync</code>.')}</div>`;
   }
   const rows = chars.map((c) => {
     if (c.error) return `<tr><td>${esc(c.key)}</td><td colspan="6">${errorBox(c.error)}</td></tr>`;
     const errors = Object.entries(c.errors || {});
     const old = c.addonVersion && state.addon.sourceVersion && c.addonVersion !== state.addon.sourceVersion;
-    return `<tr>
+    const active = c.key === state.char;
+    return `<tr class="char-row${active ? ' active' : ''}" data-char-select="${esc(c.key)}"${hintAttr(active ? t('Currently selected character') : t('Click to select this character'))}>
       <td><b>${esc(c.name)}</b> <span class="muted">${esc(c.surname || '')}</span></td>
       <td>${esc(c.level)} ${esc(c.race || '')} ${esc(c.class || '')}</td>
       <td class="num">${money(c.money)}</td>
@@ -295,10 +298,10 @@ function charactersTable() {
   }).join('');
   const head = th([t('Character')], [t('Level/class')], [t('Gold'), 'num'], [t('Zone')],
     ['Snapshot', '', t('Age of the character data. WoW writes it only on <code>/reload</code> or logout.')], ['Addon'], [t('Errors')]);
-  return `<div class="card"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="card" id="card-chars"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-// The ready check at the top: every part the app needs at a glance, like the game's ready check.
+// The ready check at the top: every part the app needs at a glance, clickable to jump to its card.
 function readyCheck() {
   const s = state.status;
   const g = state.game || {};
@@ -311,18 +314,18 @@ function readyCheck() {
   const chars = (s.characters || []).filter((c) => !c.error);
   const lists = state.ingame && !state.ingame.error ? listsState(state.ingame) : ['', state.ingame?.error ? t('not available') : t('Computing the lists …')];
   const checks = [
-    [g.running ? 'ok' : 'warn', 'WoW Forever', g.running ? t('running') : g.otherClient ? t('another WoW client is open') : t('closed')],
-    [...addon(state.addon).slice(0, 1), t('{name} addon', { name: 'WoWMCP' }), addon(state.addon)[1]],
-    [...addon(state.gphAddon).slice(0, 1), t('{name} addon', { name: 'GoldPerHour' }), addon(state.gphAddon)[1]],
-    [scan[0], t('Auction house scan'), scan[1]],
-    [ex ? 'ok' : 'warn', t('Item export'), ex ? t('{n} items', { n: num(ex.count) }) : t('none yet')],
-    [lists[0], t('Lists in the game'), lists[1]],
-    [chars.length ? 'ok' : 'bad', t('Characters'), chars.length ? chars.map((c) => c.name).join(', ') : t('No character exported yet.')],
+    [g.running ? 'ok' : 'warn', 'WoW Forever', g.running ? t('running') : g.otherClient ? t('another WoW client is open') : t('closed'), '#card-game'],
+    [addon(state.addon)[0], t('{name} addon', { name: 'WoW Tools Forever' }), addon(state.addon)[1], '#card-wowtoolsforever'],
+    [addon(state.gphAddon)[0], t('{name} addon', { name: 'GoldPerHour' }), addon(state.gphAddon)[1], '#card-goldperhour'],
+    [scan[0], t('Auction house scan'), scan[1], '#card-scan'],
+    [ex ? 'ok' : 'warn', t('Item export'), ex ? t('{n} items', { n: num(ex.count) }) : t('none yet'), '#card-export'],
+    [lists[0], t('Lists in the game'), lists[1], '#lists'],
+    [chars.length ? 'ok' : 'bad', t('Characters'), chars.length ? chars.map((c) => c.name).join(', ') : t('No character exported yet.'), '#card-chars'],
   ];
   const mark = { ok: '✓', warn: '!', bad: '✕', '': '…' };
-  return `<div class="ready">${checks.map(([cls, title, sub]) => `<div class="ready-item ${cls}">
+  return `<div class="ready">${checks.map(([cls, title, sub, target]) => `<button type="button" class="ready-item ${cls}" data-ready-jump="${target}">
       <span class="ready-mark">${mark[cls] ?? '…'}</span>
-      <span class="ready-text"><b>${esc(title)}</b><span>${esc(sub)}</span></span></div>`).join('')}</div>`;
+      <span class="ready-text"><b>${esc(title)}</b><span>${esc(sub)}</span></span></button>`).join('')}</div>`;
 }
 
 export async function renderConnection() {
@@ -342,18 +345,36 @@ export async function renderConnection() {
       { names: esc(outdated.map((x) => x.name).join(', ')) })}</div>`;
   }
   content.innerHTML = `${readyCheck()}${hint}
-    <div class="grid">${gameCard()}${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${appCard()}${auctionatorCard()}${itemExportCard()}${listsCard()}${requestCard()}</div>
+    <div class="conn-strip">${gameCard()}${auctionatorCard()}${itemExportCard()}</div>
+    <div class="conn-addons">${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${appCard()}</div>
+    <div class="grid">${listsCard()}${requestCard()}</div>
     <div class="section"><h2>${esc(t('Characters'))}</h2>${charactersTable()}</div>`;
 }
 
 // Buttons of the addon cards (also shown on the GoldPerHour page) and of the request card.
 content.addEventListener('click', async (e) => {
+  const jump = e.target.closest('[data-ready-jump]');
+  if (jump) {
+    const el = $(jump.dataset.readyJump);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('card-flash');
+      void el.offsetWidth;
+      el.classList.add('card-flash');
+    }
+    return;
+  }
+  const charRow = e.target.closest('[data-char-select]');
+  if (charRow && state.page === 'connection') {
+    selectChar(charRow.dataset.charSelect);
+    return;
+  }
   const button = e.target.closest('button[data-action]');
   if (!button) return;
   const action = button.dataset.action;
   if (action.startsWith('gph-')) return; // pages/goldperhour.js
   if (action.startsWith('update-')) { updateAction(action); return; }
-  const key = button.dataset.addon === 'goldperhour' ? 'goldperhour' : 'wowmcp';
+  const key = button.dataset.addon === 'goldperhour' ? 'goldperhour' : 'wowtoolsforever';
   const slot = key === 'goldperhour' ? 'gphAddon' : 'addon';
   button.disabled = true;
   if (action === 'install') {
@@ -371,7 +392,7 @@ content.addEventListener('click', async (e) => {
   } else if (action.startsWith('request-')) {
     const result = await api.createRequest(action === 'request-sync' ? 'sync' : 'items', { full: action === 'request-items-full' });
     if (result.error) { alert(result.error); button.disabled = false; return; }
-    state.addon = await api.addonInfo('wowmcp');
+    state.addon = await api.addonInfo('wowtoolsforever');
   }
   if (state.page === 'connection' || state.page === 'goldperhour') rerender();
 });

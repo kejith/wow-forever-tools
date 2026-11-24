@@ -3,7 +3,7 @@
 // phase 2 of the migration (notes/go-migration.md).
 package enginebundle
 
-import "github.com/kejith/wow-forever-tools/sim/internal/sv"
+import "github.com/kejith/wow-tools-forever/sim/internal/sv"
 
 // Metrics are the classes the engine models and their metrics (simengine.METRICS; sim/run must agree). The
 // first metric is the default for a damage spec.

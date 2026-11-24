@@ -7,7 +7,7 @@
 //
 // Names come from the DB2 table ItemSparse in the client's language (cached as
 // itemnames-<build>-<locale>.json, a file the Python side reads and writes too), then from the addon's item
-// export (WoWMCP_Items), then from the bags and banks of the exported characters.
+// export (WoWToolsForever_Items), then from the bags and banks of the exported characters.
 package pricehistory
 
 import (
@@ -16,13 +16,13 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/internal/tables"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/tables"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // FullScanShare: a day with at least this share of the items of the biggest day was a full scan.
@@ -167,8 +167,8 @@ func tab(v any) *sv.Table {
 // then from bags and banks. Exports of another client language are left out.
 func KnownItems(wow, locale string) (map[int64]known, error) {
 	out := map[int64]known{}
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
-		store, err := sv.LoadTable(path, "WoWMCP_Items")
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
+		store, err := sv.LoadTable(path, "WoWToolsForever_Items")
 		if err != nil {
 			return nil, err
 		}

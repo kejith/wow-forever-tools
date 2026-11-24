@@ -1,7 +1,7 @@
-# WoW Forever Tools
+# WoW Tools Forever
 
-[![CI](https://github.com/kejith/wow-forever-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/kejith/wow-forever-tools/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/kejith/wow-forever-tools)](https://github.com/kejith/wow-forever-tools/releases/latest)
+[![CI](https://github.com/kejith/wow-tools-forever/actions/workflows/ci.yml/badge.svg)](https://github.com/kejith/wow-tools-forever/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kejith/wow-tools-forever)](https://github.com/kejith/wow-tools-forever/releases/latest)
 
 Tools for World of Warcraft: Forever: a desktop app, an MCP server and a command line tool that evaluate character data, auction house scans and professions.
 
@@ -9,7 +9,7 @@ The data comes out of the game through two addons, each in its own repository:
 
 | Addon | Repository | What it does |
 | --- | --- | --- |
-| WoWMCP | [kejith/WoWMCP](https://github.com/kejith/WoWMCP) | exports character, equipment, bags, bank, quests, reputation, professions, talents and auction house items into its SavedVariables; shows the app's lists in the game |
+| WoWToolsForever | [kejith/WoWToolsForever](https://github.com/kejith/WoWToolsForever) | exports character, equipment, bags, bank, quests, reputation, professions, talents and auction house items into its SavedVariables; shows the app's lists in the game |
 | GoldPerHour | [kejith/GoldPerHour](https://github.com/kejith/GoldPerHour) | gold per hour, split into herbs and loot |
 
 The game writes SavedVariables to disk only on `/reload` or logout. The app, the command line tool and the MCP server read them from there.
@@ -20,7 +20,7 @@ App, command line tool and addons work with an English and a German game client 
 
 ### Install
 
-Download `WoW-Forever-Tools-Setup-<version>.exe` from the [latest release](https://github.com/kejith/wow-forever-tools/releases/latest) and run it. It installs for your Windows user only, without administrator rights, into `%LOCALAPPDATA%\Programs\WoW Forever Tools`. The installer is not code signed, so Windows SmartScreen asks once ("More info", then "Run anyway").
+Download `WoW-Tools-Forever-Setup-<version>.exe` from the [latest release](https://github.com/kejith/wow-tools-forever/releases/latest) and run it. It installs for your Windows user only, without administrator rights, into `%LOCALAPPDATA%\Programs\WoW Tools Forever`. The installer is not code signed, so Windows SmartScreen asks once ("More info", then "Run anyway").
 
 From version 2.0.0 on the installed app updates itself: it asks GitHub for a newer release when it starts and every six hours, downloads the installer in the background, compares it with the release's `SHA256SUMS.txt` and installs it when you close the app (or right away with "Restart and update" on the "Connection" page, where the switch "download and install updates automatically" also turns this off). Version 1.12.0 and older are updated by running the new installer once; they were built with Electron and installed into another folder, so uninstall the old "WoW Forever Tools" once under Windows Settings > Apps (settings and downloaded data stay).
 
@@ -28,7 +28,7 @@ The app brings everything it needs; nothing else is installed. Its window is Mic
 
 ### Pages
 
-- **Connection:** Is WoW Forever running? Are WoWMCP and GoldPerHour installed and current (install and update with one click)? How old are the auction house scan, the item export and the character snapshots? Which lists did the app send into the game, and has the game loaded them? Requests to the addon: item export, read all items again, character snapshot.
+- **Connection:** Is WoW Forever running? Are WoWToolsForever and GoldPerHour installed and current (install and update with one click)? How old are the auction house scan, the item export and the character snapshots? Which lists did the app send into the game, and has the game loaded them? Requests to the addon: item export, read all items again, character snapshot.
 - **Character:** the character window as in the game: stats, equipment with points, professions, talents. For a healer every heal rank with its healing per second and per mana (`sim/tools/healing`); for a caster that deals damage the rotation for the most damage and the one for a long fight, every damage spell and rank with its DPS and damage per mana, and what a point of each stat adds (`sim/tools/damage`).
 - **Writs:** the cheapest crafting writ per tier, net of the coin pouch, and the trade crates by silver per Merchant's Favor (`sim/tools/writs`).
 - **AH upgrades:** upgrades per equipment slot with a budget, a preview of higher levels and a mark for items new in Forever (`sim/tools/upgrades`).
@@ -42,20 +42,20 @@ The app watches `WTF\Account` and reloads as soon as the game writes SavedVariab
 
 On the "Connection" page, "Install addon" downloads the newest GitHub release of the addon, keeps it in the app's data folder and copies it to `_forever_\Interface\AddOns`. "Check for updates" asks GitHub right away, otherwise the app asks every 15 minutes at most. Without a network it installs the release it downloaded last.
 
-By hand: unpack the zip of the latest release ([WoWMCP](https://github.com/kejith/WoWMCP/releases/latest), [GoldPerHour](https://github.com/kejith/GoldPerHour/releases/latest)) into `_forever_\Interface\AddOns`. Log in once and open the bank once.
+By hand: unpack the zip of the latest release ([WoWToolsForever](https://github.com/kejith/WoWToolsForever/releases/latest), [GoldPerHour](https://github.com/kejith/GoldPerHour/releases/latest)) into `_forever_\Interface\AddOns`. Log in once and open the bank once.
 
-How app and addon talk: addons cannot write files or use the network. The app puts a request into `Interface\AddOns\WoWMCP\AppRequest.lua` (or `…\GoldPerHour\AppRequest.lua`). The game loads the file on the next `/reload`, the addon runs the request once and reports the result through its SavedVariables. An addon update also needs only a `/reload`, even with new files or new SavedVariables.
+How app and addon talk: addons cannot write files or use the network. The app puts a request into `Interface\AddOns\WoWToolsForever\AppRequest.lua` (or `…\GoldPerHour\AppRequest.lua`). The game loads the file on the next `/reload`, the addon runs the request once and reports the result through its SavedVariables. An addon update also needs only a `/reload`, even with new files or new SavedVariables.
 
 ### Lists in the game
 
-What the pages find is also available in the game, through the WoWMCP addon (1.7 or newer):
+What the pages find is also available in the game, through the WoW Tools Forever addon (1.7 or newer):
 
-- **A window** (`/wowmcp show`, or it opens with the auction house) with one tab per list: AH upgrades, writs, trade crates, recipes, consumables. A click on a row searches the auction house for the item; a shift-click puts its link into the chat or the search box.
-- **Auctionator shopping lists** "WoWMCP: …", one per list, with the rows the app suggests buying.
+- **A window** (`/wtf show`, minimap icon, or it opens with the auction house) with one tab per list: AH upgrades, writs, trade crates, recipes, consumables. A click on a row searches the auction house for the item; a shift-click puts its link into the chat or the search box.
+- **Auctionator shopping lists** "WoW Tools Forever: …", one per list, with the rows the app suggests buying.
 - **Tooltip lines** on the items of the lists, for example the gain of an upgrade or the profit of a recipe.
 - **A chat line at vendors** that sell a recipe worth buying.
 
-The app writes the lists for every character into `Interface\AddOns\WoWMCP\AppData.lua` whenever the game has saved (`sim/tools/ingame`); the game loads the file on the next `/reload`. After a new auction house scan that takes two: the first `/reload` saves the scan for the app, the second loads the new lists. The "Connection" page shows what was sent and whether the game has loaded it, and has "Send now" and the switch for sending automatically.
+The app writes the lists for every character into `Interface\AddOns\WoWToolsForever\AppData.lua` whenever the game has saved (`sim/tools/ingame`); the game loads the file on the next `/reload`. After a new auction house scan that takes two: the first `/reload` saves the scan for the app, the second loads the new lists. The "Connection" page shows what was sent and whether the game has loaded it, and has "Send now" and the switch for sending automatically.
 
 ### Language
 
@@ -70,7 +70,7 @@ The language follows the game client (`SET textLocale` in `WTF\Config.wtf`): Ger
 | `wowDir` | the `_forever_` folder, if the game is not in the default place. The environment variable `WOW_FOREVER_DIR` does the same. |
 | `language` | `auto` (default), `en` or `de` |
 | `sendToGame` | `false`: do not write the lists for the game by itself (the switch on the "Connection" page) |
-| `addonSources` | install an addon from a local checkout instead of the release: `{ "goldperhour": "<folder>", "wowmcp": "<folder>" }`. The environment variables `GOLDPERHOUR_ADDON_DIR` and `WOWMCP_ADDON_DIR` do the same. |
+| `addonSources` | install an addon from a local checkout instead of the release: `{ "goldperhour": "<folder>", "wowtoolsforever": "<folder>" }`. The environment variables `GOLDPERHOUR_ADDON_DIR` and `WOWTOOLSFOREVER_ADDON_DIR` do the same. |
 
 ## Command line
 
@@ -89,7 +89,7 @@ prints the same as reports. Build it from a checkout with [Go](https://go.dev/dl
 | `wowtools healing --char <name>` | every heal and shield rank with its healing per second and per mana, and stat weights |
 | `wowtools combatlog --char <name>` | what the character really did in the newest combat log, next to the combat model (`--fight N`) |
 | `wowtools pricehistory` | price history of the items in Auctionator's database (`--item 2447`) |
-| `wowtools ingame` | what the WoWMCP addon shows in the game, per character; `--write` puts it into the addon folder |
+| `wowtools ingame` | what the WoW Tools Forever addon shows in the game, per character; `--write` puts it into the addon folder |
 | `wowtools goldperhour` | GoldPerHour sessions, as JSON |
 | `wowtools bridge status` | what the app sees, as JSON (`wowtools bridge --list` names the commands) |
 
@@ -107,7 +107,7 @@ Before running them: scan the auction house with Auctionator, open every profess
 **Claude Code:**
 
 ```
-claude mcp add --scope user wow-forever -- uv run C:\path\to\wow-forever-tools\server\wow_mcp.py
+claude mcp add --scope user wow-forever -- uv run C:\path\to\wow-tools-forever\server\wow_mcp.py
 ```
 
 **Claude Desktop** (`%APPDATA%\Claude\claude_desktop_config.json`):
@@ -117,7 +117,7 @@ claude mcp add --scope user wow-forever -- uv run C:\path\to\wow-forever-tools\s
   "mcpServers": {
     "wow-forever": {
       "command": "uv",
-      "args": ["run", "C:\\path\\to\\wow-forever-tools\\server\\wow_mcp.py"]
+      "args": ["run", "C:\\path\\to\\wow-tools-forever\\server\\wow_mcp.py"]
     }
   }
 }
@@ -149,10 +149,10 @@ Limits:
 ```
 cd app
 ./build.sh --source
-"build/bin/WoW Forever Tools.exe"
+"build/bin/WoW Tools Forever.exe"
 ```
 
-The app is one Windows exe built with Go and [Wails](https://wails.io): its window is WebView2 (part of Windows 10 and 11) showing the page in `app/renderer/` (plain JavaScript, ES modules, embedded in the exe), and the Go code in `app/` does everything else. All numbers come from the bridge (`sim/bridge`, Go), which is built into the same exe: the app starts itself as `"WoW Forever Tools.exe" bridge <command>` for every calculation. `build.sh` needs Go and runs in Git Bash on Windows or in WSL and Linux (cross-compiled, no C compiler needed); the exe started with `--source` finds the checkout above itself. Without `--source` it behaves like the installed app.
+The app is one Windows exe built with Go and [Wails](https://wails.io): its window is WebView2 (part of Windows 10 and 11) showing the page in `app/renderer/` (plain JavaScript, ES modules, embedded in the exe), and the Go code in `app/` does everything else. All numbers come from the bridge (`sim/bridge`, Go), which is built into the same exe: the app starts itself as `"WoW Tools Forever.exe" bridge <command>` for every calculation. `build.sh` needs Go and runs in Git Bash on Windows or in WSL and Linux (cross-compiled, no C compiler needed); the exe started with `--source` finds the checkout above itself. Without `--source` it behaves like the installed app.
 
 | Check | Command |
 | --- | --- |
@@ -160,7 +160,7 @@ The app is one Windows exe built with Go and [Wails](https://wails.io): its wind
 | Page: translations, the calls into the app | `cd app && node renderer.test.js` (Node, no packages) |
 | wowtools: calculations, reports, the app's JSON, translations, combat engine | `cd sim && go test ./...` |
 | MCP server | `uv run server/test_wow_mcp.py` |
-| Screenshots of every page | `"app/build/bin/WoW Forever Tools.exe" --capture=captures` (into `app/captures`; add `--lang=de` for German) |
+| Screenshots of every page | `"app/build/bin/WoW Tools Forever.exe" --capture=captures` (into `app/captures`; add `--lang=de` for German) |
 | The Windows installer | `cd app && ./build.sh --installer` (needs NSIS 3) |
 
 No test needs the game. The Go tests read the game tables of the test folder (`scripts/fixtures/forever`) from `scripts/cache`; the first run downloads them from wago.tools.

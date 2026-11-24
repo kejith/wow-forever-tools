@@ -1,8 +1,8 @@
 package bridge
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/recipes"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/recipes"
 )
 
 // recipes is app_bridge.py's "recipes": the professions with their learned and missing recipes, all of

@@ -189,30 +189,43 @@ func (a *App) capturePages(out string, required []string) ([]string, error) {
 			a.captureScrolled(shot, "#lists", "connection-lists")
 			a.captureUpdate(shot)
 		case "character":
-			// A class that heals has the heal table below the character window.
-			a.captureScrolled(shot, "#c-heal", "character-healing")
-			a.captureScrolled(shot, "#c-heal .heal-grid", "character-healing-ranks")
-			// A class that deals damage with spells has the damage analysis: the two rotations, the spell table,
-			// the other fights with the stat weights.
-			a.captureScrolled(shot, "#c-dmg", "character-damage")
-			a.captureScrolled(shot, "#c-dmg .dmg-spells", "character-damage-spells")
-			a.captureScrolled(shot, "#c-dmg .dmg-grid", "character-damage-fights")
-			// The consumables for a fight: the best set, then the cards per kind.
-			a.captureScrolled(shot, "#c-cons", "character-consumables")
-			a.captureScrolled(shot, "#c-cons .cons-grid", "character-consumables-kinds")
+			// A class that heals has the heal tab.
+			if a.clickTab(`#page-tabs [data-tab="heal"]`) {
+				shot("character-healing")
+				a.captureScrolled(shot, "#c-heal .heal-grid", "character-healing-ranks")
+			}
+			// A class that deals damage with spells has the damage tab.
+			if a.clickTab(`#page-tabs [data-tab="dmg"]`) {
+				shot("character-damage")
+				a.captureScrolled(shot, "#c-dmg .dmg-spells", "character-damage-spells")
+				a.captureScrolled(shot, "#c-dmg .dmg-grid", "character-damage-fights")
+			}
+			if a.clickTab(`#page-tabs [data-tab="cons"]`) {
+				shot("character-consumables")
+				a.captureScrolled(shot, "#c-cons .cons-grid", "character-consumables-kinds")
+			}
+			a.clickTab(`#page-tabs [data-tab="gear"]`)
 		case "upgrades":
 			a.captureUpgradeDetails(shot)
 		case "rotations":
 			a.captureRotationDetails(shot)
 		case "writs":
-			a.captureScrolled(shot, "#crates", "writs-crates")
+			if a.clickTab(`#page-tabs [data-tab="crates"]`) {
+				shot("writs-crates")
+				a.clickTab(`#page-tabs [data-tab="writs"]`)
+			}
 		case "recipes":
 			a.captureHelp(shot, "#content th .help", "help")
 		case "pricehistory":
 			a.captureHelp(shot, ".ph-chart .hit:last-of-type", "pricehistory-day")
 		case "consumables":
-			a.captureScrolled(shot, ".cons-fight .cons-grid", "consumables-kinds")
-			a.captureScrolled(shot, "#c-buffs", "consumables-buffs")
+			if a.clickTab(`#page-tabs [data-tab="kinds"]`) {
+				shot("consumables-kinds")
+			}
+			if a.clickTab(`#page-tabs [data-tab="buffs"]`) {
+				shot("consumables-buffs")
+			}
+			a.clickTab(`#page-tabs [data-tab="fight"]`)
 			a.captureConsumablesByValue(shot)
 		case "goldperhour":
 			// Open the first finished session, then shoot settings and history.
@@ -244,6 +257,15 @@ func (a *App) capturePages(out string, required []string) ([]string, error) {
 	// A screenshot that failed (a session without a desktop) is in the report but fails nothing: --require
 	// is about the pages.
 	return failed, nil
+}
+
+// clickTab switches a real tab bar on a page before taking its screenshot.
+func (a *App) clickTab(selector string) bool {
+	if !a.evalBool(fmt.Sprintf(`(() => { const el = document.querySelector(%s); if (el) el.click(); return !!el; })()`, jsQuote(selector))) {
+		return false
+	}
+	wait(300)
+	return true
 }
 
 // captureScrolled is a second shot of a long page, scrolled to selector; it scrolls back to the top afterwards.

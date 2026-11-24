@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 )
 
 // handler answers one command; an error becomes {"error": its text}, as app_bridge.py answers the errors it

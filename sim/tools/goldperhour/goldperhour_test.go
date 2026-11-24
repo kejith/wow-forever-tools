@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // fixture is a WoW folder with nothing but the SavedVariables file of GoldPerHour 0.3.x (the state the addon

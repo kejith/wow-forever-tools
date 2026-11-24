@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/tools/consumables"
-	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/tools/consumables"
+	"github.com/kejith/wow-tools-forever/sim/tools/rotations"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // guideFlags are the options of the fight the engine plays, as rotations.py, healing.py and damage.py had

@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
 )
 
 // NewID: item IDs above this exist only in Forever.
@@ -298,7 +298,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	}
 	files := game.FindChars(wow, char)
 	if len(files) == 0 {
-		return nil, errors.New(i18n.T("No WoWMCP.lua found for this character."))
+		return nil, errors.New(i18n.T("No WoWToolsForever.lua found for this character."))
 	}
 	c, err := LoadChar(files[0])
 	if err != nil {
@@ -328,7 +328,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		itemList = append(itemList, items[id])
 	}
 	if len(items) == 0 {
-		return nil, errors.New(i18n.T("No item export found: type /wowmcp items in the game, wait for the message, then /reload."))
+		return nil, errors.New(i18n.T("No item export found: type /wtf items in the game, wait for the message, then /reload."))
 	}
 	var levelOut any = o.Level
 	level := float64(o.Level)

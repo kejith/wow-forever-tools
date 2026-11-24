@@ -8,12 +8,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/pycsv"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/internal/tables"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/pycsv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/tables"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // Reputation is the standing with the writ faction.
@@ -37,7 +37,7 @@ func init() {
 }
 
 // LoadOwned is writs.load_char: the inventory counts (every innermost table with an id, a count and a link:
-// bags and bank) and the standing with the writ faction, read from the text of WoWMCP.lua with the same
+// bags and bank) and the standing with the writ faction, read from the text of WoWToolsForever.lua with the same
 // regular expressions as Python (not through the SavedVariables reader).
 func LoadOwned(path string) (map[int64]int64, *Reputation, error) {
 	data, err := os.ReadFile(path)
@@ -116,12 +116,12 @@ type Extras struct {
 	Favor      any
 }
 
-// LoadExtras is writs.load_extras: every account's WoWMCP_Account.payouts merged (a later account's entry
+// LoadExtras is writs.load_extras: every account's WoWToolsForever_Account.payouts merged (a later account's entry
 // wins), plus level and favor from the character's snapshot (charPath "" for none).
 func LoadExtras(wow, charPath string) (*Extras, error) {
 	e := &Extras{Pouches: sv.NewTable(), Crates: sv.NewTable(), WritQuests: sv.NewTable()}
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
-		acc, err := sv.Load(path, "WoWMCP_Account")
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
+		acc, err := sv.Load(path, "WoWToolsForever_Account")
 		if err != nil {
 			return nil, err
 		}

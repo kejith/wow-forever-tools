@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
 )
 
 // namesFile is the names of the writ and crate items in both languages, next to the Python scripts.

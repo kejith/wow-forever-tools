@@ -9,8 +9,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/kejith/wow-forever-tools/sim/db2"
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/db2"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 // classSet maps the game's class id to SpellClassOptions.SpellClassSet

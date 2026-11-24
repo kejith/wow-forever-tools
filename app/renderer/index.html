@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
-  <title>WoW Forever Tools</title>
+  <title>WoW Tools Forever</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">F</div>
+      <div class="brand-mark">W</div>
       <div>
-        <div class="brand-name">Forever Tools</div>
+        <div class="brand-name">WoW Tools Forever</div>
         <div class="brand-sub">WoW: Forever <span id="app-version"></span></div>
       </div>
     </div>
@@ -19,12 +19,14 @@
          a spell book, Blacksmith Hammer, Major Healing Potion, a crystal ball, a gold bar). -->
     <nav id="nav">
       <button data-page="connection"><span class="nav-icon" data-icon-item="6948"><span class="dot" id="nav-dot"></span></span><span data-i18n="Connection">Connection</span></button>
+      <div class="nav-group" data-i18n="Combat">Combat</div>
       <button data-page="character"><span class="nav-icon" data-icon-item="12640"></span><span data-i18n="Character">Character</span></button>
-      <button data-page="writs"><span class="nav-icon" data-icon-item="264012"></span><span data-i18n="Writs">Writs</span></button>
       <button data-page="upgrades"><span class="nav-icon" data-icon-item="19019"></span><span data-i18n="AH upgrades">AH upgrades</span></button>
       <button data-page="rotations"><span class="nav-icon" data-icon-item="18600"></span><span data-i18n="Rotations">Rotations</span></button>
-      <button data-page="recipes"><span class="nav-icon" data-icon-item="5956"></span><span data-i18n="Professions">Professions</span></button>
       <button data-page="consumables"><span class="nav-icon" data-icon-item="13446"></span><span data-i18n="Consumables">Consumables</span></button>
+      <div class="nav-group" data-i18n="Economy">Economy</div>
+      <button data-page="writs"><span class="nav-icon" data-icon-item="264012"></span><span data-i18n="Writs">Writs</span></button>
+      <button data-page="recipes"><span class="nav-icon" data-icon-item="5956"></span><span data-i18n="Professions">Professions</span></button>
       <button data-page="pricehistory"><span class="nav-icon" data-icon-item="9149"></span><span data-i18n="Price history">Price history</span></button>
       <button data-page="goldperhour"><span class="nav-icon" data-icon-item="3577"></span><span data-i18n="Gold per hour">Gold per hour</span></button>
     </nav>
@@ -43,7 +45,10 @@
   </aside>
   <main>
     <header class="topbar">
-      <h1 id="page-title"></h1>
+      <div class="topbar-title">
+        <h1 id="page-title"></h1>
+        <span id="page-scope" class="badge scope-badge" hidden data-i18n="Account-wide" data-i18n-help="Shows data across all characters; the character selection does not change this page.">Account-wide</span>
+      </div>
       <div class="topbar-right">
         <!-- The character as a unit frame; the select lies invisible over it and opens on a click. -->
         <div class="unit" id="unit">
@@ -58,6 +63,7 @@
         <button id="refresh" class="ghost" data-i18n="↻ Refresh" data-i18n-title="Reload">↻ Refresh</button>
       </div>
     </header>
+    <div id="page-tabs" class="tabs" hidden></div>
     <section id="content" class="content"></section>
   </main>
   <div id="wtip"></div>

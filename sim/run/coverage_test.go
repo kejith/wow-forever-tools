@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
-	"github.com/kejith/wow-forever-tools/sim/talents"
+	"github.com/kejith/wow-tools-forever/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/talents"
 )
 
 // A level-40 fixture warlock who knows all three fillers (Shadow Bolt,

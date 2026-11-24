@@ -11,18 +11,18 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/kejith/wow-forever-tools/sim/catalog"
-	"github.com/kejith/wow-forever-tools/sim/classes/priest"
-	"github.com/kejith/wow-forever-tools/sim/classes/warlock"
-	"github.com/kejith/wow-forever-tools/sim/engine"
-	"github.com/kejith/wow-forever-tools/sim/talents"
+	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/classes/priest"
+	"github.com/kejith/wow-tools-forever/sim/classes/warlock"
+	"github.com/kejith/wow-tools-forever/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/talents"
 )
 
 // Version of the engine contract; printed by --version and in the output.
 const Version = "0.11.0"
 
 // Input is the bundle the Python side sends. Stats are the character
-// sheet's totals (gear included) from the WoWMCP snapshot; deltas are
+// sheet's totals (gear included) from the WoW Tools Forever snapshot; deltas are
 // canonical stat changes relative to that (see engine.ApplyDelta).
 type Input struct {
 	CacheDir    string       `json:"cacheDir"`

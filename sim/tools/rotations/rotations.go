@@ -11,15 +11,15 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/run"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/run"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // Units are the units of the metrics a guide has.
@@ -529,7 +529,7 @@ func Character(wow, char string, fightSeconds float64, targetDelta int, killsPer
 	prepare func(*sv.Table)) (*Setup, error) {
 	files := game.FindChars(wow, char)
 	if len(files) == 0 {
-		return nil, errors.New(i18n.T("No WoWMCP.lua found for this character."))
+		return nil, errors.New(i18n.T("No WoWToolsForever.lua found for this character."))
 	}
 	c, err := upgrades.LoadChar(files[0])
 	if err != nil {

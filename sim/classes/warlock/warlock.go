@@ -8,8 +8,8 @@
 package warlock
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/catalog"
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 // First ranks of the rotation spells (stable Classic ids, present in the

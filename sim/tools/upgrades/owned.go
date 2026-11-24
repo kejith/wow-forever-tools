@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // SlotOf maps an equipLoc to the inventory slots it fits (upgrades.SLOT_OF).
@@ -204,13 +204,13 @@ func LearnRatings(items []*sv.Table) map[string]float64 {
 	return out
 }
 
-// ItemExport is the item export of "/wowmcp items" (upgrades.load_item_export): the account-wide
-// WoWMCP_Items with the newest "updated", else the older per-character copy.
+// ItemExport is the item export of "/wtf items" (upgrades.load_item_export): the account-wide
+// WoWToolsForever_Items with the newest "updated", else the older per-character copy.
 func ItemExport(wow string, char *sv.Table) *sv.Table {
 	var best *sv.Table
 	bestUpdated := 0.0
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
-		data, err := sv.LoadTable(path, "WoWMCP_Items")
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
+		data, err := sv.LoadTable(path, "WoWToolsForever_Items")
 		if err != nil || data == nil {
 			continue
 		}
@@ -323,7 +323,7 @@ func OwnedGear(ownFile string, char *sv.Table, export map[int64]*sv.Table) (foun
 	take(char, "")
 	own := absPath(ownFile)
 	realm := filepath.Dir(filepath.Dir(filepath.Dir(own)))
-	others := game.Glob(realm, "*", "SavedVariables", "WoWMCP.lua")
+	others := game.Glob(realm, "*", "SavedVariables", "WoWToolsForever.lua")
 	sort.Strings(others)
 	for _, path := range others {
 		if absPath(path) == own {

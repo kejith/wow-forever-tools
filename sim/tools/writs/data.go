@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
 )
 
 // Rep is the reputation a writ of a tier gives (writs.REP).

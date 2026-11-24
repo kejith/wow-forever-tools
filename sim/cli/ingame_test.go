@@ -42,13 +42,13 @@ func TestIngameWrite(t *testing.T) {
 	if err := os.CopyFS(wow, os.DirFS(src)); err != nil {
 		t.Fatal(err)
 	}
-	file := filepath.Join(wow, "Interface", "AddOns", "WoWMCP", "AppData.lua")
+	file := filepath.Join(wow, "Interface", "AddOns", "WoWToolsForever", "AppData.lua")
 	out, code := runCmd(t, "ingame", "--wow", wow, "--char", "Ilse", "--write", "--lang", "en")
 	if code != 0 || !strings.HasSuffix(out, "\nWritten to "+file+". Type /reload in the game.\n") {
 		t.Fatalf("exit %d: ...%s", code, out[max(0, len(out)-200):])
 	}
 	data, err := os.ReadFile(file)
-	if err != nil || !strings.Contains(string(data), "\nWoWMCP_AppData = {") {
+	if err != nil || !strings.Contains(string(data), "\nWoWToolsForever_AppData = {") {
 		t.Fatalf("%v: %.80s", err, data)
 	}
 	out, code = runCmd(t, "ingame", "--wow", wow, "--char", "Ilse", "--write", "--lang", "de")
@@ -59,7 +59,7 @@ func TestIngameWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, code = runCmd(t, "ingame", "--wow", wow, "--char", "Ilse", "--write", "--lang", "en")
-	if code != 0 || !strings.HasSuffix(out, "\nThe WoWMCP addon is not installed.\n") {
+	if code != 0 || !strings.HasSuffix(out, "\nThe WoW Tools Forever addon is not installed.\n") {
 		t.Fatalf("no addon: exit %d: ...%s", code, out[max(0, len(out)-200):])
 	}
 }

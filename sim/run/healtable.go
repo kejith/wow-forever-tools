@@ -4,8 +4,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/kejith/wow-forever-tools/sim/catalog"
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 // The heal table: every known rank of every heal and shield with what one

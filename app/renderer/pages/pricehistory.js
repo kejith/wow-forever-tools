@@ -44,7 +44,7 @@ const changeText = (change) => {
   if (change === null || change === undefined) return DASH;
   const n = Math.round(change * 100);
   if (n === 0) return `<span class="muted">±${percent(0)}</span>`;
-  return `${n > 0 ? '+' : '−'}${percent(Math.abs(n))}`;
+  return `<span class="${n > 0 ? 'good' : 'loss'}">${n > 0 ? '+' : '−'}${percent(Math.abs(n))}</span>`;
 };
 
 // What the search box asks for: an item ID (also "#123" or a pasted item link), or words that must all be
@@ -144,7 +144,7 @@ function itemHtml(d, it) {
   return `<div class="card">
       <div class="ph-head">${itemIcon(it.id, it.q)}<div><h3 class="${quality(it.q)}">${esc(nameOf(it))}</h3>
         <div class="small muted">${esc(t('Item ID {id}', { id: it.id }))}${gone ? ` · <span class="warn-text">${esc(t('not in the last scan'))}</span>` : ''}</div></div></div>
-      <div class="row ph-stats">
+      <div class="ph-stats">
         ${stat(t('Last price'), money(it.m), esc(t('seen on {date}', { date: dateText(isoOf(d, it.lastDay)) })))}
         ${stat(t('Lowest'), money(Math.min(...lows)))}
         ${stat(t('Highest'), money(Math.max(...lows)))}
@@ -202,8 +202,9 @@ export async function renderPriceHistory() {
         `${c === OTHER ? t('other') : t(CLASSES[c])} (${num(p.counts.get(c))})`, o.cls)).join('')}</select></label>
       <label>${esc(t('Sort by'))}<select id="ph-sort">${SORTS.map(([v, label]) => selectOption(v, t(label), o.sort)).join('')}</select></label>
       <label class="check"><input type="checkbox" id="ph-recent" ${o.recent ? 'checked' : ''}> ${esc(t('only items of the last scan'))}</label>
+      <span class="spacer"></span>
+      <div class="page-meta">${esc(t('Last scan {date}', { date: dateText(d.lastScanDate) }))}${d.unnamed ? ` · ${esc(t('{n} without a name', { n: num(d.unnamed) }))}` : ''} ${help(about(d))}</div>
     </div>
-    <div class="page-meta">${esc(t('{n} items in Auctionator’s database, last scan {date}', { n: num(d.count), date: dateText(d.lastScanDate) }))}${d.unnamed ? ` · ${esc(t('{n} without a name', { n: num(d.unnamed) }))}` : ''} ${help(about(d))}</div>
     <div class="ph-layout">
       <div class="card ph-list"><div class="small muted" id="ph-count"></div><div id="ph-results"></div></div>
       <div id="ph-item"></div>

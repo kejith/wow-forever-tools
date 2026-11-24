@@ -4,7 +4,7 @@
 // when the combat engine has a damage metric for the class.
 import { DASH as dash, esc, help, hintAttr, num, percent, terms, th } from '../core.js';
 import { t } from '../i18n.js';
-import { clock, stepsTable } from './rotations.js';
+import { clock, skippedChips, stepsTable } from './rotations.js';
 
 // The two rotations the section opens with; the other fights follow as a table.
 const TOP = ['max', 'endurance'];
@@ -17,7 +17,7 @@ function hit(r) {
   return parts.map((part, i) => `<div>${i ? '+ ' : ''}${esc(part)}</div>`).join('');
 }
 
-const best = (text, is, why) => (is ? `<b class="heal-best"${hintAttr(why)}>${text}</b>` : text);
+const best = (text, is, why) => (is ? `<b class="heal-best"${hintAttr(why)}>★ ${text}</b>` : text);
 
 function spellRow(r, first) {
   const limit = r.limit === 'kept' ? t('kept up') : r.limit === 'cooldown' ? t('per cooldown') : '';
@@ -99,14 +99,12 @@ function topCard(s, unit) {
   const mana = !s.freeMana ? ''
     : s.oomSeconds === null ? `<span class="badge ok">${esc(t('Mana lasts'))}</span>`
       : `<span class="badge warn">${esc(t('Mana lasts {time}', { time: clock(s.oomSeconds) }))}</span>`;
-  const skipped = s.skipped.map((k) => `<div class="small muted">${esc(t('Left out'))}: <span class="rot-name">${esc(k.label)}</span>
-      <span class="warn-text">−${num(k.loss, 1)} ${esc(unit)}</span></div>`).join('');
   return `<div class="card rot-card" data-key="${esc(s.key)}">
       <div class="rot-head"><h3>${esc(s.title)} ${mana}</h3><div class="big">${num(s.value, 1)} <span class="small muted">${esc(unit)}</span></div></div>
       <div class="small muted">${esc(s.about)}</div>
       <p class="rot-verdict">${esc(s.verdict)}</p>
       ${stepsTable({ ...s, unit }, false)}
-      ${skipped ? `<div class="rot-skipped">${skipped}</div>` : ''}</div>`;
+      ${skippedChips(s.skipped, unit)}</div>`;
 }
 
 function fightTable(d, list) {
@@ -120,14 +118,14 @@ function fightTable(d, list) {
 
 function weightTable(d) {
   const w = d.weights;
-  const cell = (row, name) => `<td class="num">${num(row[name], 2)}</td>
+  const cell = (row, name, sep = '') => `<td class="num${sep}">${num(row[name], 2)}</td>
       <td class="num muted">${row[`${name}Power`] === null ? dash : num(row[`${name}Power`], 2)}</td>`;
-  const body = w.rows.map((row) => `<tr><td>${esc(row.label)}</td>${cell(row, 'short')}${cell(row, 'long')}</tr>`).join('');
+  const body = w.rows.map((row) => `<tr><td>${esc(row.label)}</td>${cell(row, 'short')}${cell(row, 'long', ' group-sep')}</tr>`).join('');
   const fight = (seconds) => esc(t('Fight of {seconds} s', { seconds: num(seconds) }));
   return `<table class="compact heal-weights"><thead>
-      <tr><th></th><th class="num" colspan="2">${fight(w.seconds)}</th><th class="num" colspan="2">${fight(w.longSeconds)}</th></tr>
+      <tr><th></th><th class="num" colspan="2">${fight(w.seconds)}</th><th class="num group-sep" colspan="2">${fight(w.longSeconds)}</th></tr>
       <tr><th>${esc(t('One point of'))}</th><th class="num">${esc(d.unit)}</th><th class="num">${esc(t('= spell power'))}</th>
-        <th class="num">${esc(d.unit)}</th><th class="num">${esc(t('= spell power'))}</th></tr></thead><tbody>${body}</tbody></table>`;
+        <th class="num group-sep">${esc(d.unit)}</th><th class="num">${esc(t('= spell power'))}</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
 // The whole section from the answer of the bridge command "damage".
@@ -150,7 +148,7 @@ export function damageSection(d) {
       <p>${esc(t('Your gear is rated by a faster estimate of the normal fight: {value} {unit} over {seconds} s. It leaves out the start of the fight, in which the spells over time go up one after the other.', { value: num(d.rated.value, 1), unit: d.unit, seconds: num(d.rated.seconds) }))}</p>`;
   return `<h2 class="heading">${esc(t('Damage'))} ${help(d.notes.map((n) => `<p>${esc(n)}</p>`).join(''))}
       <span class="spacer"></span><span class="small muted">${esc(t('combat model {version}', { version: d.engine.version }))}</span></h2>
-    ${d.engine.spellbookSource === 'assumed' ? `<div class="notice small">${t('No spellbook in the export: every trainer rank up to your level is assumed. Update the WoWMCP addon and type <code>/reload</code>, then the page knows your spells.')}</div>` : ''}
+    ${d.engine.spellbookSource === 'assumed' ? `<div class="notice small">${t('No spellbook in the export: every trainer rank up to your level is assumed. Update the WoW Tools Forever addon and type <code>/reload</code>, then the page knows your spells.')}</div>` : ''}
     ${statTiles(d)}
     <h3 class="dmg-sub">${esc(t('Which rotation'))} ${help(rotationTerms)}</h3>
     <div class="dmg-top">${top.map((s) => topCard(s, d.unit)).join('')}</div>

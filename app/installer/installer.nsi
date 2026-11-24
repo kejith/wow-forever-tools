@@ -1,7 +1,7 @@
-; The installer of WoW Forever Tools: the exe and the names file of the writs (scripts/data, which the bridge
+; The installer of WoW Tools Forever: the exe and the names file of the writs (scripts/data, which the bridge
 ; reads next to the exe), for the current user, without administrator rights.
 ; Built by build.sh --installer: makensis -DVERSION=<x.y.z> installer.nsi writes
-; build/bin/WoW-Forever-Tools-Setup-<x.y.z>.exe (-DOUTFILE=<path> writes it elsewhere).
+; build/bin/WoW-Tools-Forever-Setup-<x.y.z>.exe (-DOUTFILE=<path> writes it elsewhere).
 ;
 ; Switches (what the app's updater passes, update.go):
 ;   /S            silent: no pages
@@ -19,12 +19,12 @@ ManifestDPIAware true
 ; them into slashes.
 !define APPDIR ".."
 !ifndef OUTFILE
-  !define OUTFILE "${APPDIR}\build\bin\WoW-Forever-Tools-Setup-${VERSION}.exe"
+  !define OUTFILE "${APPDIR}\build\bin\WoW-Tools-Forever-Setup-${VERSION}.exe"
 !endif
-!define APP "WoW Forever Tools"
-!define EXE "WoW Forever Tools.exe"
-!define REGKEY "Software\WoW Forever Tools"
-!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\WoWForeverTools"
+!define APP "WoW Tools Forever"
+!define EXE "WoW Tools Forever.exe"
+!define REGKEY "Software\WoW Tools Forever"
+!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\WoWToolsForever"
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
@@ -108,7 +108,7 @@ Section "Install"
   WriteRegStr HKCU "${UNINSTKEY}" "DisplayName" "${APP}"
   WriteRegStr HKCU "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINSTKEY}" "Publisher" "kejith"
-  WriteRegStr HKCU "${UNINSTKEY}" "URLInfoAbout" "https://github.com/kejith/wow-forever-tools"
+  WriteRegStr HKCU "${UNINSTKEY}" "URLInfoAbout" "https://github.com/kejith/wow-tools-forever"
   WriteRegStr HKCU "${UNINSTKEY}" "DisplayIcon" "$INSTDIR\${EXE}"
   WriteRegStr HKCU "${UNINSTKEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTKEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'

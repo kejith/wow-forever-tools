@@ -1,12 +1,12 @@
 package bridge
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/combatlog"
-	"github.com/kejith/wow-forever-tools/sim/tools/damage"
-	"github.com/kejith/wow-forever-tools/sim/tools/healing"
-	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/combatlog"
+	"github.com/kejith/wow-tools-forever/sim/tools/damage"
+	"github.com/kejith/wow-tools-forever/sim/tools/healing"
+	"github.com/kejith/wow-tools-forever/sim/tools/rotations"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // rotationsCmd is app_bridge's rotations: the rotation guide. With --consumables every fight is played with

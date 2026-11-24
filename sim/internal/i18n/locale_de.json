@@ -1,6 +1,6 @@
 {
   "app_bridge.py, shared": {
-    "No WoWMCP export found for \"{char}\".": "Kein WoWMCP-Export für „{char}“ gefunden.",
+    "No WoW Tools Forever export found for \"{char}\".": "Kein WoW-Tools-Forever-Export für „{char}“ gefunden.",
     "The recipe data could not be loaded from wago.tools. Check the network connection and refresh.": "Die Rezeptdaten konnten nicht von wago.tools geladen werden. Netzwerkverbindung prüfen und aktualisieren."
   },
   "writs.py": {
@@ -92,7 +92,7 @@
     "in {name}'s bags": "in den Taschen von {name}",
     "in {name}'s bank": "auf der Bank von {name}",
     "owned": "vorhanden",
-    "{n} items you own are only known by name ({names}): open the bank once with WoWMCP 1.12 or newer, then /reload.": "{n} Gegenstände, die du besitzt, sind nur dem Namen nach bekannt ({names}): öffne die Bank einmal mit WoWMCP 1.12 oder neuer, dann /reload.",
+    "{n} items you own are only known by name ({names}): open the bank once with WoW Tools Forever 1.12 or newer, then /reload.": "{n} Gegenstände, die du besitzt, sind nur dem Namen nach bekannt ({names}): öffne die Bank einmal mit WoW Tools Forever 1.12 oder neuer, dann /reload.",
     "hits every enemy at once: played in the fights against several enemies of the rotation guide": "trifft alle Gegner zugleich: wird in den Kämpfen gegen mehrere Gegner im Rotationsleitfaden gespielt",
     "active after your killing blows: {value:.0f}% of the fight with the kills it assumes": "aktiv nach deinen Todesstößen: {value:.0f}% des Kampfes bei den angenommenen Kills",
     "needs your killing blows, and this fight assumes none": "braucht deine Todesstöße, und dieser Kampf nimmt keine an",
@@ -180,7 +180,7 @@
   "simengine.py": {
     "The combat engine failed: {err}": "Die Kampf-Engine ist fehlgeschlagen: {err}",
     "The combat engine reports: {err}": "Die Kampf-Engine meldet: {err}",
-    "The snapshot does not name the client build; /wowmcp sync and /reload first.": "Der Schnappschuss nennt den Client-Build nicht; erst /wowmcp sync und /reload.",
+    "The snapshot does not name the client build; /wtf sync and /reload first.": "Der Schnappschuss nennt den Client-Build nicht; erst /wtf sync und /reload.",
     "Shadow/spell power 1, Stamina {stamina:.2f}, Int {intellect:.2f}, Spirit {spirit:g}, Mana/5s {mp5:g}, Hit 1% = {hit:.1f}, Crit 1% = {crit:.1f}, Wand DPS {wand:g}": "Schatten/Zaubermacht 1, Ausdauer {stamina:.2f}, Int {intellect:.2f}, Willenskraft {spirit:g}, Mana/5s {mp5:g}, Treffer 1 % = {hit:.1f}, Krit 1 % = {crit:.1f}, Zauberstab-DPS {wand:g}",
     "SP": "ZM",
     "SD": "ZS",
@@ -200,8 +200,8 @@
     "Equip: Increases damage done by magical spells and effects by up to {n}.": "Anlegen: Erhöht den von magischen Zaubern und Effekten verursachten Schaden um bis zu {n}.",
     "Equip: Increases damage done by Shadow spells and effects by up to {n}.": "Anlegen: Erhöht den von Schattenzaubern und -effekten verursachten Schaden um bis zu {n}.",
     "Equip: Increases healing done by spells and effects by up to {n}.": "Anlegen: Erhöht durch Zauber und Effekte verursachte Heilung um bis zu {n}.",
-    "No WoWMCP.lua found for this character.": "Keine WoWMCP.lua für diesen Charakter gefunden.",
-    "No item export found: type /wowmcp items in the game, wait for the message, then /reload.": "Kein Item-Export gefunden: im Spiel /wowmcp items, auf die Meldung warten, dann /reload.",
+    "No WoWToolsForever.lua found for this character.": "Keine WoWToolsForever.lua für diesen Charakter gefunden.",
+    "No item export found: type /wtf items in the game, wait for the message, then /reload.": "Kein Item-Export gefunden: im Spiel /wtf items, auf die Meldung warten, dann /reload.",
     "new": "neu",
     "[NEW in Forever]": "[NEU in Forever]",
     "[two-handed]": "[Zweihand]",
@@ -373,8 +373,8 @@
     "Pays more than your best recipe": "Lohnt mehr als dein bestes Rezept",
     "Needs {profession} {n}": "Benötigt {profession} {n}",
     "Best now ({category}): {effect}": "Jetzt am besten ({category}): {effect}",
-    "The WoWMCP addon is not installed.": "Das Addon WoWMCP ist nicht installiert.",
-    "WoWMCP {version} cannot show lists. Update the addon to 1.7 or newer.": "WoWMCP {version} kann keine Listen anzeigen. Aktualisiere das Addon auf 1.7 oder neuer.",
+    "The WoW Tools Forever addon is not installed.": "Das Addon WoW Tools Forever ist nicht installiert.",
+    "WoW Tools Forever {version} cannot show lists. Update the addon to 1.7 or newer.": "WoW Tools Forever {version} kann keine Listen anzeigen. Aktualisiere das Addon auf 1.7 oder neuer.",
     "{n} items with a tooltip line, {v} vendor hints": "{n} Items mit Tooltip-Zeile, {v} Händlerhinweise",
     "AH scan {date}, computed {time}. * = goes into the Auctionator shopping list.": "AH-Scan {date}, berechnet {time}. * = kommt auf die Auctionator-Einkaufsliste.",
     "Written to {file}. Type /reload in the game.": "Nach {file} geschrieben. Tippe im Spiel /reload.",

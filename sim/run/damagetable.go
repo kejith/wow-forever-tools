@@ -3,8 +3,8 @@ package run
 import (
 	"sort"
 
-	"github.com/kejith/wow-forever-tools/sim/catalog"
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 // The damage table: every known rank of every spell that deals damage with

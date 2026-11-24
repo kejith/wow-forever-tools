@@ -10,15 +10,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/run"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
-	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/run"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/rotations"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 const (
@@ -796,7 +796,7 @@ func FindLogs(wow string) []string {
 	return paths
 }
 
-// snapshotOf is the character's WoWMCP snapshot, or nothing: the log itself does not say the level.
+// snapshotOf is the character's WoW Tools Forever snapshot, or nothing: the log itself does not say the level.
 func snapshotOf(wow, name string) (*sv.Table, error) {
 	files := game.FindChars(wow, name)
 	if len(files) == 0 {

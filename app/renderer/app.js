@@ -1,6 +1,6 @@
-// WoW Forever Tools, the desktop app: the page. This file wires the pages to the navigation, the character
+// WoW Tools Forever, the desktop app: the page. This file wires the pages to the navigation, the character
 // selection and the language; core.js holds what the pages share, pages/*.js one page each.
-import { $, api, content, errorBox, esc, hydrateIcons, hydrateNavIcons, loadStatus, loading, pages, resetTips, restoreView, saveView, showUnit, state, updateLiveState } from './core.js';
+import { $, api, clearTabs, content, errorBox, esc, hydrateIcons, hydrateNavIcons, loadStatus, loading, pages, resetTips, restoreView, saveView, showUnit, state, updateLiveState } from './core.js';
 import { mark, setLanguage, t } from './i18n.js';
 import { renderConnection, showUpdate } from './pages/connection.js';
 import { renderCharacter } from './pages/character.js';
@@ -13,15 +13,15 @@ import { renderGoldPerHour } from './pages/goldperhour.js';
 import { renderPriceHistory } from './pages/pricehistory.js';
 
 Object.assign(pages, {
-  connection: { title: mark('Connection'), render: renderConnection },
+  connection: { title: mark('Connection'), render: renderConnection, accountWide: true },
   character: { title: mark('Character'), render: renderCharacter },
-  writs: { title: mark("Craftsman's writs"), render: renderWrits },
+  writs: { title: mark('Writs and crates'), render: renderWrits },
   upgrades: { title: mark('AH upgrades'), render: renderUpgrades },
-  rotations: { title: mark('Rotations: what to cast when'), render: renderRotations },
-  recipes: { title: mark('Professions and recipes'), render: renderRecipes },
-  consumables: { title: mark('Consumables for your level'), render: renderConsumables },
-  pricehistory: { title: mark('Price history'), render: renderPriceHistory },
-  goldperhour: { title: mark('Gold per hour'), render: renderGoldPerHour },
+  rotations: { title: mark('Rotations'), render: renderRotations },
+  recipes: { title: mark('Professions'), render: renderRecipes },
+  consumables: { title: mark('Consumables'), render: renderConsumables },
+  pricehistory: { title: mark('Price history'), render: renderPriceHistory, accountWide: true },
+  goldperhour: { title: mark('Gold per hour'), render: renderGoldPerHour, accountWide: true },
 });
 
 // ---------- Language ----------
@@ -54,8 +54,13 @@ async function showPage(page) {
   window.__idle = false;
   state.page = page;
   resetTips();
+  clearTabs();
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
   $('#page-title').textContent = t(pages[page].title);
+  const wide = !!pages[page].accountWide;
+  $('#page-scope').hidden = !wide;
+  $('#unit').classList.toggle('unit-muted', wide);
+  content.scrollTop = 0;
   saveView();
   try {
     await pages[page].render();

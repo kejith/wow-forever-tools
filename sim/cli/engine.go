@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/kejith/wow-forever-tools/sim/run"
+	"github.com/kejith/wow-tools-forever/sim/run"
 )
 
 // engine is what simforever was: one JSON input bundle on stdin, one JSON result on stdout. Errors are part

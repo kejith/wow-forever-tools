@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/tools/ingame"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/ingame"
 )
 
-// ingame is scripts/ingame.py: what the WoWMCP addon shows in the game, per character; with --write it goes
-// into Interface/AddOns/WoWMCP/AppData.lua.
+// ingame is scripts/ingame.py: what the WoW Tools Forever addon shows in the game, per character; with --write it goes
+// into Interface/AddOns/WoWToolsForever/AppData.lua.
 func init() {
-	Register(Command{Name: "ingame", Summary: "the lists, tooltip lines and vendor hints for the WoWMCP addon",
+	Register(Command{Name: "ingame", Summary: "the lists, tooltip lines and vendor hints for the WoW Tools Forever addon",
 		Run: func(args []string, out io.Writer) error {
 			f := NewFlags("ingame")
 			char := f.String("char", "", "only characters whose folder name contains this")

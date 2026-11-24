@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/catalog"
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 func decodeFrom(t *testing.T, dir, class string, ranks map[int]int) (engine.Mods, map[int]Info) {

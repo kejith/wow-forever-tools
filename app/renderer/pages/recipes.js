@@ -1,7 +1,7 @@
 // Page "Professions": profit per craft for learned recipes and which missing recipes pay more, calculated by
-// scripts/recipes.py. The filters work on the loaded data: one bridge call per character.
-import { $, DASH, ago, api, cached, content, daysOld, errorBox, esc, help, helpAttr, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, selectOption, shortDay, state, th, upTo } from '../core.js';
-import { mark, t } from '../i18n.js';
+// scripts/recipes.py. Real tabs separate learned and unlearned recipes; search and filters run in-window.
+import { $, DASH, ago, api, cached, clearTabs, content, daysOld, errorBox, esc, help, helpAttr, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, saveView, selectOption, setTabs, shortDay, state, th, upTo } from '../core.js';
+import { locale, mark, t } from '../i18n.js';
 
 const DIFFICULTY = [['orange', mark('orange: certain skill point')], ['yellow', mark('yellow: usually a skill point')],
   ['green', mark('green: rarely a skill point')], ['grey', mark('grey: no skill point')]];
@@ -29,7 +29,7 @@ function recipeName(r) {
       + `${itemIcon(g.id, g.quality, 'sm')}${g.count}× ${esc(g.name)}${g.source === 'vendor' ? ` <span class="muted">(${esc(t('vendor'))})</span>` : ''}</span>`;
   }).join('');
   const badges = [
-    r.isNew ? `<span class="badge new">${esc(t('NEW in Forever'))}</span>` : '',
+    r.isNew ? `<span class="badge forever">${esc(t('NEW in Forever'))}</span>` : '',
     r.cooldown ? `<span class="badge">${esc(t('cooldown {time}', { time: r.cooldown }))}</span>` : '',
     r.craftable ? `<span class="badge ok"${hintAttr(t('from bags and bank'))}>${esc(t('{n}× craftable', { n: r.craftable }))}</span>` : '',
   ].join(' ');
@@ -99,24 +99,30 @@ function learnBadge(r, rank) {
   return `<span class="muted">${esc(t('required skill unknown'))}</span>`;
 }
 
-export async function renderRecipes() {
-  if (!state.status) await loadStatus();
-  if (!state.char) { content.innerHTML = `<div class="notice">${esc(t('No character exported.'))}</div>`; return; }
-  const o = state.recipes;
-  content.innerHTML = loading(t('Calculating recipes against the AH scan …'));
-  const d = await cached(`recipes:${state.char}`, () => api.bridge('recipes', { char: state.char }));
-  if (d.error) { content.innerHTML = errorBox(d.error); return; }
-  if (!d.professions.length) {
-    content.innerHTML = `<div class="notice">${esc(t('This character has no crafting profession (gathering professions have no recipes).'))}</div>`;
-    return;
-  }
-  if (!d.professions.some((p) => p.skillLine === o.skillLine)) o.skillLine = d.professions[0].skillLine;
-  const p = d.professions.find((x) => x.skillLine === o.skillLine);
+let recipeData = null;
 
-  const keep = (r) => (!o.onlyProfit || (r.profit ?? -1) > 0) && r.listed >= o.minListed;
+function activateRecipeTab(key) {
+  state.recipes.tab = key;
+  for (const panel of content.querySelectorAll('[data-rec-panel]')) panel.hidden = panel.dataset.recPanel !== key;
+  content.scrollTop = 0;
+  saveView();
+}
+
+function matchesQuery(r, words) {
+  if (!words.length) return true;
+  const hay = [r.name, ...(r.reagents || []).map((g) => g.name)].join(' ').toLocaleLowerCase(locale());
+  return words.every((w) => hay.includes(w));
+}
+
+function renderRecipeBody(d) {
+  const o = state.recipes;
+  const p = d.professions.find((x) => x.skillLine === o.skillLine);
+  const words = (o.query || '').trim().toLocaleLowerCase(locale()).split(/\s+/).filter(Boolean);
+  const keep = (r) => (!o.onlyProfit || (r.profit ?? -1) > 0) && r.listed >= o.minListed && matchesQuery(r, words);
   const learned = p.learned.filter(keep);
   const missing = p.missing.filter((r) => keep(r) && (!o.onlyLearnable || r.acquire.learnable === true));
   const scanned = !!p.scanned;
+  const activeTab = scanned && o.tab === 'missing' ? 'missing' : 'learned';
 
   const header = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(p.name)}</h2><div class="big">${p.rank} <span class="muted small">/ ${p.max}</span></div>
@@ -142,30 +148,70 @@ export async function renderRecipes() {
     [t('Trend'), '', esc(t('The same profit on the last full scan days; the dashed line is zero. “Falling” or “rising”: the profit changed by more than 20% over the last three scan days. Hover the line for the daily values.'))],
     [t('in the AH'), 'num', esc(t('Offers of the result at the last scan. With few offers the price is uncertain.'))],
   ];
-  const learnedTable = scanned ? `<div class="section"><h2>${esc(t('Your recipes ({shown} of {total})', { shown: learned.length, total: p.learnedCount }))}</h2><div class="card">
+  const learnedTable = `<div class="card">
       ${learned.length ? `<table class="sticky"><thead><tr>${th(...columns)}</tr></thead>
       <tbody>${learned.map((r) => `<tr><td>${recipeName(r)}</td>${marketCells(r)}</tr>`).join('')}</tbody></table>`
-        : `<p class="muted">${esc(t('No learned recipe matches the filter.'))}</p>`}</div></div>` : '';
+        : `<p class="muted">${esc(t('No learned recipe matches the filter.'))}</p>`}</div>`;
 
-  const missingTitle = scanned ? t('Not learned yet ({shown} of {total})', { shown: missing.length, total: p.missingCount })
-    : t('All recipes ({shown} of {total})', { shown: missing.length, total: p.missingCount });
-  const missingTable = `<div class="section"><h2>${esc(missingTitle)}</h2><div class="card">
+  const missingTable = `<div class="card">
       ${missing.length ? `<table class="sticky"><thead><tr>${th(...columns,
         [t('Where from'), '', esc(t('Where the recipe comes from: the AH, a vendor the addon has seen, the trainer, or a recipe item that is not in the AH (drop, reputation or a vendor). The badge says whether your skill is high enough to learn it, or from which skill on.'))])}</tr></thead>
       <tbody>${missing.map((r) => `<tr class="${r.better ? 'best' : ''}"><td>${r.better ? `<span class="badge new">${esc(t('pays more'))}</span> ` : ''}${recipeName(r)}</td>${marketCells(r)}
         <td class="small where">${acquireCell(r, p.rank)}</td></tr>`).join('')}</tbody></table>`
-        : `<p class="muted">${esc(t('No recipe matches the filter.'))}</p>`}</div></div>`;
+        : `<p class="muted">${esc(t('No recipe matches the filter.'))}</p>`}</div>`;
 
+  if (state.page === 'recipes') {
+    if (scanned) {
+      setTabs([
+        { key: 'learned', label: t('Your recipes'), meta: `${learned.length}/${p.learnedCount}` },
+        { key: 'missing', label: t('Not learned yet'), meta: `${missing.length}/${p.missingCount}` },
+      ], activeTab, activateRecipeTab);
+    } else {
+      clearTabs();
+    }
+  }
+  const body = $('#rec-body');
+  if (!body) return;
+  if (!scanned) {
+    const missingTitle = t('All recipes ({shown} of {total})', { shown: missing.length, total: p.missingCount });
+    body.innerHTML = `${notice}${header}<div class="section"><h2>${esc(missingTitle)}</h2>${missingTable}</div>`;
+    return;
+  }
+  body.innerHTML = `${header}
+    <div class="tab-panel section" data-rec-panel="learned"${activeTab === 'learned' ? '' : ' hidden'}>${learnedTable}</div>
+    <div class="tab-panel section" data-rec-panel="missing"${activeTab === 'missing' ? '' : ' hidden'}>${missingTable}</div>`;
+}
+
+export async function renderRecipes() {
+  if (!state.status) await loadStatus();
+  if (!state.char) { content.innerHTML = `<div class="notice">${esc(t('No character exported.'))}</div>`; return; }
+  const o = state.recipes;
+  content.innerHTML = loading(t('Calculating recipes against the AH scan …'));
+  const d = await cached(`recipes:${state.char}`, () => api.bridge('recipes', { char: state.char }));
+  if (d.error) { content.innerHTML = errorBox(d.error); return; }
+  if (!d.professions.length) {
+    content.innerHTML = `<div class="notice">${esc(t('This character has no crafting profession (gathering professions have no recipes).'))}</div>`;
+    return;
+  }
+  recipeData = d;
+  if (!d.professions.some((p) => p.skillLine === o.skillLine)) o.skillLine = d.professions[0].skillLine;
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Profession'))}<select id="r-prof">${d.professions.map((x) => selectOption(x.skillLine, `${x.name} ${x.rank}/${x.max}`, o.skillLine)).join('')}</select></label>
+      <label>${esc(t('Search'))}<input type="search" id="r-query" value="${esc(o.query)}" placeholder="${esc(t('Recipe or reagent'))}" autocomplete="off"></label>
       <label><span class="label">${esc(t('At least in the AH'))} ${help(esc(t('Hides recipes whose result has fewer offers in the AH: with few offers the price says little.')))}</span>
         <input type="number" id="r-listed" min="0" max="1000" value="${o.minListed}"></label>
       <label class="check"><input type="checkbox" id="r-profit" ${o.onlyProfit ? 'checked' : ''}> ${esc(t('only with profit'))}</label>
       <label class="check"><input type="checkbox" id="r-learnable" ${o.onlyLearnable ? 'checked' : ''}> ${esc(t('only learnable now'))}</label>
     </div>
-    ${notice}${header}${learnedTable}${missingTable}`;
-  $('#r-prof').addEventListener('change', (e) => { o.skillLine = Number(e.target.value); renderRecipes(); });
-  $('#r-listed').addEventListener('change', (e) => { o.minListed = Math.max(0, Number(e.target.value) || 0); renderRecipes(); });
-  $('#r-profit').addEventListener('change', (e) => { o.onlyProfit = e.target.checked; renderRecipes(); });
-  $('#r-learnable').addEventListener('change', (e) => { o.onlyLearnable = e.target.checked; renderRecipes(); });
+    <div id="rec-body"></div>`;
+  renderRecipeBody(d);
+  let timer;
+  $('#r-query').addEventListener('input', (e) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { o.query = e.target.value; saveView(); if (recipeData) renderRecipeBody(recipeData); }, 100);
+  });
+  $('#r-prof').addEventListener('change', (e) => { o.skillLine = Number(e.target.value); renderRecipeBody(d); });
+  $('#r-listed').addEventListener('change', (e) => { o.minListed = Math.max(0, Number(e.target.value) || 0); renderRecipeBody(d); });
+  $('#r-profit').addEventListener('change', (e) => { o.onlyProfit = e.target.checked; renderRecipeBody(d); });
+  $('#r-learnable').addEventListener('change', (e) => { o.onlyLearnable = e.target.checked; renderRecipeBody(d); });
 }

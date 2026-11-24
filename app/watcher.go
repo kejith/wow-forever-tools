@@ -1,6 +1,6 @@
 package main
 
-// The game writes its SavedVariables on /reload and logout. The watcher looks at WoWMCP.lua, Auctionator.lua
+// The game writes its SavedVariables on /reload and logout. The watcher looks at WoWToolsForever.lua, Auctionator.lua
 // and GoldPerHour.lua below WTF/Account once a second; after 1.5 s without a further change (WoW writes
 // several files in a row) it computes new lists for the game and tells the window ("data-changed"). Looking
 // at the file times instead of waiting for change events also works where the folder is a network or WSL path.
@@ -15,7 +15,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-var watchedFile = regexp.MustCompile(`(?i)(WoWMCP|Auctionator|GoldPerHour)\.lua$`)
+var watchedFile = regexp.MustCompile(`(?i)(WoWToolsForever|Auctionator|GoldPerHour)\.lua$`)
 
 const (
 	watchEvery = time.Second

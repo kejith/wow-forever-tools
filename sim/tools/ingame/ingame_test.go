@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // The cases of scripts/test_ingame.py: the four calculations are replaced by hand-made results.
@@ -411,7 +411,7 @@ func addon(t *testing.T, wow string, files []string, version string) string {
 		t.Fatal(err)
 	}
 	toc := "## Interface: 16001\n## Version: " + version + "\n\n" + strings.Join(files, "\n") + "\n"
-	if err := os.WriteFile(filepath.Join(folder, "WoWMCP.toc"), []byte(toc), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(folder, "WoWToolsForever.toc"), []byte(toc), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return folder
@@ -442,7 +442,7 @@ func TestWriteRules(t *testing.T) {
 	if r.Get("written") != false || !strings.Contains(r.Get("reason").(string), "not installed") {
 		t.Error("no addon", plain(t, r))
 	}
-	folder := addon(t, wow, []string{"AppRequest.lua", "Locales.lua", "WoWMCP.lua"}, "1.6.0")
+	folder := addon(t, wow, []string{"AppRequest.lua", "Locales.lua", "WoWToolsForever.lua"}, "1.6.0")
 	eq(t, "1.6", plain(t, AddonState(wow)), `{"installed": true, "ready": false, "version": "1.6.0"}`)
 	r, _ = Write(wow, first)
 	if r.Get("written") != false || !strings.Contains(r.Get("reason").(string), "1.6.0") {
@@ -451,7 +451,7 @@ func TestWriteRules(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(folder, DataFile)); err == nil {
 		t.Error("written into an addon that cannot read it")
 	}
-	addon(t, wow, []string{"AppRequest.lua", "AppData.lua", "Locales.lua", "WoWMCP.lua", "Lists.lua"}, "1.7.0")
+	addon(t, wow, []string{"AppRequest.lua", "AppData.lua", "Locales.lua", "WoWToolsForever.lua", "Lists.lua"}, "1.7.0")
 	if AddonState(wow).Get("ready") != true || FileState(wow) != nil {
 		t.Fatal("ready addon")
 	}
@@ -495,7 +495,7 @@ func fakeWow(t *testing.T, locale string) string {
 	for _, c := range [][2]string{{"Tester", "WARLOCK"}, {"Healer", "PRIEST"}} {
 		folder := filepath.Join(wow, "WTF", "Account", "TEST", "93", c[0]+"-"+c[0], "SavedVariables")
 		os.MkdirAll(folder, 0o755)
-		os.WriteFile(filepath.Join(folder, "WoWMCP.lua"), []byte(`WoWMCP_Char = { character = { name = "`+c[0]+
+		os.WriteFile(filepath.Join(folder, "WoWToolsForever.lua"), []byte(`WoWToolsForever_Char = { character = { name = "`+c[0]+
 			`", classFile = "`+c[1]+`", level = 46 } }`+"\n"), 0o644)
 	}
 	return wow
@@ -583,7 +583,7 @@ func TestTextsFollowTheClientNotTheApp(t *testing.T) {
 func TestSyncWritesAndReadsWhatTheGameLoaded(t *testing.T) {
 	english(t)
 	wow := fakeWow(t, "enUS")
-	addon(t, wow, []string{"AppRequest.lua", "AppData.lua", "Locales.lua", "WoWMCP.lua", "Lists.lua"}, "1.7.0")
+	addon(t, wow, []string{"AppRequest.lua", "AppData.lua", "Locales.lua", "WoWToolsForever.lua", "Lists.lua"}, "1.7.0")
 	withFakes(t, func() {
 		s, _ := Sync(wow, "", true)
 		file := s.Get("file").(*pyjson.Obj)
@@ -597,7 +597,7 @@ func TestSyncWritesAndReadsWhatTheGameLoaded(t *testing.T) {
 		for _, a := range [][2]string{{"TEST", "50"}, {"OTHER", "70"}} {
 			folder := filepath.Join(wow, "WTF", "Account", a[0], "SavedVariables")
 			os.MkdirAll(folder, 0o755)
-			os.WriteFile(filepath.Join(folder, "WoWMCP.lua"), []byte(`WoWMCP_Account = { appData = { generated = 1, hash = "`+
+			os.WriteFile(filepath.Join(folder, "WoWToolsForever.lua"), []byte(`WoWToolsForever_Account = { appData = { generated = 1, hash = "`+
 				a[0]+`", loaded = `+a[1]+` } }`+"\n"), 0o644)
 		}
 		eq(t, "loaded", plain(t, loadedState(wow)), `{"generated": 1, "hash": "OTHER", "loaded": 70}`)

@@ -1,6 +1,6 @@
 package main
 
-// Installing the addons the app works with (WoWMCP, GoldPerHour) and writing app requests. The addons live in
+// Installing the addons the app works with (WoWToolsForever, GoldPerHour) and writing app requests. The addons live in
 // their own repositories; the app installs the latest GitHub release (releases.go) or, for development, a
 // local checkout. Nothing here needs the window, so addon_test.go runs all of it against a scratch folder.
 
@@ -8,10 +8,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -30,12 +32,13 @@ func isAppFile(f string) bool { return f == requestFile || f == dataFile }
 // takes the place of the release.
 type addonSpec struct {
 	name, repo, env, global string
+	legacyDir               string
 	obsolete                []string
 }
 
 var addons = map[string]addonSpec{
-	"wowmcp":      {name: "WoWMCP", repo: "kejith/WoWMCP", env: "WOWMCP_ADDON_DIR", global: "WoWMCP_AppRequest", obsolete: []string{"ItemQueue.lua"}},
-	"goldperhour": {name: "GoldPerHour", repo: "kejith/GoldPerHour", env: "GOLDPERHOUR_ADDON_DIR", global: "GoldPerHour_AppRequest"},
+	"wowtoolsforever": {name: "WoWToolsForever", repo: "kejith/WoWToolsForever", env: "WOWTOOLSFOREVER_ADDON_DIR", global: "WoWToolsForever_AppRequest", legacyDir: "WoWMCP", obsolete: []string{"ItemQueue.lua"}},
+	"goldperhour":     {name: "GoldPerHour", repo: "kejith/GoldPerHour", env: "GOLDPERHOUR_ADDON_DIR", global: "GoldPerHour_AppRequest"},
 }
 
 func spec(key string) (addonSpec, error) {
@@ -155,25 +158,50 @@ func readRequest(wowDir, key string) *pendingRequest {
 	if a := requestAction.FindStringSubmatch(text); a != nil {
 		out.Action = &a[1]
 	}
-	if key != "wowmcp" && requestSettings.MatchString(text) {
+	if key != "wowtoolsforever" && requestSettings.MatchString(text) {
 		out.Settings = true
 	}
 	return out
 }
 
-func changedFiles(sourceDir, target, key string) ([]string, error) {
+// addonFiles returns the .toc, every file it lists, and any asset files under Media/.
+func addonFiles(dir, key string) ([]string, error) {
 	s, _ := spec(key)
-	files, err := tocFiles(sourceDir, key)
+	listed, err := tocFiles(dir, key)
+	if err != nil {
+		return nil, err
+	}
+	files := append([]string{s.name + ".toc"}, listed...)
+	mediaDir := filepath.Join(dir, "Media")
+	if info, err := os.Stat(mediaDir); err == nil && info.IsDir() {
+		var media []string
+		_ = filepath.WalkDir(mediaDir, func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || strings.HasPrefix(d.Name(), ".") {
+				return nil
+			}
+			if rel, err := filepath.Rel(dir, p); err == nil {
+				media = append(media, filepath.ToSlash(rel))
+			}
+			return nil
+		})
+		sort.Strings(media)
+		files = append(files, media...)
+	}
+	return files, nil
+}
+
+func changedFiles(sourceDir, target, key string) ([]string, error) {
+	files, err := addonFiles(sourceDir, key)
 	if err != nil {
 		return nil, err
 	}
 	changed := []string{}
-	for _, f := range append([]string{s.name + ".toc"}, files...) {
+	for _, f := range files {
 		if isAppFile(f) {
 			continue
 		}
-		a, errA := os.ReadFile(filepath.Join(sourceDir, f))
-		b, errB := os.ReadFile(filepath.Join(target, f))
+		a, errA := os.ReadFile(filepath.Join(sourceDir, filepath.FromSlash(f)))
+		b, errB := os.ReadFile(filepath.Join(target, filepath.FromSlash(f)))
 		if errA != nil || errB != nil || !bytes.Equal(a, b) {
 			changed = append(changed, f)
 		}
@@ -255,14 +283,13 @@ func installAddon(wowDir, key string, o addonOpts) (*addonState, error) {
 	}
 	target := installedAddonDir(wowDir, key)
 	wasInstalled := exists(filepath.Join(target, s.name+".toc"))
-	listed, err := tocFiles(src.Dir, key)
+	files, err := addonFiles(src.Dir, key)
 	if err != nil {
 		return nil, err
 	}
-	files := append([]string{s.name + ".toc"}, listed...)
 	var missing []string
 	for _, f := range files {
-		if !exists(filepath.Join(src.Dir, f)) {
+		if !exists(filepath.Join(src.Dir, filepath.FromSlash(f))) {
 			missing = append(missing, f)
 		}
 	}
@@ -292,6 +319,12 @@ func installAddon(wowDir, key string, o addonOpts) (*addonState, error) {
 	for _, f := range s.obsolete {
 		os.Remove(filepath.Join(target, f))
 	}
+	if s.legacyDir != "" {
+		oldDir := filepath.Join(wowDir, "Interface", "AddOns", s.legacyDir)
+		if exists(filepath.Join(oldDir, s.legacyDir+".toc")) {
+			_ = os.RemoveAll(oldDir)
+		}
+	}
 	o.force = false
 	info, err := addonInfo(wowDir, key, o)
 	if err != nil {
@@ -311,7 +344,7 @@ func nextID(wowDir, key string) int64 {
 	return id
 }
 
-const requestNote = "-- Written by the WoW Forever Tools desktop app. The client re-reads this file on /reload; a request runs once.\n"
+const requestNote = "-- Written by the WoW Tools Forever desktop app. The client re-reads this file on /reload; a request runs once.\n"
 
 func writeRequestFile(wowDir, key string, fields []string) error {
 	s, err := spec(key)
@@ -334,9 +367,9 @@ type requestResult struct {
 	Action string `json:"action"`
 }
 
-// writeRequest asks WoWMCP for an item export ("items", full = everything again) or a snapshot ("sync").
+// writeRequest asks WoWToolsForever for an item export ("items", full = everything again) or a snapshot ("sync").
 func writeRequest(wowDir, action string, full bool) (*requestResult, error) {
-	id := nextID(wowDir, "wowmcp")
+	id := nextID(wowDir, "wowtoolsforever")
 	if action != "sync" {
 		action = "items"
 	}
@@ -344,7 +377,7 @@ func writeRequest(wowDir, action string, full bool) (*requestResult, error) {
 	if full {
 		fields = append(fields, "full = true")
 	}
-	if err := writeRequestFile(wowDir, "wowmcp", fields); err != nil {
+	if err := writeRequestFile(wowDir, "wowtoolsforever", fields); err != nil {
 		return nil, err
 	}
 	return &requestResult{ID: id, Action: action}, nil

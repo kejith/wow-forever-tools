@@ -1,6 +1,6 @@
 package main
 
-// Lists in the game: the WoWMCP addon shows the app's results in the game (a window with the lists, Auctionator
+// Lists in the game: the WoWToolsForever addon shows the app's results in the game (a window with the lists, Auctionator
 // shopping lists, tooltip lines and vendor hints; the bridge command ingame). The bridge computes them for
 // every character and writes AppData.lua into the installed addon, which the client loads on the next
 // /reload. That happens at the start, whenever the game has saved (the watcher) and after an addon install,

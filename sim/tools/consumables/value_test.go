@@ -5,7 +5,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
 )
 
 // A made-up engine: a point of spell damage is a point of the metric, mana per 5 seconds half a point up to

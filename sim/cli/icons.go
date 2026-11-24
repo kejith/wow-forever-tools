@@ -8,9 +8,9 @@ import (
 	"strings"
 	"unicode/utf16"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/icons"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/icons"
 )
 
 // icons is scripts/icons.py run by itself: `wowtools icons 9492 287004` maps item IDs to icon FileDataIDs,

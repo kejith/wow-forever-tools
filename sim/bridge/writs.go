@@ -1,8 +1,8 @@
 package bridge
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/writs"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/writs"
 )
 
 // writs is app_bridge's writs: the best craftsman's writs per tier and the trade crates.

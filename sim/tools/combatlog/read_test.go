@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pycsv"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pycsv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 )
 
 func TestCSVLikePython(t *testing.T) {

@@ -1,5 +1,5 @@
 
-WoWMCP_Char = {
+WoWToolsForever_Char = {
 ["addon"] = {
 ["version"] = "1.12.0",
 },

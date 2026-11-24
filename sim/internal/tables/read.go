@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/pycsv"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/pycsv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // Table is a DB2 table as icons.table returns it: the rows of csv.DictReader. A row shorter than the
@@ -153,7 +153,7 @@ func Read(cache, name, build, locale string) (*Table, error) {
 func ClientBuild(wow string) string {
 	best, bestNum := "", int64(0)
 	for _, path := range game.FindChars(wow, "") {
-		c, err := sv.LoadTable(path, "WoWMCP_Char")
+		c, err := sv.LoadTable(path, "WoWToolsForever_Char")
 		if err != nil {
 			continue
 		}

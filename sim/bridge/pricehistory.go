@@ -1,8 +1,8 @@
 package bridge
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/pricehistory"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/pricehistory"
 )
 
 // pricehistory is app_bridge's pricehistory: every item of Auctionator's database with its days; the window

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 const build = "1.60.1.70938"
@@ -64,13 +64,13 @@ const prices = `{
 // 500: equipment only the item export names; 600: only in a bag; 700: nobody knows its name; 800: no day left.
 const names = `{"2447": ["Friedensblume", 1, 7], "500": [null, null, 4], "600": [null, null, 7], "700": [null, null, null]}`
 
-const char = `WoWMCP_Char = {
+const char = `WoWToolsForever_Char = {
   ["client"] = { ["version"] = "1.60.1", ["build"] = "70938", ["locale"] = "deDE" },
   ["bags"] = { { ["items"] = { { ["id"] = 600, ["name"] = "Leinenstoff", ["count"] = 3, ["quality"] = 1 } } } },
 }
 `
 
-const account = `WoWMCP_Items = { ["locale"] = "deDE", ["items"] = {
+const account = `WoWToolsForever_Items = { ["locale"] = "deDE", ["items"] = {
   [500] = { ["name"] = "Robe der Tests", ["quality"] = 3, ["classID"] = 4 },
 } }
 `
@@ -89,8 +89,8 @@ func write(t *testing.T, path, text string) {
 func wowFolder(t *testing.T, acct string) string {
 	wow := t.TempDir()
 	write(t, filepath.Join(wow, "WTF", "Config.wtf"), "SET textLocale \"deDE\"\n")
-	write(t, filepath.Join(wow, "WTF", "Account", "TEST", "SavedVariables", "WoWMCP.lua"), acct)
-	write(t, filepath.Join(wow, "WTF", "Account", "TEST", "93", "Tester-Realm", "SavedVariables", "WoWMCP.lua"), char)
+	write(t, filepath.Join(wow, "WTF", "Account", "TEST", "SavedVariables", "WoWToolsForever.lua"), acct)
+	write(t, filepath.Join(wow, "WTF", "Account", "TEST", "93", "Tester-Realm", "SavedVariables", "WoWToolsForever.lua"), char)
 	return wow
 }
 

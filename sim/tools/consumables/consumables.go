@@ -14,16 +14,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
-	"github.com/kejith/wow-forever-tools/sim/internal/tables"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
-	"github.com/kejith/wow-forever-tools/sim/tools/recipes"
-	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/tables"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/recipes"
+	"github.com/kejith/wow-tools-forever/sim/tools/rotations"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 const newID = 200000
@@ -787,7 +787,7 @@ func compute(wow, char string, top int, allBuffs bool, engine string, fightSecon
 	metrics []string, set Set) (*pyjson.Obj, []*plan, error) {
 	files := game.FindChars(wow, char)
 	if len(files) == 0 {
-		return nil, nil, errors.New(i18n.T("No WoWMCP export found for \"{char}\".", "char", char))
+		return nil, nil, errors.New(i18n.T("No WoW Tools Forever export found for \"{char}\".", "char", char))
 	}
 	c, err := upgrades.LoadChar(files[0])
 	if err != nil {
@@ -801,8 +801,8 @@ func compute(wow, char string, top int, allBuffs bool, engine string, fightSecon
 		prices = sv.NewTable() // without an AH scan the page still shows vendor food, bags and recipes
 	}
 	vendor := sv.NewTable()
-	for _, path := range game.AccountFiles(wow, "WoWMCP.lua") {
-		acct, err := sv.LoadTable(path, "WoWMCP_Account")
+	for _, path := range game.AccountFiles(wow, "WoWToolsForever.lua") {
+		acct, err := sv.LoadTable(path, "WoWToolsForever_Account")
 		if err != nil {
 			return nil, nil, err
 		}

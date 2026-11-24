@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
 )
 
 // ---------- the set by value: the most gain per gold ----------

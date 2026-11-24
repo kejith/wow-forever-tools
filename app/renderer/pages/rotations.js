@@ -1,15 +1,16 @@
 // Page "Rotations": what the selected character casts in which situation, from the combat engine through
 // scripts/rotations.py. A damage dealer gets the best rotation for several kinds of fights, a healer the
-// cheapest spells for several levels of incoming damage. The sentences come from the script; the page lays
-// them out and explains the columns once per guide.
-import { $, DASH as dash, api, cached, content, errorBox, esc, help, loadStatus, loading, num, percent, selectOption, state, terms } from '../core.js';
+// cheapest spells for several levels of incoming damage.
+import { $, DASH as dash, api, cached, content, errorBox, esc, help, hintAttr, loadStatus, loading, num, percent, selectOption, state, terms } from '../core.js';
 import { t } from '../i18n.js';
 
 // A time in a fight: "45 s" or "2:24 min".
 export const clock = (seconds) => (seconds < 60 ? t('{n} s', { n: Math.round(seconds) })
   : t('{m}:{s} min', { m: Math.floor(seconds / 60), s: String(Math.floor(seconds % 60)).padStart(2, '0') }));
 
-const share = (pct) => (pct >= 0.5 ? percent(num(pct, 0)) : dash);
+const shareCell = (pct) => (pct >= 0.5
+  ? `<span class="rot-share"><span>${percent(num(pct, 0))}</span><span class="rot-share-bar"><span style="width:${Math.min(100, Math.round(pct))}%"></span></span></span>`
+  : dash);
 
 // The cards repeat, so their columns are explained once, behind the "?" at the guide's heading.
 const guideTerms = (g) => (g.metric === 'hps' ? terms([
@@ -28,15 +29,22 @@ const guideTerms = (g) => (g.metric === 'hps' ? terms([
 
 export function stepsTable(s, healer) {
   const rows = s.steps.map((st, i) => `<tr>
-      <td class="muted num">${i + 1}</td>
+      <td class="num"><span class="rot-rank">${i + 1}</span></td>
       <td>${esc(st.label)}<div class="small muted">${esc(st.rule)}</div></td>
       <td class="num">${st.perMin >= 0.1 ? num(st.perMin, 1) : dash}</td>
-      <td class="num">${share(st.sharePct)}</td>
+      <td class="num">${shareCell(st.sharePct)}</td>
       <td class="num">${st.value ? `<b>${num(st.value, 1)}</b>` : dash}</td>
       ${healer ? `<td class="num">${st.manaPerSec ? num(st.manaPerSec, 1) : dash}</td>` : ''}</tr>`).join('');
   return `<table class="rot-steps"><thead><tr><th></th><th>${esc(t('Spell'))}</th><th class="num">${esc(t('Per min'))}</th>
       <th class="num">${esc(t('Time'))}</th><th class="num">${esc(s.unit)}</th>${healer ? `<th class="num">${esc(t('Mana/s'))}</th>` : ''}</tr></thead>
     <tbody>${rows}</tbody></table>`;
+}
+
+export function skippedChips(skipped, unit) {
+  if (!skipped?.length) return '';
+  return `<div class="rot-skipped"><div class="rot-skipped-title">${esc(t('Left out'))} (${skipped.length})</div>
+    <div class="rot-skipped-list">${skipped.map((k) => `<span class="rot-skip-chip"${hintAttr(k.why || '')}>
+      <span class="rot-name">${esc(k.label)}</span> <span class="warn-text">−${num(k.loss, 1)} ${esc(unit)}</span></span>`).join('')}</div></div>`;
 }
 
 const meter = (pct, cls) => `<div class="rot-meter ${cls}"><span style="width:${Math.max(0, Math.min(100, pct))}%"></span></div>`;
@@ -53,20 +61,18 @@ function timeline(s) {
       ${s.more ? `<p class="small muted">${esc(t('… and {n} more actions', { n: s.more }))}</p>` : ''}</details>`;
 }
 
-function card(s, healer) {
+function card(s, healer, guideMetric) {
   // For a healer the answer is how long the mana pays for it; so it is for the fight played as if the mana
   // never ran out.
   const mana = !healer && !s.freeMana ? ''
     : s.oomSeconds == null ? `<span class="badge ok">${esc(t('Mana lasts'))}</span>`
       : `<span class="badge warn">${esc(t('Mana lasts {time}', { time: clock(s.oomSeconds) }))}</span>`;
-  const skipped = s.skipped.map((k) => `<div class="small muted">${esc(t('Left out'))}: <span class="rot-name">${esc(k.label)}</span>
-      <span class="warn-text">−${num(k.loss, 1)} ${esc(s.unit)}</span>${k.why ? ` · ${esc(k.why)}` : ''}</div>`).join('');
-  return `<div class="card rot-card" data-key="${esc(s.key)}">
+  return `<div class="card rot-card" id="rot-${esc(guideMetric)}-${esc(s.key)}" data-key="${esc(s.key)}">
       <div class="rot-head"><h3>${esc(s.title)} ${mana}</h3><div class="big">${num(s.value, 1)} <span class="small muted">${esc(s.unit)}</span></div></div>
       <div class="small muted">${esc(s.about)}</div>
       <p class="rot-verdict">${esc(s.verdict)}</p>
       ${stepsTable(s, healer)}
-      ${skipped ? `<div class="rot-skipped">${skipped}</div>` : ''}${timeline(s)}</div>`;
+      ${skippedChips(s.skipped, s.unit)}${timeline(s)}</div>`;
 }
 
 export async function renderRotations() {
@@ -91,9 +97,23 @@ export async function renderRotations() {
   if (!body) return;
   if (d.error) { body.innerHTML = errorBox(d.error); return; }
   $('#r-meta').textContent = [t('Level {level}', { level: d.level }), t('combat model {version}', { version: d.engine.version })].join(' · ');
-  body.innerHTML = `${d.engine.spellbookSource === 'assumed' ? `<div class="notice small">${t('No spellbook in the export: every trainer rank up to your level is assumed. Update the WoWMCP addon and type <code>/reload</code>, then the page knows your spells.')}</div>` : ''}
+  body.innerHTML = `${d.engine.spellbookSource === 'assumed' ? `<div class="notice small">${t('No spellbook in the export: every trainer rank up to your level is assumed. Update the WoW Tools Forever addon and type <code>/reload</code>, then the page knows your spells.')}</div>` : ''}
     ${d.guides.map((g, i) => `<div class="section rot-guide" id="r-${esc(g.metric)}"${i ? '' : ' style="margin-top:0"'}>
       <h2 class="heading">${esc(g.title)} ${help(guideTerms(g))}</h2>
       ${g.consumables ? `<div class="notice small">${esc(g.consumables.text)}</div>` : ''}
-      <div class="rot-grid">${g.situations.map((s) => card(s, g.metric === 'hps')).join('')}</div></div>`).join('')}`;
+      <div class="rot-summary">${g.situations.map((s) => `<button type="button" class="rot-pill" data-rot-jump="#rot-${esc(g.metric)}-${esc(s.key)}">
+        <span>${esc(s.title)}</span><b>${num(s.value, 1)}</b></button>`).join('')}</div>
+      <div class="rot-grid">${g.situations.map((s) => card(s, g.metric === 'hps', g.metric)).join('')}</div></div>`).join('')}`;
 }
+
+content.addEventListener('click', (e) => {
+  const pill = e.target.closest('[data-rot-jump]');
+  if (!pill || state.page !== 'rotations') return;
+  const el = $(pill.dataset.rotJump);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('card-flash');
+    void el.offsetWidth;
+    el.classList.add('card-flash');
+  }
+});

@@ -210,7 +210,7 @@ func githubGet(ctx context.Context, url, accept string) (*http.Response, error) 
 		return nil, err
 	}
 	req.Header.Set("Accept", accept)
-	req.Header.Set("User-Agent", "wow-forever-tools")
+	req.Header.Set("User-Agent", "wow-tools-forever")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	res, err := httpClient.Do(req)
 	if err != nil {

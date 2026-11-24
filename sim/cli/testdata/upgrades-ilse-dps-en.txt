@@ -25,7 +25,7 @@ Combat model: 57.0 DPS against +3 levels, 60s fight, mana for 64s
    The snapshot was taken with these buffs, and its numbers include them: Mal der Wildnis, Arkane Intelligenz.
    Checked against the spell texts, mana costs and cast times of the game: 13 of 13 spell ranks agree.
 Prices are the lowest buyout at the scan.
-7 items you own are only known by name (Szepter des Verlasseneren in your bank, Geisterhafter Mantel in your bank, Monstrositätenhautreste in your bank, Zerfledderte Fäustlinge in your bank, Reich mit Juwelen besetzter Ring in your bank, Banditen-Umhang der Magie in your bank, ...): open the bank once with WoWMCP 1.12 or newer, then /reload.
+7 items you own are only known by name (Szepter des Verlasseneren in your bank, Geisterhafter Mantel in your bank, Monstrositätenhautreste in your bank, Zerfledderte Fäustlinge in your bank, Reich mit Juwelen besetzter Ring in your bank, Banditen-Umhang der Magie in your bank, ...): open the bank once with WoW Tools Forever 1.12 or newer, then /reload.
 
 == Best package for 47g 17s: +4.3 DPS (+8%) for 1g 38s
    Finger       +1.8   new      owned            Ring der Machtregulierung (in your bags) [NEW in Forever]  [SP 6, Mana/5s 3]  id 273030

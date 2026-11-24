@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/game"
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/tools/writs"
+	"github.com/kejith/wow-tools-forever/sim/internal/game"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/tools/writs"
 )
 
 // writs is scripts/writs.py: the best craftsman's writ per tier by silver per reputation, and the trade

@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/consumables"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/consumables"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // upgrades is scripts/upgrades.py: equipment upgrades from the auction house and from the gear the account
@@ -229,7 +229,7 @@ func printUpgrades(w *strings.Builder, r any) {
 		if len(unknown) > 6 {
 			joined += ", ..."
 		}
-		p(i18n.T("{n} items you own are only known by name ({names}): open the bank once with WoWMCP 1.12 or "+
+		p(i18n.T("{n} items you own are only known by name ({names}): open the bank once with WoW Tools Forever 1.12 or "+
 			"newer, then /reload.", "n", len(unknown), "names", joined))
 	}
 	p("")

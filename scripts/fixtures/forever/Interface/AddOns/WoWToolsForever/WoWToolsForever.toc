@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: WoWToolsForever
+## Version: 1.12.0
+## SavedVariables: WoWToolsForever_Account, WoWToolsForever_Items
+## SavedVariablesPerCharacter: WoWToolsForever_Char
+
+AppRequest.lua
+AppData.lua
+Locales.lua
+WoWToolsForever.lua
+Lists.lua
+History.lua

@@ -3,7 +3,7 @@ package catalog
 import (
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 func build(t *testing.T) *Catalog {

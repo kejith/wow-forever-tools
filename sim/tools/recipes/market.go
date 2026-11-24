@@ -4,8 +4,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // HistoryDays is recipes.HISTORY_DAYS: the profit history shows this many full scan days.
@@ -28,7 +28,7 @@ var VendorItems = map[int64]bool{
 }
 
 // Market is recipes.Market: Auctionator's prices (sv.Prices), the vendor prices the addon saw
-// (WoWMCP_Account.vendor of every account, merged) and the catalog's items for the trade vendors' prices.
+// (WoWToolsForever_Account.vendor of every account, merged) and the catalog's items for the trade vendors' prices.
 type Market struct {
 	Prices  *sv.Table
 	Vendor  *sv.Table

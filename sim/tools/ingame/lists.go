@@ -1,6 +1,6 @@
-// Package ingame is scripts/ingame.py: what the WoWMCP addon shows in the game. The results of upgrades,
+// Package ingame is scripts/ingame.py: what the WoW Tools Forever addon shows in the game. The results of upgrades,
 // writs, recipes and consumables become lists, tooltip lines and vendor hints, written as Lua into the addon
-// folder (Interface/AddOns/WoWMCP/AppData.lua), which the client loads on /reload.
+// folder (Interface/AddOns/WoWToolsForever/AppData.lua), which the client loads on /reload.
 //
 // The file is the one Python writes, byte for byte (the same `hash` too), so an update of the app does not
 // make the game reload a file whose content did not change.
@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/writs"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/writs"
 )
 
 const (

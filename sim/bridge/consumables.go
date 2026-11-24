@@ -1,9 +1,9 @@
 package bridge
 
 import (
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/consumables"
-	"github.com/kejith/wow-forever-tools/sim/tools/upgrades"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/consumables"
+	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
 )
 
 // consumables is app_bridge.py's "consumables": every buff group (the window hides the ones that do not help

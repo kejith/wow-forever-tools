@@ -3,8 +3,8 @@ package run
 import (
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/engine"
-	"github.com/kejith/wow-forever-tools/sim/talents"
+	"github.com/kejith/wow-tools-forever/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/talents"
 )
 
 // A level-22 fixture priest with Power Word: Shield, Dark Sacrifice and the

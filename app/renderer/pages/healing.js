@@ -14,7 +14,7 @@ function hit(r) {
   return parts.join(' + ');
 }
 
-const best = (text, is, why) => (is ? `<b class="heal-best"${hintAttr(why)}>${text}</b>` : text);
+const best = (text, is, why) => (is ? `<b class="heal-best"${hintAttr(why)}>★ ${text}</b>` : text);
 
 function rankRow(r, first) {
   const hps = r.hpsOnTarget !== null
@@ -95,14 +95,14 @@ function whenTable(d) {
 
 function weightTable(d) {
   const w = d.weights;
-  const cell = (row, name) => `<td class="num">${num(row[name], 2)}</td>
+  const cell = (row, name, sep = '') => `<td class="num${sep}">${num(row[name], 2)}</td>
       <td class="num muted">${row[`${name}Bonus`] === null ? dash : num(row[`${name}Bonus`], 2)}</td>`;
-  const rows = w.rows.map((row) => `<tr><td>${esc(row.label)}</td>${cell(row, 'short')}${cell(row, 'long')}</tr>`).join('');
+  const rows = w.rows.map((row) => `<tr><td>${esc(row.label)}</td>${cell(row, 'short')}${cell(row, 'long', ' group-sep')}</tr>`).join('');
   const fight = (seconds) => esc(t('Fight of {seconds} s', { seconds: num(seconds) }));
   return `<table class="compact heal-weights"><thead>
-      <tr><th></th><th class="num" colspan="2">${fight(w.seconds)}</th><th class="num" colspan="2">${fight(w.longSeconds)}</th></tr>
+      <tr><th></th><th class="num" colspan="2">${fight(w.seconds)}</th><th class="num group-sep" colspan="2">${fight(w.longSeconds)}</th></tr>
       <tr><th>${esc(t('One point of'))}</th><th class="num">HPS</th><th class="num">${esc(t('= healing bonus'))}</th>
-        <th class="num">HPS</th><th class="num">${esc(t('= healing bonus'))}</th></tr></thead><tbody>${rows}</tbody></table>`;
+        <th class="num group-sep">HPS</th><th class="num">${esc(t('= healing bonus'))}</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // The whole section from the answer of the bridge command "healing".
@@ -113,7 +113,7 @@ export function healingSection(d) {
   ], t('A short fight is limited by the mana bar, so intellect counts; a long one by the regeneration, so spirit and mana per 5 sec. count.'));
   return `<h2 class="heading">${esc(t('Healing'))} ${help(d.notes.map((n) => `<p>${esc(n)}</p>`).join(''))}
       <span class="spacer"></span><span class="small muted">${esc(t('combat model {version}', { version: d.engine.version }))}</span></h2>
-    ${d.engine.spellbookSource === 'assumed' ? `<div class="notice small">${t('No spellbook in the export: every trainer rank up to your level is assumed. Update the WoWMCP addon and type <code>/reload</code>, then the page knows your spells.')}</div>` : ''}
+    ${d.engine.spellbookSource === 'assumed' ? `<div class="notice small">${t('No spellbook in the export: every trainer rank up to your level is assumed. Update the WoW Tools Forever addon and type <code>/reload</code>, then the page knows your spells.')}</div>` : ''}
     ${statTiles(d)}
     <div class="card heal-card">${rankTable(d)}</div>
     <div class="heal-grid">

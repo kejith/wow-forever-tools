@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Builds the Windows app from app/: build/bin/WoW Forever Tools.exe (the window and, as `bridge <command>`,
-# every calculation of sim/), and with --installer also build/bin/WoW-Forever-Tools-Setup-<version>.exe.
+# Builds the Windows app from app/: build/bin/WoW Tools Forever.exe (the window and, as `bridge <command>`,
+# every calculation of sim/), and with --installer also build/bin/WoW-Tools-Forever-Setup-<version>.exe.
 # Runs in Git Bash on Windows and in WSL or Linux (cross-compiled; Wails needs no cgo on Windows). The
 # installer needs makensis (NSIS 3): on Windows from https://nsis.sourceforge.io or `choco install nsis`, in
 # WSL `sudo apt install nsis`.
@@ -28,8 +28,8 @@ ldflags="-H windowsgui -s -w"
 [ "$mode" = packaged ] && ldflags="$ldflags -X main.packaged=1"
 mkdir -p build/bin
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags desktop,production -trimpath -ldflags "$ldflags" \
-  -o "build/bin/WoW Forever Tools.exe" .
-echo "built build/bin/WoW Forever Tools.exe ($version, $mode)"
+  -o "build/bin/WoW Tools Forever.exe" .
+echo "built build/bin/WoW Tools Forever.exe ($version, $mode)"
 
 if [ "$installer" = true ]; then
   makensis=$(command -v makensis || true)
@@ -41,5 +41,5 @@ if [ "$installer" = true ]; then
     exit 1
   fi
   "$makensis" -V2 -DVERSION="$version" installer/installer.nsi
-  echo "built build/bin/WoW-Forever-Tools-Setup-$version.exe"
+  echo "built build/bin/WoW-Tools-Forever-Setup-$version.exe"
 fi

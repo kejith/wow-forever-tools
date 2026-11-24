@@ -15,8 +15,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // Obj is an object whose keys keep the order they were added in, like a Python dict.

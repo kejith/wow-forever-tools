@@ -4,9 +4,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/tools/icons"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/tools/icons"
 )
 
 // icons is app_bridge's icons: item ID -> icon FileDataID for --ids, with the PNGs downloaded into the cache.

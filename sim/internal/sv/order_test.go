@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 )
 
 // orderScript prints, for every table of a file that lupa turns into a dict without a string key, the order

@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyfmt"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 )
 
 var realmEntry = regexp.MustCompile(`\["([^"]+)"\] = "`)

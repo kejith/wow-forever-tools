@@ -117,10 +117,10 @@ func FindAuctionator(wow string) string {
 	return ""
 }
 
-// FindChars is writs.find_chars: every character's WoWMCP.lua, most recently written first, whose path
+// FindChars is writs.find_chars: every character's WoWToolsForever.lua, most recently written first, whose path
 // contains char (any case).
 func FindChars(wow, char string) []string {
-	paths := Glob(wow, "WTF", "Account", "*", "*", "*", "SavedVariables", "WoWMCP.lua")
+	paths := Glob(wow, "WTF", "Account", "*", "*", "*", "SavedVariables", "WoWToolsForever.lua")
 	times := map[string]float64{}
 	for _, p := range paths {
 		times[p], _ = Mtime(p)

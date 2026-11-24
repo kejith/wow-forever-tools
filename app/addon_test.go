@@ -39,11 +39,11 @@ func stub(global string) string {
 	return fmt.Sprintf("-- Example: %s = { id = 1, action = \"items\" }\n%s = nil\n", global, global)
 }
 
-func wowmcpFiles(version string) map[string]string {
+func addonTestFiles(version string) map[string]string {
 	return map[string]string{
-		"WoWMCP.toc":     "## Interface: 16001\n## Version: " + version + "\n## SavedVariables: WoWMCP_Account\n\nAppRequest.lua\nWoWMCP.lua\n",
-		"AppRequest.lua": stub("WoWMCP_AppRequest"),
-		"WoWMCP.lua":     "-- WoWMCP " + version + "\n",
+		"WoWToolsForever.toc":     "## Interface: 16001\n## Version: " + version + "\n## SavedVariables: WoWToolsForever_Account\n\nAppRequest.lua\nWoWToolsForever.lua\n",
+		"AppRequest.lua": stub("WoWToolsForever_AppRequest"),
+		"WoWToolsForever.lua":     "-- WoWToolsForever " + version + "\n",
 	}
 }
 
@@ -215,7 +215,7 @@ func TestVersionsAndZips(t *testing.T) {
 			t.Errorf("compareVersions(%s, %s) = %d", c.a, c.b, got)
 		}
 	}
-	files, err := readZip(addonZip(t, "WoWMCP", wowmcpFiles("1.5.0")))
+	files, err := readZip(addonZip(t, "WoWToolsForever", addonTestFiles("1.5.0")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,23 +223,23 @@ func TestVersionsAndZips(t *testing.T) {
 	for _, f := range files {
 		names = append(names, f.name)
 	}
-	if strings.Join(names, " ") != "WoWMCP/WoWMCP.toc WoWMCP/AppRequest.lua WoWMCP/WoWMCP.lua" {
+	if strings.Join(names, " ") != "WoWToolsForever/WoWToolsForever.toc WoWToolsForever/AppRequest.lua WoWToolsForever/WoWToolsForever.lua" {
 		t.Fatalf("zip entries %v", names)
 	}
-	if string(files[2].data) != "-- WoWMCP 1.5.0\n" {
+	if string(files[2].data) != "-- WoWToolsForever 1.5.0\n" {
 		t.Fatalf("content %q", files[2].data)
 	}
 	one := uint32(1)
-	_, err = readZip(makeZip(t, []zipItem{{name: "WoWMCP/x.lua", data: "x", crc: &one}}, ""))
+	_, err = readZip(makeZip(t, []zipItem{{name: "WoWToolsForever/x.lua", data: "x", crc: &one}}, ""))
 	wantErr(t, err, "checksum does not match")
 	_, err = readZip([]byte("<html>not a zip</html>"))
 	wantErr(t, err, "not a zip file")
 
 	// Nothing may land outside the addon's folder.
 	scratch := t.TempDir()
-	for _, name := range []string{"../evil.lua", "WoWMCP/../../evil.lua", "Other/x.lua", "/abs.lua", `WoWMCP/a\..\b.lua`} {
-		out := filepath.Join(scratch, "extract", "WoWMCP")
-		err := extractAddon(makeZip(t, []zipItem{{name: name, data: "x"}, {name: "WoWMCP/ok.lua", data: "ok"}}, ""), "WoWMCP", out)
+	for _, name := range []string{"../evil.lua", "WoWToolsForever/../../evil.lua", "Other/x.lua", "/abs.lua", `WoWToolsForever/a\..\b.lua`} {
+		out := filepath.Join(scratch, "extract", "WoWToolsForever")
+		err := extractAddon(makeZip(t, []zipItem{{name: name, data: "x"}, {name: "WoWToolsForever/ok.lua", data: "ok"}}, ""), "WoWToolsForever", out)
 		wantErr(t, err, "Unexpected entry in the zip")
 		if exists(filepath.Join(scratch, "evil.lua")) || exists(filepath.Join(scratch, "extract", "evil.lua")) {
 			t.Fatalf("%s wrote outside the folder", name)
@@ -251,25 +251,25 @@ func TestLocalSource(t *testing.T) {
 	setLanguage("en")
 	scratch := t.TempDir()
 	wow := filepath.Join(scratch, "wow")
-	target := installedAddonDir(wow, "wowmcp")
-	src := writeTree(t, filepath.Join(scratch, "src", "WoWMCP"), wowmcpFiles("1.5.0"))
+	target := installedAddonDir(wow, "wowtoolsforever")
+	src := writeTree(t, filepath.Join(scratch, "src", "WoWToolsForever"), addonTestFiles("1.5.0"))
 	gphSrc := writeTree(t, filepath.Join(scratch, "src", "GoldPerHour"), gphFiles("0.3.0"))
-	local := addonOpts{sources: map[string]string{"wowmcp": src, "goldperhour": gphSrc}}
+	local := addonOpts{sources: map[string]string{"wowtoolsforever": src, "goldperhour": gphSrc}}
 
-	info := must(addonInfo(wow, "wowmcp", local))
+	info := must(addonInfo(wow, "wowtoolsforever", local))
 	if info.Installed || info.Source.Kind != "local" || deref(info.SourceVersion) != "1.5.0" {
 		t.Fatalf("before install: %+v", info)
 	}
 	_, err := writeRequest(wow, "items", false)
-	wantErr(t, err, "WoWMCP is not installed")
+	wantErr(t, err, "WoWToolsForever is not installed")
 
 	// A fresh install ships every file from the .toc.
-	info = must(installAddon(wow, "wowmcp", local))
+	info = must(installAddon(wow, "wowtoolsforever", local))
 	if !info.Installed || !info.UpToDate || !*info.FirstInstall || !exists(filepath.Join(target, "AppRequest.lua")) {
 		t.Fatalf("fresh install: %+v", info)
 	}
 	// The shipped stub (with an example in a comment) is no pending request.
-	if r := readRequest(wow, "wowmcp"); r != nil {
+	if r := readRequest(wow, "wowtoolsforever"); r != nil {
 		t.Fatalf("stub read as request %+v", r)
 	}
 
@@ -280,7 +280,7 @@ func TestLocalSource(t *testing.T) {
 		t.Fatalf("ids %d then %d", r1.ID, r2.ID)
 	}
 	text, _ := os.ReadFile(filepath.Join(target, "AppRequest.lua"))
-	if !regexp.MustCompile(`WoWMCP_AppRequest = \{ id = \d+, action = "sync" \}`).Match(text) {
+	if !regexp.MustCompile(`WoWToolsForever_AppRequest = \{ id = \d+, action = "sync" \}`).Match(text) {
 		t.Fatalf("request file %s", text)
 	}
 	pending := func(key string) string {
@@ -291,73 +291,92 @@ func TestLocalSource(t *testing.T) {
 		return fmt.Sprintf("%d %s %t", r.ID, deref(r.Action), r.Settings)
 	}
 	syncReq := fmt.Sprintf("%d sync false", r2.ID)
-	if pending("wowmcp") != syncReq {
-		t.Fatalf("pending %s", pending("wowmcp"))
+	if pending("wowtoolsforever") != syncReq {
+		t.Fatalf("pending %s", pending("wowtoolsforever"))
 	}
 
 	// Updating an install from 1.0 (old .toc, ItemQueue.lua) keeps the pending request and removes the old file.
 	writeTree(t, target, map[string]string{
-		"WoWMCP.toc":    "## Interface: 16001\n## Version: 1.0.0\n## SavedVariablesPerCharacter: WoWMCP_Char\n\nItemQueue.lua\nWoWMCP.lua\n",
-		"ItemQueue.lua": "WoWMCP_ItemQueue = {}\n",
+		"WoWToolsForever.toc":    "## Interface: 16001\n## Version: 1.0.0\n## SavedVariablesPerCharacter: WoWToolsForever_Char\n\nItemQueue.lua\nWoWToolsForever.lua\n",
+		"ItemQueue.lua": "WoWToolsForever_ItemQueue = {}\n",
 	})
-	info = must(addonInfo(wow, "wowmcp", local))
-	if info.UpToDate || deref(info.InstalledVersion) != "1.0.0" || !slices.Contains(info.Changed, "WoWMCP.toc") {
+	info = must(addonInfo(wow, "wowtoolsforever", local))
+	if info.UpToDate || deref(info.InstalledVersion) != "1.0.0" || !slices.Contains(info.Changed, "WoWToolsForever.toc") {
 		t.Fatalf("old install: %+v", info)
 	}
-	info = must(installAddon(wow, "wowmcp", local))
-	if !info.UpToDate || *info.FirstInstall || exists(filepath.Join(target, "ItemQueue.lua")) || pending("wowmcp") != syncReq {
+	info = must(installAddon(wow, "wowtoolsforever", local))
+	if !info.UpToDate || *info.FirstInstall || exists(filepath.Join(target, "ItemQueue.lua")) || pending("wowtoolsforever") != syncReq {
 		t.Fatalf("update from 1.0: %+v", info)
 	}
 
 	// A change in the checkout without a new version number still counts as an update.
-	f, _ := os.OpenFile(filepath.Join(src, "WoWMCP.lua"), os.O_APPEND|os.O_WRONLY, 0)
+	f, _ := os.OpenFile(filepath.Join(src, "WoWToolsForever.lua"), os.O_APPEND|os.O_WRONLY, 0)
 	f.WriteString("-- edited\n")
 	f.Close()
-	info = must(addonInfo(wow, "wowmcp", local))
-	if info.UpToDate || info.Ahead || strings.Join(info.Changed, ",") != "WoWMCP.lua" {
+	info = must(addonInfo(wow, "wowtoolsforever", local))
+	if info.UpToDate || info.Ahead || strings.Join(info.Changed, ",") != "WoWToolsForever.lua" {
 		t.Fatalf("edited checkout: %+v", info)
 	}
-	must(installAddon(wow, "wowmcp", local))
+	must(installAddon(wow, "wowtoolsforever", local))
 
 	// Since 1.7 the addon has AppData.lua, the lists the app's bridge writes. An update ships the empty stub,
 	// later updates keep what the app wrote, and the file never counts as a difference to the source.
 	withLists := func(version string) map[string]string {
-		files := wowmcpFiles(version)
-		files["WoWMCP.toc"] = "## Interface: 16001\n## Version: " + version + "\n\nAppRequest.lua\nAppData.lua\nWoWMCP.lua\n"
-		files["AppData.lua"] = stub("WoWMCP_AppData")
+		files := addonTestFiles(version)
+		files["WoWToolsForever.toc"] = "## Interface: 16001\n## Version: " + version + "\n\nAppRequest.lua\nAppData.lua\nWoWToolsForever.lua\n"
+		files["AppData.lua"] = stub("WoWToolsForever_AppData")
 		return files
 	}
-	lists := addonOpts{sources: map[string]string{"wowmcp": writeTree(t, filepath.Join(scratch, "src", "lists"), withLists("1.7.0"))}}
-	info = must(installAddon(wow, "wowmcp", lists))
+	lists := addonOpts{sources: map[string]string{"wowtoolsforever": writeTree(t, filepath.Join(scratch, "src", "lists"), withLists("1.7.0"))}}
+	info = must(installAddon(wow, "wowtoolsforever", lists))
 	data, _ := os.ReadFile(filepath.Join(target, "AppData.lua"))
-	if deref(info.InstalledVersion) != "1.7.0" || !info.UpToDate || !regexp.MustCompile(`(?m)^WoWMCP_AppData = nil$`).Match(data) {
+	if deref(info.InstalledVersion) != "1.7.0" || !info.UpToDate || !regexp.MustCompile(`(?m)^WoWToolsForever_AppData = nil$`).Match(data) {
 		t.Fatalf("lists stub: %+v %s", info, data)
 	}
-	sent := "WoWMCP_AppData = { version = 1, generated = 1, hash = \"abc\", chars = {} }\n"
+	sent := "WoWToolsForever_AppData = { version = 1, generated = 1, hash = \"abc\", chars = {} }\n"
 	os.WriteFile(filepath.Join(target, "AppData.lua"), []byte(sent), 0o644)
-	info = must(addonInfo(wow, "wowmcp", lists))
+	info = must(addonInfo(wow, "wowtoolsforever", lists))
 	if !info.UpToDate || len(info.Changed) != 0 {
 		t.Fatalf("written lists count as a change: %+v", info)
 	}
-	writeTree(t, lists.sources["wowmcp"], withLists("1.7.1"))
-	info = must(installAddon(wow, "wowmcp", lists))
+	writeTree(t, lists.sources["wowtoolsforever"], withLists("1.7.1"))
+	info = must(installAddon(wow, "wowtoolsforever", lists))
 	data, _ = os.ReadFile(filepath.Join(target, "AppData.lua"))
-	if deref(info.InstalledVersion) != "1.7.1" || !info.UpToDate || string(data) != sent || pending("wowmcp") != syncReq {
+	if deref(info.InstalledVersion) != "1.7.1" || !info.UpToDate || string(data) != sent || pending("wowtoolsforever") != syncReq {
 		t.Fatalf("update with lists: %+v %s", info, data)
 	}
 	os.Remove(filepath.Join(target, "AppData.lua"))
-	must(installAddon(wow, "wowmcp", local))
+	must(installAddon(wow, "wowtoolsforever", local))
+
+	// Media assets (such as the minimap icon texture) are copied and tracked for changes, and installing
+	// WoWToolsForever removes a legacy WoWMCP addon folder if one exists.
+	withMedia := addonTestFiles("1.8.0")
+	withMedia["Media/Icon.tga"] = "TGAv1"
+	mediaSrc := writeTree(t, filepath.Join(scratch, "src", "media"), withMedia)
+	mediaOpts := addonOpts{sources: map[string]string{"wowtoolsforever": mediaSrc}}
+	legacyDir := filepath.Join(wow, "Interface", "AddOns", "WoWMCP")
+	writeTree(t, legacyDir, map[string]string{"WoWMCP.toc": "## Interface: 16001\n## Version: 1.12.0\n"})
+	info = must(installAddon(wow, "wowtoolsforever", mediaOpts))
+	if !info.UpToDate || !exists(filepath.Join(target, "Media", "Icon.tga")) || exists(legacyDir) {
+		t.Fatalf("media install / legacy cleanup: %+v", info)
+	}
+	os.WriteFile(filepath.Join(mediaSrc, "Media", "Icon.tga"), []byte("TGAv2"), 0o644)
+	info = must(addonInfo(wow, "wowtoolsforever", mediaOpts))
+	if info.UpToDate || strings.Join(info.Changed, ",") != "Media/Icon.tga" {
+		t.Fatalf("media change detection: %+v", info)
+	}
+	must(installAddon(wow, "wowtoolsforever", local))
 
 	// A .toc must not send the installer outside the addon folder.
-	evil := writeTree(t, filepath.Join(scratch, "src", "evil"), map[string]string{"WoWMCP.toc": "## Version: 9\n\n..\\..\\evil.lua\n", "evil.lua": "x"})
-	_, err = installAddon(wow, "wowmcp", addonOpts{sources: map[string]string{"wowmcp": evil}})
-	wantErr(t, err, `Path not allowed in WoWMCP\.toc`)
-	info = must(addonInfo(wow, "wowmcp", addonOpts{sources: map[string]string{"wowmcp": filepath.Join(scratch, "nowhere")}}))
-	if !regexp.MustCompile(`Local source without WoWMCP\.toc`).MatchString(deref(info.SourceError)) || !info.UpToDate {
+	evil := writeTree(t, filepath.Join(scratch, "src", "evil"), map[string]string{"WoWToolsForever.toc": "## Version: 9\n\n..\\..\\evil.lua\n", "evil.lua": "x"})
+	_, err = installAddon(wow, "wowtoolsforever", addonOpts{sources: map[string]string{"wowtoolsforever": evil}})
+	wantErr(t, err, `Path not allowed in WoWToolsForever\.toc`)
+	info = must(addonInfo(wow, "wowtoolsforever", addonOpts{sources: map[string]string{"wowtoolsforever": filepath.Join(scratch, "nowhere")}}))
+	if !regexp.MustCompile(`Local source without WoWToolsForever\.toc`).MatchString(deref(info.SourceError)) || !info.UpToDate {
 		t.Fatalf("missing source: %+v", info) // nothing to compare against, the install is left alone
 	}
 
-	// GoldPerHour installs next to WoWMCP into its own folder and has its own requests.
+	// GoldPerHour installs next to WoWToolsForever into its own folder and has its own requests.
 	gph := installedAddonDir(wow, "goldperhour")
 	if must(addonInfo(wow, "goldperhour", local)).Installed {
 		t.Fatal("GoldPerHour installed too early")
@@ -368,8 +387,8 @@ func TestLocalSource(t *testing.T) {
 	if !info.Installed || !info.UpToDate || info.Name != "GoldPerHour" || !exists(filepath.Join(gph, "GoldPerHour.lua")) {
 		t.Fatalf("GoldPerHour install: %+v", info)
 	}
-	if pending("goldperhour") != "nil" || pending("wowmcp") != syncReq { // WoWMCP's request untouched
-		t.Fatalf("requests %s / %s", pending("goldperhour"), pending("wowmcp"))
+	if pending("goldperhour") != "nil" || pending("wowtoolsforever") != syncReq { // WoWToolsForever's request untouched
+		t.Fatalf("requests %s / %s", pending("goldperhour"), pending("wowtoolsforever"))
 	}
 
 	var settings map[string]any
@@ -422,7 +441,7 @@ func TestReleaseSource(t *testing.T) {
 	wow2 := filepath.Join(scratch, "wow2")
 	gph2 := installedAddonDir(wow2, "goldperhour")
 	t.Setenv("GOLDPERHOUR_ADDON_DIR", "")
-	t.Setenv("WOWMCP_ADDON_DIR", "")
+	t.Setenv("WOWTOOLSFOREVER_ADDON_DIR", "")
 
 	// No release yet and nothing cached: the reason is reported and nothing can be installed.
 	info := must(addonInfo(wow2, "goldperhour", opts))
@@ -498,15 +517,15 @@ func TestReleaseSource(t *testing.T) {
 	if deref(info.InstalledVersion) != "0.4.0" || !info.UpToDate {
 		t.Fatalf("offline install: %+v", info)
 	}
-	info = must(addonInfo(wow2, "wowmcp", opts))
-	if !regexp.MustCompile(`Release of kejith/WoWMCP not loaded: GitHub cannot be reached`).MatchString(deref(info.SourceError)) {
+	info = must(addonInfo(wow2, "wowtoolsforever", opts))
+	if !regexp.MustCompile(`Release of kejith/WoWToolsForever not loaded: GitHub cannot be reached`).MatchString(deref(info.SourceError)) {
 		t.Fatalf("offline without cache: %s", deref(info.SourceError))
 	}
 
 	// The same messages in German when the app runs in German.
 	setLanguage("de")
-	info = must(addonInfo(wow2, "wowmcp", opts))
-	if !regexp.MustCompile(`Release von kejith/WoWMCP nicht geladen: GitHub nicht erreichbar`).MatchString(deref(info.SourceError)) {
+	info = must(addonInfo(wow2, "wowtoolsforever", opts))
+	if !regexp.MustCompile(`Release von kejith/WoWToolsForever nicht geladen: GitHub nicht erreichbar`).MatchString(deref(info.SourceError)) {
 		t.Fatalf("German: %s", deref(info.SourceError))
 	}
 	_, err = writeGphRequest(wow2, "explode", nil)

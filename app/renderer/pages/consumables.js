@@ -4,7 +4,7 @@
 // most gain per gold, as a buying order, up to a budget). Calculated by wowtools consumables. The filters work
 // on the loaded data; the number per category, the fight, the set and its budget are bridge options. The
 // Character page shows the same data as its section "Consumables" (consumablesSection).
-import { $, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, selectOption, state, terms } from '../core.js';
+import { $, api, cached, content, errorBox, esc, help, hintAttr, itemIcon, loadStatus, loading, money, num, percent, quality, saveView, selectOption, setTabs, state, terms } from '../core.js';
 import { t } from '../i18n.js';
 
 // The bridge call both pages share: one answer per character, number per category, fight and set.
@@ -32,7 +32,7 @@ function priceCell(r) {
 function itemCell(r) {
   const badges = [
     r.best ? `<span class="badge new">${esc(t('best now'))}</span>` : '',
-    r.isNew ? `<span class="badge">${esc(t('NEW in Forever'))}</span>` : '',
+    r.isNew ? `<span class="badge forever">${esc(t('NEW in Forever'))}</span>` : '',
     r.craft?.learned ? `<span class="badge ok">${esc(t('you can craft it'))}</span>` : '',
   ].join(' ');
   const details = [r.effect, r.duration, r.type].filter(Boolean).join(' · ');
@@ -183,7 +183,7 @@ function kindCard(k, o, byValue) {
       ${body}${k.more ? `<p class="small muted cons-more">${esc(byValue ? t('… and {n} more that are worth less', { n: k.more }) : t('… and {n} more that add less', { n: k.more }))}</p>` : ''}</div>`;
 }
 
-function planSection(p, o) {
+function planSetCard(p) {
   const fight = [t('Fight of {seconds} s', { seconds: num(p.seconds) }), t('enemy level +{n}', { n: p.targetDelta }), t('combat model {version}', { version: p.engine })].join(' · ');
   const tile = (label, value, sub = '') => `<div><h2>${esc(label)}</h2><div class="big">${value}</div>${sub ? `<div class="small muted">${sub}</div>` : ''}</div>`;
   const cost = p.cost ? money(p.cost) : '<span class="muted">–</span>';
@@ -200,8 +200,19 @@ function planSection(p, o) {
           ${tile(t('To buy'), cost, p.unpriced ? esc(t('{n} without a price', { n: p.unpriced })) : esc(t('one of each')))}
           <span class="spacer"></span></div>
         <h3>${esc(byValue ? t('Buying order') : t('Best set'))}</h3>${byValue ? valueTable(p) : setTable(p)}
-        ${p.active.length ? `<p class="small muted">${esc(t('On you at the snapshot, so already in the numbers: {names}', { names: p.active.join(', ') }))}</p>` : ''}</div>
+        ${p.active.length ? `<p class="small muted">${esc(t('On you at the snapshot, so already in the numbers: {names}', { names: p.active.join(', ') }))}</p>` : ''}</div></div>`;
+}
+
+function planKindsBlock(p, o) {
+  const byValue = p.mode === 'value';
+  return `<div class="section cons-fight" id="cons-kinds-${esc(p.metric)}">
+      <h2 class="heading">${esc(t('Consumables for a fight: {title}', { title: p.title }))} ${help(byValue ? valueTerms(p) : fightTerms(p))}</h2>
       <div class="cons-grid">${p.kinds.map((k) => kindCard(k, o, byValue)).join('')}</div></div>`;
+}
+
+function planSection(p, o) {
+  const byValue = p.mode === 'value';
+  return `${planSetCard(p)}<div class="cons-grid">${p.kinds.map((k) => kindCard(k, o, byValue)).join('')}</div>`;
 }
 
 // The consumables for a fight: one block per metric of the class, or why there is none.
@@ -221,21 +232,27 @@ export function consumablesSection(d) {
       <div class="cons-grid">${d.categories.map((g) => groupCard(g, o)).join('')}</div></div>`;
 }
 
+function activateConsTab(key) {
+  state.consumables.tab = key;
+  for (const panel of content.querySelectorAll('[data-cons-panel]')) panel.hidden = panel.dataset.consPanel !== key;
+  content.scrollTop = 0;
+  saveView();
+}
+
 export async function renderConsumables() {
   if (!state.status) await loadStatus();
   if (!state.char) { content.innerHTML = `<div class="notice">${esc(t('No character exported.'))}</div>`; return; }
   const o = state.consumables;
   content.innerHTML = `<div class="controls">
-      <label>${esc(t('Items per category'))}<input type="number" id="c-top" min="1" max="20" value="${o.top}"></label>
-      <label><span class="label">${esc(t('Fight length (s)'))} ${help(esc(t('The fight the consumables are rated for. In a longer fight mana counts more and a short buff less.')))}</span>
-        <input type="number" id="c-fight" min="10" max="600" step="10" value="${o.fight}"></label>
-      <label>${esc(t('Enemy level'))}<select id="c-target">${selectOption('', t('automatic'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
       <label><span class="label">${esc(t('Set'))} ${help(esc(t('Which consumables the set for a fight holds. The strongest: whatever adds the most, at any price. Best value: in the order of what an item adds per gold, so you see where more gold stops paying.')))}</span>
         <select id="c-set">${selectOption('best', t('the strongest'), o.set)}${selectOption('value', t('best value per gold'), o.set)}</select></label>
       ${o.set === 'value' ? `<label><span class="label">${esc(t('Budget (gold per hour)'))} ${help(esc(t('The most an hour of fighting may cost with the set. Empty: no limit, the list then runs on to the strongest set.')))}</span>
         <input type="number" id="c-budget" class="wide" min="0" step="0.5" value="${esc(o.budget)}" placeholder="${esc(t('no limit'))}"></label>` : ''}
+      <label><span class="label">${esc(t('Fight length (s)'))} ${help(esc(t('The fight the consumables are rated for. In a longer fight mana counts more and a short buff less.')))}</span>
+        <input type="number" id="c-fight" min="10" max="600" step="10" value="${o.fight}"></label>
+      <label>${esc(t('Enemy level'))}<select id="c-target">${selectOption('', t('automatic'), o.target)}${[0, 1, 2, 3].map((n) => selectOption(String(n), `+${n}`, o.target)).join('')}</select></label>
+      <label>${esc(t('Items per category'))}<input type="number" id="c-top" min="1" max="20" value="${o.top}"></label>
       <label class="check"><input type="checkbox" id="c-available" ${o.onlyAvailable ? 'checked' : ''}> ${esc(t('only what you can get now'))}</label>
-      <label class="check"><input type="checkbox" id="c-all" ${o.allBuffs ? 'checked' : ''}> ${esc(t('also buffs your class does not need'))}</label>
       <span class="spacer"></span><div class="page-meta"><span id="c-meta"></span>${help(pageTerms())}</div>
     </div><div id="c-body">${loading(t('Looking for consumables for your level …'))}</div>`;
   $('#c-top').addEventListener('change', (e) => { o.top = Math.min(20, Math.max(1, Number(e.target.value) || 5)); renderConsumables(); });
@@ -244,7 +261,6 @@ export async function renderConsumables() {
   $('#c-set').addEventListener('change', (e) => { o.set = e.target.value === 'value' ? 'value' : 'best'; renderConsumables(); });
   $('#c-budget')?.addEventListener('change', (e) => { o.budget = Number(e.target.value) > 0 ? String(Number(e.target.value)) : ''; renderConsumables(); });
   $('#c-available').addEventListener('change', (e) => { o.onlyAvailable = e.target.checked; renderConsumables(); });
-  $('#c-all').addEventListener('change', (e) => { o.allBuffs = e.target.checked; renderConsumables(); });
   const d = await loadConsumables(state.char);
   const body = $('#c-body');
   if (!body) return;
@@ -252,10 +268,29 @@ export async function renderConsumables() {
   const buffs = d.buffs.filter((g) => o.allBuffs || g.relevant);
   const hidden = d.buffs.length - buffs.length;
   $('#c-meta').textContent = [t('Level {level}', { level: d.level }), d.scanDate ? t('AH scan {date}', { date: d.scanDate }) : ''].filter(Boolean).join(' · ');
-  body.innerHTML = `${d.recipesScanned ? '' : `<div class="notice small">${t('Open your profession windows once in the game and type <code>/reload</code>, then the page also knows what you can craft.')}</div>`}
-    ${fightSections(d, o)}
-    <div class="section" id="c-restore"><h2>${esc(t('Restoring health and mana'))}</h2><div class="cons-grid">${d.categories.map((g) => groupCard(g, o)).join('')}</div></div>
-    <div class="section" id="c-buffs"><h2>${esc(t('Buffs by stat'))}</h2>
-      ${hidden ? `<p class="small muted">${esc(t('{n} more groups that do not help your class are hidden.', { n: hidden }))}</p>` : ''}
+  const hasPlans = !!d.plans?.length;
+  const tabDefs = [
+    ...(hasPlans ? [{ key: 'fight', label: t('Fight set') }, { key: 'kinds', label: t('By kind') }] : []),
+    { key: 'restore', label: t('Restoring health and mana') },
+    { key: 'buffs', label: t('Buffs by stat') },
+  ];
+  const activeTab = tabDefs.some((x) => x.key === o.tab) ? o.tab : tabDefs[0].key;
+  o.tab = activeTab;
+  if (state.page === 'consumables') setTabs(tabDefs, activeTab, activateConsTab);
+  const recipeNotice = d.recipesScanned ? '' : `<div class="notice small">${t('Open your profession windows once in the game and type <code>/reload</code>, then the page also knows what you can craft.')}</div>`;
+  const fightPanel = hasPlans ? `<div class="tab-panel" data-cons-panel="fight"${activeTab === 'fight' ? '' : ' hidden'}>
+      ${d.plans.map((p) => planSetCard(p)).join('')}</div>
+    <div class="tab-panel" data-cons-panel="kinds"${activeTab === 'kinds' ? '' : ' hidden'}>
+      ${d.plans.map((p) => planKindsBlock(p, o)).join('')}</div>`
+    : (d.planNote ? `<div class="notice small">${esc(t('No consumables for a fight: {why}', { why: d.planNote }))}</div>` : '');
+  const restorePanel = `<div class="tab-panel" data-cons-panel="restore" id="c-restore"${activeTab === 'restore' ? '' : ' hidden'}>
+      <div class="cons-grid">${d.categories.map((g) => groupCard(g, o)).join('')}</div></div>`;
+  const buffsPanel = `<div class="tab-panel" data-cons-panel="buffs" id="c-buffs"${activeTab === 'buffs' ? '' : ' hidden'}>
+      <div class="row" style="margin-bottom:12px">
+        <label class="check"><input type="checkbox" id="c-all" ${o.allBuffs ? 'checked' : ''}> ${esc(t('also buffs your class does not need'))}</label>
+        ${hidden ? `<span class="small muted">${esc(t('{n} more groups that do not help your class are hidden.', { n: hidden }))}</span>` : ''}
+      </div>
       <div class="cons-grid">${buffs.map((g) => groupCard(g, o)).join('')}</div></div>`;
+  body.innerHTML = `${recipeNotice}${fightPanel}${restorePanel}${buffsPanel}`;
+  $('#c-all')?.addEventListener('change', (e) => { o.allBuffs = e.target.checked; renderConsumables(); });
 }

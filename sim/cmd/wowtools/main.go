@@ -1,4 +1,4 @@
-// wowtools is the one binary of WoW Forever Tools (notes/go-migration.md).
+// wowtools is the one binary of WoW Tools Forever (notes/go-migration.md).
 //
 //	wowtools bridge --list            the bridge commands, as a JSON array
 //	wowtools bridge <command> [args]  one JSON object for the desktop app (scripts/app_bridge.py before)
@@ -12,10 +12,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/bridge"
-	"github.com/kejith/wow-forever-tools/sim/cli"
-	"github.com/kejith/wow-forever-tools/sim/internal/pyjson"
-	"github.com/kejith/wow-forever-tools/sim/run"
+	"github.com/kejith/wow-tools-forever/sim/bridge"
+	"github.com/kejith/wow-tools-forever/sim/cli"
+	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
+	"github.com/kejith/wow-tools-forever/sim/run"
 )
 
 func usage() string {

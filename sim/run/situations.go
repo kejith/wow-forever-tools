@@ -5,10 +5,10 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/kejith/wow-forever-tools/sim/catalog"
-	"github.com/kejith/wow-forever-tools/sim/classes/priest"
-	"github.com/kejith/wow-forever-tools/sim/classes/warlock"
-	"github.com/kejith/wow-forever-tools/sim/engine"
+	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/classes/priest"
+	"github.com/kejith/wow-tools-forever/sim/classes/warlock"
+	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
 // The rotation guide: the same character in several kinds of fights. Which

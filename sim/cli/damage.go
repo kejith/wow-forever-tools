@@ -5,9 +5,9 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kejith/wow-forever-tools/sim/internal/i18n"
-	"github.com/kejith/wow-forever-tools/sim/tools/damage"
-	"github.com/kejith/wow-forever-tools/sim/tools/rotations"
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/tools/damage"
+	"github.com/kejith/wow-tools-forever/sim/tools/rotations"
 )
 
 func init() {
