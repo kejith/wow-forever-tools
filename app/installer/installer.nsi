@@ -1,6 +1,7 @@
 ; The installer of WoW Forever Tools: the exe and the names file of the writs (scripts/data, which the bridge
 ; reads next to the exe), for the current user, without administrator rights.
-; Built by build.sh --installer: makensis -DVERSION=<x.y.z> -DOUTFILE=<path> installer.nsi
+; Built by build.sh --installer: makensis -DVERSION=<x.y.z> installer.nsi writes
+; build/bin/WoW-Forever-Tools-Setup-<x.y.z>.exe (-DOUTFILE=<path> writes it elsewhere).
 ;
 ; Switches (what the app's updater passes, update.go):
 ;   /S            silent: no pages
@@ -13,8 +14,12 @@ ManifestDPIAware true
 !ifndef VERSION
   !error "VERSION is not set"
 !endif
+; Paths are relative to this script's folder (makensis changes into it) and written with backslashes: the
+; makensis of Windows does not find a file given with forward slashes (CI, 2026-11-23); the one of Linux turns
+; them into slashes.
+!define APPDIR ".."
 !ifndef OUTFILE
-  !define OUTFILE "WoW-Forever-Tools-Setup-${VERSION}.exe"
+  !define OUTFILE "${APPDIR}\build\bin\WoW-Forever-Tools-Setup-${VERSION}.exe"
 !endif
 !define APP "WoW Forever Tools"
 !define EXE "WoW Forever Tools.exe"
@@ -41,8 +46,8 @@ VIAddVersionKey /LANG=0 "FileDescription" "${APP} Setup"
 VIAddVersionKey /LANG=0 "CompanyName" "kejith"
 VIAddVersionKey /LANG=0 "LegalCopyright" "Copyright (C) 2026 kejith"
 
-!define MUI_ICON "../build/icon.ico"
-!define MUI_UNICON "../build/icon.ico"
+!define MUI_ICON "${APPDIR}\build\icon.ico"
+!define MUI_UNICON "${APPDIR}\build\icon.ico"
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${EXE}"
 !insertmacro MUI_PAGE_DIRECTORY
@@ -93,9 +98,9 @@ FunctionEnd
 Section "Install"
   SetOutPath "$INSTDIR"
   Call WaitForApp
-  File "/oname=${EXE}" "../build/bin/${EXE}"
+  File "/oname=${EXE}" "${APPDIR}\build\bin\${EXE}"
   SetOutPath "$INSTDIR\scripts\data"
-  File "../../scripts/data/item_names.json"
+  File "${APPDIR}\..\scripts\data\item_names.json"
   SetOutPath "$INSTDIR"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 

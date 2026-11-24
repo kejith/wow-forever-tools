@@ -40,6 +40,6 @@ if [ "$installer" = true ]; then
     echo "makensis not found: install NSIS 3" >&2
     exit 1
   fi
-  "$makensis" -V2 -DVERSION="$version" -DOUTFILE="../build/bin/WoW-Forever-Tools-Setup-$version.exe" installer/installer.nsi
+  "$makensis" -V2 -DVERSION="$version" installer/installer.nsi
   echo "built build/bin/WoW-Forever-Tools-Setup-$version.exe"
 fi
