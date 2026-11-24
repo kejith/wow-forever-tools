@@ -100,6 +100,209 @@ func RangedMiss(skill, defense float64) float64 {
 	return miss
 }
 
+// ArmorMultiplier returns the fraction of physical damage that passes through
+// a monster's armor (Classic/Forever formula: 1 - armor/(armor + 400 + 85*level)).
+func ArmorMultiplier(attackerLevel, targetLevel int) float64 {
+	if attackerLevel <= 0 {
+		attackerLevel = 60
+	}
+	if targetLevel <= 0 {
+		targetLevel = attackerLevel
+	}
+	armor := float64(targetLevel) * 55.0
+	dr := armor / (armor + 400.0 + 85.0*float64(attackerLevel))
+	if dr < 0 {
+		dr = 0
+	}
+	if dr > 0.75 {
+		dr = 0.75
+	}
+	return 1 - dr
+}
+
+// EffectiveAP returns melee attack power (including Feral AP for Feral Druids).
+func EffectiveAP(st *State) float64 {
+	ap := st.AttackPower
+	if st.ClassFile == "DRUID" && st.Spec == "feral" {
+		ap += st.FeralAP
+	}
+	return ap
+}
+
+// WeaponHitAvg computes the average pre-mitigation weapon hit for a physical ability.
+func WeaponHitAvg(st *State, sp *Spell) float64 {
+	if sp.IsRanged {
+		w := st.Ranged
+		speed := w.Speed
+		if speed <= 0 {
+			speed = 2.8
+		}
+		if sp.Normalized {
+			speed = 2.8
+		}
+		return w.Avg() + st.RangedAttackPower/14.0*speed
+	}
+	// Feral Cat form uses a 1.0s claw base instead of equipped weapon damage.
+	if st.ClassFile == "DRUID" && st.Spec == "feral" {
+		baseClaw := float64(st.Level) * 0.85
+		return baseClaw + EffectiveAP(st)/14.0
+	}
+	w := st.MainHand
+	speed := w.Speed
+	if speed <= 0 {
+		speed = 2.4
+	}
+	norm := w.NormSpeed
+	if norm <= 0 {
+		if speed >= 3.0 {
+			norm = 3.3
+		} else if speed <= 1.8 {
+			norm = 1.7
+		} else {
+			norm = 2.4
+		}
+	}
+	apSpeed := speed
+	if sp.Normalized {
+		apSpeed = norm
+	}
+	return w.Avg() + EffectiveAP(st)/14.0*apSpeed
+}
+
+// MeleeWhiteDPS returns expected white melee auto-attack DPS (main hand + off hand).
+func MeleeWhiteDPS(st *State, tgt Target) float64 {
+	haste := 1 + st.MeleeHastePct/100
+	if haste <= 0 {
+		haste = 1
+	}
+	armor := ArmorMultiplier(st.Level, tgt.Level)
+	// Feral Cat form: 1.0s white swings scaling with AP + Feral AP.
+	if st.ClassFile == "DRUID" && st.Spec == "feral" {
+		skill := float64(st.Level * 5)
+		tbl := MeleeTable(skill, tgt.Defense, st.MeleeCrit, false)
+		tbl.Miss -= st.MeleeHit
+		if tbl.Miss < 0 {
+			tbl.Miss = 0
+		}
+		avg := float64(st.Level)*0.85 + EffectiveAP(st)/14.0
+		mult := (100 - tbl.Miss - tbl.Dodge - tbl.Glancing - tbl.Crit)/100 +
+			(tbl.Glancing/100)*tbl.GlancePenalty + (tbl.Crit/100)*(1+WhiteCritBonus)
+		if mult < 0 {
+			mult = 0
+		}
+		return avg * mult * armor * haste
+	}
+	mh := st.MainHand
+	if mh.Speed <= 0 {
+		return 0
+	}
+	dw := st.OffHand.Speed > 0
+	skill := mh.Skill
+	if skill <= 0 {
+		skill = float64(st.Level * 5)
+	}
+	swingDPS := func(w Weapon, offhand bool) float64 {
+		wSkill := w.Skill
+		if wSkill <= 0 {
+			wSkill = skill
+		}
+		tbl := MeleeTable(wSkill, tgt.Defense, st.MeleeCrit, dw)
+		tbl.Miss -= st.MeleeHit
+		if tbl.Miss < 0 {
+			tbl.Miss = 0
+		}
+		hit := w.Avg() + EffectiveAP(st)/14.0*w.Speed
+		if offhand {
+			hit *= 0.5
+		}
+		normal := 100 - tbl.Miss - tbl.Dodge - tbl.Glancing - tbl.Crit
+		if normal < 0 {
+			normal = 0
+		}
+		mult := normal/100 + (tbl.Glancing/100)*tbl.GlancePenalty + (tbl.Crit/100)*(1+WhiteCritBonus)
+		return (hit / (w.Speed / haste)) * mult * armor
+	}
+	dps := swingDPS(mh, false)
+	if dw {
+		dps += swingDPS(st.OffHand, true)
+	}
+	return dps
+}
+
+// RangedAutoShotDPS returns expected Hunter Auto Shot DPS.
+func RangedAutoShotDPS(st *State, tgt Target) float64 {
+	w := st.Ranged
+	if w.Speed <= 0 {
+		return 0
+	}
+	haste := 1 + st.RangedHastePct/100
+	if haste <= 0 {
+		haste = 1
+	}
+	skill := w.Skill
+	if skill <= 0 {
+		skill = float64(st.Level * 5)
+	}
+	miss := RangedMiss(skill, tgt.Defense) - st.MeleeHit
+	if miss < 0 {
+		miss = 0
+	}
+	crit := st.RangedCrit - (tgt.Defense-skill)*0.2
+	if crit < 0 {
+		crit = 0
+	}
+	hit := w.Avg() + st.RangedAttackPower/14.0*w.Speed
+	armor := ArmorMultiplier(st.Level, tgt.Level)
+	return (hit / (w.Speed / haste)) * (1 - miss/100) * (1 + crit/100*WhiteCritBonus) * armor
+}
+
+func rageBudgetPS(level int, autoAttackDPS float64) float64 {
+	l := float64(level)
+	if l <= 0 {
+		l = 60
+	}
+	conv := 0.0091107836*l*l + 3.225598133*l + 4.2652911
+	return 2.0 + autoAttackDPS*7.5/conv
+}
+
+func hunterPetDPS(st *State) float64 {
+	if st.PetDPS > 0 {
+		return st.PetDPS
+	}
+	return float64(st.Level)*1.1 + st.RangedAttackPower*0.08
+}
+
+// passiveSources computes passive DPS from auto-attacks, auto-shots, and pets.
+func passiveSources(st *State, tgt Target, actions []Action) (autoAtk, autoShot, pet float64) {
+	for _, a := range actions {
+		switch a.Kind {
+		case "autoattack":
+			autoAtk = MeleeWhiteDPS(st, tgt)
+		case "autoshot":
+			autoShot = RangedAutoShotDPS(st, tgt)
+		case "pet":
+			pet = hunterPetDPS(st)
+		}
+	}
+	return autoAtk, autoShot, pet
+}
+
+// usesNonMana reports whether a rotation spends Rage or Energy instead of Mana.
+func usesNonMana(actions []Action) (usesRage, usesEnergy bool) {
+	for _, a := range actions {
+		if a.Spell == nil {
+			continue
+		}
+		if a.Spell.Cost.Rage > 0 {
+			usesRage = true
+		}
+		if a.Spell.Cost.Energy > 0 {
+			usesEnergy = true
+		}
+	}
+	return usesRage, usesEnergy
+}
+
 // WandDPS is the expected damage per second of wanding: exported wand DPS
 // through the ranged miss and crit rolls (wand shots cannot be dodged;
 // ranged crits do double damage).

@@ -107,6 +107,10 @@ type player struct {
 	healthFloor float64 // Life Tap keeps the health above it
 	burnFloor   float64 // a channel that costs health stops there
 	wandDPS     float64
+	passiveDPS  float64
+	resourceMax float64
+	startRes    float64
+	nonMana     bool
 	regenCast   float64
 	regenIdle   float64
 	drainPS     float64
@@ -128,13 +132,25 @@ func newPlayer(st *State, fight Fight, actions []Action, metric string) *player 
 	if metric == "dps" {
 		p.enemies = fight.Enemies()
 	}
+	autoAtk, autoShot, pet := 0.0, 0.0, 0.0
+	if metric == "dps" {
+		autoAtk, autoShot, pet = passiveSources(st, tgt, actions)
+		p.passiveDPS = autoAtk + autoShot + pet
+	}
+	usesRage, usesEnergy := usesNonMana(actions)
+	p.nonMana = usesRage || usesEnergy
 	for _, a := range actions {
-		if a.Kind == "wand" || a.Kind == "mana" || a.Spell == nil {
+		if a.Kind == "wand" || a.Kind == "mana" || a.Kind == "autoattack" || a.Kind == "autoshot" || a.Kind == "pet" || a.Spell == nil {
 			continue
 		}
 		// Base shape without static Context: debuffs and DoT-stacks are
 		// evaluated dynamically per target during playback.
 		s := slot{act: a, shape: ShapeIn(a.Spell, st, tgt, nil)}
+		if usesEnergy {
+			s.shape.ManaCost = s.shape.EnergyCost
+		} else if usesRage {
+			s.shape.ManaCost = s.shape.RageCost
+		}
 		s.cycle = math.Max(s.shape.CooldownSec, a.CycleSec)
 		switch a.Kind {
 		case "dot", "hot":
@@ -210,6 +226,17 @@ func newPlayer(st *State, fight Fight, actions []Action, metric string) *player 
 	p.burnFloor = (1 - burnUseFraction) * st.HealthMax
 	p.wandDPS = WandDPS(st, tgt)
 	p.regenCast, p.regenIdle = st.Regen(fight)
+	p.resourceMax, p.startRes = st.ManaMax, st.ManaMax
+	if usesEnergy {
+		p.wandDPS = 0
+		p.resourceMax, p.startRes = 100, 100
+		p.regenCast, p.regenIdle = 10.0, 10.0
+	} else if usesRage {
+		p.wandDPS = 0
+		p.resourceMax, p.startRes = 100, 25
+		r := rageBudgetPS(st.Level, autoAtk)
+		p.regenCast, p.regenIdle = r, r
+	}
 	// What the full rotation drains per second beyond the regeneration. When
 	// the mana will not last for the rest of the fight, the player converts
 	// as soon as the health bar is full, so that no leech is wasted.
@@ -342,7 +369,10 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 	st, fight, conv := p.st, p.fight, p.conv
 	dots, cooldowns, filler := p.dots, p.cooldowns, p.filler
 	var total float64 // damage or healing, by the metric
-	mana := st.ManaMax
+	if p.metric == "dps" && p.passiveDPS > 0 {
+		total = p.passiveDPS * fight.Seconds
+	}
+	mana := p.startRes
 	health := st.HealthMax
 	oom = fight.Seconds
 	wentOOM := false
@@ -974,7 +1004,7 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 				lastCast = t
 				landDirect(cooldowns[cd].act.Spell, sh, 0, t)
 				if rem := sh.ExecuteSec - sh.CastSec; rem > 1e-9 {
-					mana = math.Min(st.ManaMax, mana+p.regenCast*rem)
+					mana = math.Min(p.resourceMax, mana+p.regenCast*rem)
 					lastCast = t + rem
 					advance(rem, false)
 				}
@@ -1022,6 +1052,13 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 		// ahead of need (above): its mana goes to the DoTs.
 		if canTap && filler != nil {
 			convert()
+			continue
+		}
+		if p.nonMana {
+			// Rage/Energy class waiting for resource regeneration while auto-attacking.
+			step := 0.5
+			mana = math.Min(p.resourceMax, mana+p.regenIdle*step)
+			advance(step, false)
 			continue
 		}
 		if !wentOOM {

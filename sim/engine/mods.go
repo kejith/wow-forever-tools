@@ -149,19 +149,29 @@ type InstantProc struct {
 	CastBase    int          // base id of the spell made instant
 }
 
+// CritManaRefund refunds a percentage of a spell's base mana cost on crit
+// (Paladin Illumination, Mage Master of Elements).
+type CritManaRefund struct {
+	Pct        float64
+	SchoolMask uint32
+	HealOnly   bool
+}
+
 // Mods are the talent effects that the character sheet does NOT already
 // include. Sheet-visible auras (flat stats, flat bonus damage, spell crit,
 // hit) must not land here, or they would count twice: the snapshot has them.
 type Mods struct {
-	SchoolDamagePct [NumSchools]float64 // aura 79: percent damage done per school
-	SchoolCostPct   [NumSchools]float64 // aura 72: percent mana cost per school (negative = cheaper)
-	SpellMods       []SpellMod          // aura 107/108
-	DotStacks       []DotStack
-	ChannelHastes   []ChannelHaste
-	KillProcs       []KillProc
-	StackProcs      []StackProc
-	CritDebuffs     []CritDebuff
-	InstantProcs    []InstantProc
+	SchoolDamagePct    [NumSchools]float64 // aura 79: percent damage done per school
+	SchoolCostPct      [NumSchools]float64 // aura 72: percent mana cost per school (negative = cheaper)
+	SchoolCritBonusPct [NumSchools]float64 // extra damage on crit as % of crit damage (e.g. Ignite)
+	SpellMods          []SpellMod          // aura 107/108
+	DotStacks          []DotStack
+	ChannelHastes      []ChannelHaste
+	KillProcs          []KillProc
+	StackProcs         []StackProc
+	CritDebuffs        []CritDebuff
+	InstantProcs       []InstantProc
+	CritManaRefunds    []CritManaRefund
 	DotCritSchools  uint32  // school mask whose DoTs may crit (e.g. Pandemic)
 	LifeTapPct      float64 // Improved Life Tap: percent more mana per tap
 	HealingPct      float64 // percent more healing done

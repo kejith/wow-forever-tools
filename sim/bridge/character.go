@@ -42,6 +42,7 @@ func character(a *Args) (*pyjson.Obj, error) {
 		obj  *pyjson.Obj
 	}
 	var equipment []item
+	classFile := c.Tab("character").Str("classFile")
 	for _, e := range c.Tab("equipment").Tables() {
 		rest := totals.Copy()
 		slotV := e.Get("slot")
@@ -49,7 +50,7 @@ func character(a *Args) (*pyjson.Obj, error) {
 		rest.Add(eq[slot], -1)
 		var label *string
 		if _, ok := upgrades.SlotName[slot]; ok && slotV != nil {
-			l := upgrades.SlotLabel(slot)
+			l := upgrades.SlotLabelFor(slot, classFile)
 			label = &l
 		}
 		slotName := pyfmt.Str(slotV)
@@ -68,14 +69,15 @@ func character(a *Args) (*pyjson.Obj, error) {
 	for i, e := range equipment {
 		list[i] = e.obj
 	}
-	classFile := c.Tab("character").Str("classFile")
+	spec := enginebundle.SpecOf(c)
 	return pyjson.New(
 		"key", game.CharKey(files[0]), "updated", c.Get("updated"), "character", orEmpty(c.Get("character")),
 		"equipment", list, "weights", scale.Text, "profileLabel", scale.Label, "setValue", pyfmt.Round(full, 1),
 		"professions", orList(skills.Get("professions")), "talents", orList(talents.Get("class")),
 		"legacy", orList(talents.Get("legacy")), "errors", orEmpty(c.Get("errors")),
+		"spec", spec, "specName", enginebundle.SpecName(c), "role", enginebundle.RoleForChar(c),
 		// Whether the window should ask for the heal table (command "healing") and for the damage analysis
 		// (command "damage"), and which of the two is the spec's own.
 		"heals", enginebundle.HasMetric(classFile, "hps"), "deals", enginebundle.HasMetric(classFile, "dps"),
-		"metric", enginebundle.DefaultMetric(classFile, enginebundle.SpecOf(c))), nil
+		"metric", enginebundle.DefaultMetric(classFile, spec)), nil
 }

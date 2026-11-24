@@ -12,8 +12,15 @@ import (
 	"sync"
 
 	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/classes/druid"
+	"github.com/kejith/wow-tools-forever/sim/classes/hunter"
+	"github.com/kejith/wow-tools-forever/sim/classes/mage"
+	"github.com/kejith/wow-tools-forever/sim/classes/paladin"
 	"github.com/kejith/wow-tools-forever/sim/classes/priest"
+	"github.com/kejith/wow-tools-forever/sim/classes/rogue"
+	"github.com/kejith/wow-tools-forever/sim/classes/shaman"
 	"github.com/kejith/wow-tools-forever/sim/classes/warlock"
+	"github.com/kejith/wow-tools-forever/sim/classes/warrior"
 	"github.com/kejith/wow-tools-forever/sim/engine"
 	"github.com/kejith/wow-tools-forever/sim/talents"
 )
@@ -90,8 +97,22 @@ type Stats struct {
 	// replace the class formula and the gear's mp5: the sheet has buffs too.
 	SpiritRegen  float64        `json:"spiritRegen"`
 	CastingRegen *float64       `json:"castingRegen"`
-	Wand         engine.Wand    `json:"wand"`
-	LifeTap      engine.LifeTap `json:"lifeTap"`
+	Wand              engine.Wand    `json:"wand"`
+	LifeTap           engine.LifeTap `json:"lifeTap"`
+	Strength          float64        `json:"strength,omitempty"`
+	Agility           float64        `json:"agility,omitempty"`
+	AttackPower       float64        `json:"attackPower,omitempty"`
+	RangedAttackPower float64        `json:"rangedAttackPower,omitempty"`
+	FeralAP           float64        `json:"feralAp,omitempty"`
+	MeleeCrit         float64        `json:"meleeCrit,omitempty"`
+	MeleeHit          float64        `json:"meleeHit,omitempty"`
+	MeleeHastePct     float64        `json:"meleeHastePct,omitempty"`
+	RangedHastePct    float64        `json:"rangedHastePct,omitempty"`
+	CritPerAgi        float64        `json:"critPerAgi,omitempty"`
+	MainHand          engine.Weapon  `json:"mainHand,omitempty"`
+	OffHand           engine.Weapon  `json:"offHand,omitempty"`
+	Ranged            engine.Weapon  `json:"ranged,omitempty"`
+	PetDPS            float64        `json:"petDps,omitempty"`
 }
 
 // Evaluation is one stat delta to rate (an item swap, or a package prefix).
@@ -250,21 +271,30 @@ func spellNumbers(cat *catalog.Catalog, known map[int]bool, st *engine.State, tg
 }
 
 // Metrics lists what each modeled class can optimize for; the first entry
-// is the default for a damage spec (scripts/simengine.py mirrors this list).
+// is the default for a damage spec (enginebundle.Metrics mirrors this list).
 var Metrics = map[string][]string{
 	"WARLOCK": {"dps"},
 	"PRIEST":  {"hps", "ttoom", "dps"},
+	"MAGE":    {"dps"},
+	"DRUID":   {"hps", "ttoom", "dps"},
+	"SHAMAN":  {"hps", "ttoom", "dps"},
+	"PALADIN": {"hps", "ttoom", "dps"},
+	"WARRIOR": {"dps"},
+	"ROGUE":   {"dps"},
+	"HUNTER":  {"dps"},
 }
 
 // regen is the mana regeneration while not casting, per second:
 // base + spirit * factor, used as it is for a snapshot without the sheet's
-// regeneration (Stats.SpiritRegen). Per 2-second tick the warlock has
-// 12.5 + spirit/4: a level 51 warlock with 120 spirit shows 21.25 mana per
-// second on the sheet. The priest's 13 + spirit/4 is the Classic
-// approximation, unmeasured in Forever.
+// regeneration (Stats.SpiritRegen).
 var regen = map[string][2]float64{
 	"WARLOCK": {6.25, 0.125},
 	"PRIEST":  {6.5, 0.125},
+	"MAGE":    {6.25, 0.125},
+	"DRUID":   {7.5, 0.10},
+	"SHAMAN":  {7.5, 0.10},
+	"PALADIN": {7.5, 0.10},
+	"HUNTER":  {7.5, 0.10},
 }
 
 // Supported reports whether the engine models a class yet.
@@ -275,8 +305,19 @@ func Supported(classFile string) bool {
 
 // DefaultMetric is the metric a class and spec optimize for by default.
 func DefaultMetric(classFile, spec string) string {
-	if classFile == "PRIEST" && spec != "shadow" {
-		return "hps"
+	switch classFile {
+	case "PRIEST":
+		if spec != "shadow" {
+			return "hps"
+		}
+	case "DRUID", "SHAMAN":
+		if spec == "restoration" {
+			return "hps"
+		}
+	case "PALADIN":
+		if spec == "holy" {
+			return "hps"
+		}
 	}
 	return "dps"
 }
@@ -290,13 +331,80 @@ func metricAllowed(classFile, metric string) bool {
 	return false
 }
 
-// rotations returns the rotation candidates of a class for a metric.
-func rotations(classFile, metric string, cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
+// rotations returns the rotation candidates of a class for a spec and metric.
+func rotations(classFile, spec, metric string, cat *catalog.Catalog, known map[int]bool, level int) [][]engine.Action {
 	switch classFile {
 	case "WARLOCK":
 		return warlock.Rotations(cat, known, level)
 	case "PRIEST":
 		return priest.Rotations(metric, cat, known, level)
+	case "MAGE":
+		return mage.Rotations(cat, known, level)
+	case "DRUID":
+		return druid.RotationsForSpec(spec, metric, cat, known, level)
+	case "SHAMAN":
+		return shaman.RotationsForSpec(spec, metric, cat, known, level)
+	case "PALADIN":
+		return paladin.RotationsForSpec(spec, metric, cat, known, level)
+	case "WARRIOR":
+		return warrior.Rotations(cat, known, level)
+	case "ROGUE":
+		return rogue.Rotations(cat, known, level)
+	case "HUNTER":
+		return hunter.Rotations(cat, known, level)
+	}
+	return nil
+}
+
+func prepareClass(classFile string, cat *catalog.Catalog) {
+	switch classFile {
+	case "WARLOCK":
+		warlock.Prepare(cat)
+	case "MAGE":
+		mage.Prepare(cat)
+	case "DRUID":
+		druid.Prepare(cat)
+	case "SHAMAN":
+		shaman.Prepare(cat)
+	case "PALADIN":
+		paladin.Prepare(cat)
+	case "WARRIOR":
+		warrior.Prepare(cat)
+	case "ROGUE":
+		rogue.Prepare(cat)
+	case "HUNTER":
+		hunter.Prepare(cat)
+	}
+}
+
+func classHealSources(classFile string, cat *catalog.Catalog, known map[int]bool, level, targets int) ([]engine.HealSource, *engine.Action) {
+	switch classFile {
+	case "PRIEST":
+		return priest.HealSources(cat, known, level, targets)
+	case "DRUID":
+		return druid.HealSources(cat, known, level, targets)
+	case "SHAMAN":
+		return shaman.HealSources(cat, known, level, targets)
+	case "PALADIN":
+		return paladin.HealSources(cat, known, level, targets)
+	}
+	return nil, nil
+}
+
+func classAreaSpells(classFile string, cat *catalog.Catalog, known map[int]bool, level int) []*engine.Spell {
+	switch classFile {
+	case "WARLOCK":
+		return warlock.AreaSpells(cat, known, level)
+	case "MAGE":
+		return mage.AreaSpells(cat, known, level)
+	case "DRUID":
+		return druid.AreaSpells(cat, known, level)
+	case "PALADIN":
+		return paladin.AreaSpells(cat, known, level)
+	case "WARRIOR":
+		return warrior.AreaSpells(cat, known, level)
+	case "HUNTER":
+		return hunter.AreaSpells(cat, known, level)
 	}
 	return nil
 }
@@ -338,9 +446,7 @@ func Prepare(in Input) (*Session, Output) {
 		return nil, out
 	}
 
-	if in.Character.ClassFile == "WARLOCK" {
-		warlock.Prepare(cat) // the area spells, which the tables split in two
-	}
+	prepareClass(in.Character.ClassFile, cat)
 
 	ranks := map[int]int{}
 	for id, rank := range in.Character.Talents {
@@ -396,10 +502,10 @@ func Prepare(in Input) (*Session, Output) {
 		out.Buffs = in.Buffs
 	}
 
-	// Self buffs the model takes as active: the warlock's armor regenerates
-	// health in combat, which Life Tap can spend.
+	// Self buffs the model takes as active: Warlock Demon Armor HP5, Mage Armor casting regen.
 	support := map[int]string{} // spell id -> coverage reason
-	if in.Character.ClassFile == "WARLOCK" {
+	switch in.Character.ClassFile {
+	case "WARLOCK":
 		hp5, armor := warlock.ArmorRegen(cat, known, in.Character.Level)
 		st.HP5 += hp5
 		if armor != nil && hp5 > 0 {
@@ -408,16 +514,26 @@ func Prepare(in Input) (*Session, Output) {
 		if tap := cat.BestRank(warlock.LifeTap, known, in.Character.Level); tap != nil && st.LifeTap.ManaPerCast > 0 {
 			support[tap.ID] = "regen"
 		}
+	case "MAGE":
+		regenPct, armor := mage.ArmorRegen(cat, known, in.Character.Level)
+		if armor != nil && regenPct > 0 {
+			st.Mods.CastingRegenPct += regenPct
+			support[armor.ID] = "buff"
+		}
+	case "ROGUE":
+		hastePct, snd := rogue.SliceAndDiceHaste(cat, known, in.Character.Level)
+		if snd != nil && hastePct > 0 {
+			st.MeleeHastePct += hastePct
+			support[snd.ID] = "buff"
+		}
 	}
 
 	if in.HealTable {
 		lockouts := map[int]float64{}
-		if in.Character.ClassFile == "PRIEST" {
-			sources, _ := priest.HealSources(cat, known, in.Character.Level, 1)
-			for _, src := range sources {
-				if src.Action.CycleSec > 0 {
-					lockouts[src.Action.Spell.ID] = src.Action.CycleSec
-				}
+		sources, _ := classHealSources(in.Character.ClassFile, cat, known, in.Character.Level, 1)
+		for _, src := range sources {
+			if src.Action.CycleSec > 0 {
+				lockouts[src.Action.Spell.ID] = src.Action.CycleSec
 			}
 		}
 		if t := healTable(cat, known, st, fight, lockouts); len(t.Rows) > 0 {
@@ -439,7 +555,7 @@ func Prepare(in Input) (*Session, Output) {
 		out.Situations = healSituations(in.Character.ClassFile, cat, known, st, standard)
 	}
 
-	rots := rotations(in.Character.ClassFile, metric, cat, known, in.Character.Level)
+	rots := rotations(in.Character.ClassFile, in.Character.SpecOverride, metric, cat, known, in.Character.Level)
 	if len(rots) == 0 {
 		out.Error = "no castable rotation: the spellbook has none of the modeled spells"
 		return nil, out
@@ -573,11 +689,9 @@ func Prepare(in Input) (*Session, Output) {
 			support[row.SpellID] = "rotation"
 		}
 	}
-	if in.Character.ClassFile == "WARLOCK" { // spells for several enemies: the rotation guide plays them
-		for _, sp := range warlock.AreaSpells(cat, known, in.Character.Level) {
-			if _, ok := tried[sp.ID]; !ok {
-				unused[sp.ID] = "area"
-			}
+	for _, sp := range classAreaSpells(in.Character.ClassFile, cat, known, in.Character.Level) {
+		if _, ok := tried[sp.ID]; !ok {
+			unused[sp.ID] = "area"
 		}
 	}
 	out.Coverage = coverage(cat, known, in.Character.Level, metric, actions, tried, support, unused, ranks, talentInfos,
@@ -810,24 +924,54 @@ func Run(in Input) Output {
 }
 
 func buildState(ch Character, mods engine.Mods) *engine.State {
+	apPerStr, apPerAgi, rapPerAgi := 2.0, 0.0, 0.0
+	switch ch.ClassFile {
+	case "ROGUE":
+		apPerStr, apPerAgi = 1.0, 1.0
+	case "HUNTER":
+		apPerStr, apPerAgi, rapPerAgi = 1.0, 1.0, 2.0
+	case "DRUID":
+		if ch.SpecOverride == "feral" {
+			apPerStr, apPerAgi = 2.0, 1.0
+		}
+	}
 	st := &engine.State{
-		Level:      ch.Level,
-		Healing:    ch.Stats.Healing,
-		Hit:        ch.Stats.SpellHit,
-		Intellect:  ch.Stats.Intellect,
-		Spirit:     ch.Stats.Spirit,
-		MP5:        ch.Stats.MP5,
-		HP5:        ch.Stats.HP5,
-		HealthMax:  ch.Stats.HealthMax,
-		ManaMax:    ch.Stats.ManaMax,
-		CritPerInt: ch.Stats.CritPerInt,
-		ManaPerInt: ch.Stats.ManaPerInt,
-		HPPerSta:   ch.Stats.HPPerSta,
-		HastePct:   ch.Stats.HastePct,
-		RangedCrit: ch.Stats.RangedCrit,
-		Wand:       ch.Stats.Wand,
-		LifeTap:    ch.Stats.LifeTap,
-		Mods:       mods,
+		ClassFile:         ch.ClassFile,
+		Spec:              ch.SpecOverride,
+		Level:             ch.Level,
+		Healing:           ch.Stats.Healing,
+		Hit:               ch.Stats.SpellHit,
+		Strength:          ch.Stats.Strength,
+		Agility:           ch.Stats.Agility,
+		Intellect:         ch.Stats.Intellect,
+		Spirit:            ch.Stats.Spirit,
+		AttackPower:       ch.Stats.AttackPower,
+		RangedAttackPower: ch.Stats.RangedAttackPower,
+		FeralAP:           ch.Stats.FeralAP,
+		MeleeCrit:         ch.Stats.MeleeCrit,
+		MeleeHit:          ch.Stats.MeleeHit,
+		MeleeHastePct:     ch.Stats.MeleeHastePct,
+		RangedHastePct:    ch.Stats.RangedHastePct,
+		CritPerAgi:        ch.Stats.CritPerAgi,
+		APPerStr:          apPerStr,
+		APPerAgi:          apPerAgi,
+		RAPPerAgi:         rapPerAgi,
+		MP5:               ch.Stats.MP5,
+		HP5:               ch.Stats.HP5,
+		HealthMax:         ch.Stats.HealthMax,
+		ManaMax:           ch.Stats.ManaMax,
+		CritPerInt:        ch.Stats.CritPerInt,
+		ManaPerInt:        ch.Stats.ManaPerInt,
+		HPPerSta:          ch.Stats.HPPerSta,
+		HastePct:          ch.Stats.HastePct,
+		RangedCrit:        ch.Stats.RangedCrit,
+		Wand:              ch.Stats.Wand,
+		MainHand:          ch.Stats.MainHand,
+		OffHand:           ch.Stats.OffHand,
+		Ranged:            ch.Stats.Ranged,
+		PetDPS:            ch.Stats.PetDPS,
+		LifeTap:           ch.Stats.LifeTap,
+		Mods:              mods,
 	}
 	if r, ok := regen[ch.ClassFile]; ok {
 		st.RegenBasePS, st.RegenSpiritFactor = r[0], r[1]

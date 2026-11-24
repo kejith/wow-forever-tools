@@ -20,6 +20,26 @@ const DAMAGE_SCHOOLS = {
   frost: mark('Frost damage'), shadow: mark('Shadow damage'), arcane: mark('Arcane damage'),
 };
 
+const RELIC_CLASSES = new Set(['DRUID', 'SHAMAN', 'PALADIN']);
+const WAND_CLASSES = new Set(['WARLOCK', 'PRIEST', 'MAGE']);
+
+function rangedSlotLabel(classFile) {
+  if (RELIC_CLASSES.has(classFile)) return mark('Relic');
+  if (WAND_CLASSES.has(classFile)) return mark('Wand');
+  return mark('Ranged');
+}
+
+function resourceLabel(powerType) {
+  if (powerType === 'RAGE') return t('Rage');
+  if (powerType === 'ENERGY') return t('Energy');
+  return t('Mana');
+}
+
+function formatSpeed(mh, oh) {
+  if (!mh) return '–';
+  return oh ? `${num(mh, 2)} / ${num(oh, 2)} s` : t('{n} s', { n: num(mh, 2) });
+}
+
 // Points per talent tree, e.g. "Affliction 37 / Demonology 1 / Destruction 0 · 1 unspent".
 function talentLine(tree) {
   const groups = Array.isArray(tree.groups) ? tree.groups.map((g) => [g.name, g.spent]) : Object.entries(tree.tabs || {});
@@ -97,15 +117,46 @@ export async function renderCharacter() {
   const buffs = (c.buffs || []).filter((b) => b?.name);
   const buffsBox = buffs.length ? `<div class="pd-stats"><h4>${esc(t('Active buffs'))}</h4>
     <div class="pd-buffs">${buffs.map((b) => `<span class="pd-buff">${esc(b.name)}</span>`).join('')}</div></div>` : '';
+  const role = d.role || 'caster';
+  const combatBox = role === 'melee' || role === 'tank'
+    ? statBox(t('Melee'), [
+      [t('Attack power'), value(st.attackPower)],
+      [t('Melee crit'), pct(st.meleeCrit)],
+      [t('Hit'), st.meleeHit !== undefined ? percent(value(st.meleeHit)) : '–'],
+      [t('Weapon speed'), formatSpeed(st.meleeSpeed, st.offhandSpeed)],
+    ])
+    : role === 'ranged'
+      ? statBox(t('Ranged'), [
+        [t('Ranged attack power'), value(st.rangedAttackPower)],
+        [t('Ranged crit'), pct(st.rangedCrit)],
+        [t('Hit'), st.meleeHit !== undefined ? percent(value(st.meleeHit)) : '–'],
+        [t('Weapon speed'), formatSpeed(st.rangedSpeed)],
+      ])
+      : statBox(t('Spells'), [
+        [school.label, value(school.value)],
+        [t('Healing'), value(st.healing)],
+        [t('Spell crit'), pct(school.crit)],
+        [t('Spell hit'), st.spellHit !== undefined ? percent(value(st.spellHit)) : '–'],
+      ]);
+  const defenseRows = [
+    [t('Health'), value(st.healthMax)],
+    [resourceLabel(st.powerType), value(st.powerMax)],
+    [t('Armor'), value(st.armor)],
+    [t('Dodge'), pct(st.dodge)],
+  ];
+  if (role === 'tank' || st.defense || st.parry > 0 || st.block > 0) {
+    if (st.defense) defenseRows.push([t('Defense skill'), value(st.defense)]);
+    if (st.parry > 0) defenseRows.push([t('Parry'), pct(st.parry)]);
+    if (st.block > 0) defenseRows.push([t('Block'), pct(st.block)]);
+  }
+  const bottomSlots = [[16, mark('Main Hand')], [17, mark('Off Hand')], [18, rangedSlotLabel(c.classFile)]];
   const center = `<div class="pd-center">
       <div class="pd-res">${resist}</div>
       <div class="pd-grid">
         ${statBox(t('Attributes'), [[t('Strength'), value(st.strength)], [t('Agility'), value(st.agility)], [t('Stamina'), value(st.stamina)],
           [t('Intellect'), value(st.intellect)], [t('Spirit'), value(st.spirit)]])}
-        ${statBox(t('Spells'), [[school.label, value(school.value)], [t('Healing'), value(st.healing)],
-          [t('Spell crit'), pct(school.crit)], [t('Spell hit'), st.spellHit !== undefined ? percent(value(st.spellHit)) : '–']])}
-        ${statBox(t('Defense'), [[t('Health'), value(st.healthMax)], [st.powerType === 'MANA' || !st.powerType ? t('Mana') : t('Energy'), value(st.powerMax)],
-          [t('Armor'), value(st.armor)], [t('Dodge'), pct(st.dodge)]])}
+        ${combatBox}
+        ${statBox(t('Defense'), defenseRows)}
         ${statBox(t('Gear'), [[t('Gear value'), value(d.setValue, 1)], [t('Avg. iLvl'), ilvls.length ? value(ilvls.reduce((a, b) => a + b, 0) / ilvls.length, 1) : '–'],
           [t('Lowest durability'), lowest === null ? '–' : `<span class="${lowest < 0.3 ? 'dur-low' : ''}">${percent(Math.round(lowest * 100))}</span>`],
           [t('Scale'), esc(d.profileLabel)]],
@@ -134,7 +185,7 @@ export async function renderCharacter() {
       <div class="paperdoll">
         <div class="pd-head">
           <div><div class="pd-title">${esc(c.name)} <span>${esc(c.surname || '')}</span></div>
-            <div class="pd-sub">${esc(t('Level {level}', { level: c.level }))} ${esc(c.race)} ${esc(c.class)}</div></div>
+            <div class="pd-sub">${esc(t('Level {level}', { level: c.level }))} ${esc(c.race)} ${d.specName ? `${esc(d.specName)} ` : ''}${esc(c.class)}</div></div>
           <span class="spacer"></span>
           <div class="pd-money">${money(c.money)}<div class="small muted">${esc(c.zone || '')} · Snapshot ${esc(ago(d.updated))}</div></div>
         </div>
@@ -142,7 +193,7 @@ export async function renderCharacter() {
           <div class="pd-col">${column(PAPERDOLL.left, 'left')}</div>
           ${center}
           <div class="pd-col">${column(PAPERDOLL.right, 'right')}</div>
-          <div class="pd-weapons">${column(PAPERDOLL.bottom, 'bottom')}</div>
+          <div class="pd-weapons">${column(bottomSlots, 'bottom')}</div>
         </div>
         <div class="pd-xp"><div class="bar"><span style="width:${xpPct}%"></span></div>
           <div class="pd-xp-text">${esc(xp)}</div></div>

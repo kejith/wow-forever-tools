@@ -11,6 +11,8 @@ type CastResult struct {
 	Damage      float64
 	Healing     float64
 	ManaCost    float64
+	RageCost    float64
+	EnergyCost  float64
 	ExecuteSec  float64 // time the cast occupies (max of cast time and GCD)
 	CooldownSec float64 // cooldown after modifiers
 	DurationSec float64 // periodic effects: duration after modifiers
@@ -46,6 +48,8 @@ type CastShape struct {
 	GCDSec      float64
 	CooldownSec float64
 	ManaCost    float64
+	RageCost    float64
+	EnergyCost  float64
 	HitChance   float64 // 0..1; 1 for heals
 	CritPct     float64 // chance in percent
 	CritBonus   float64 // extra damage factor on a crit (0.5 for spells)
@@ -174,7 +178,14 @@ func bestSchool(sp *Spell, st *State) School {
 // ShapeIn computes a spell's cast shape within a rotation.
 func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 	sc := bestSchool(sp, st)
-	s := CastShape{School: sc, IsHeal: sp.IsHeal, CritBonus: SpellCritBonus * st.Mods.pct(OpCritDamage, sp), Area: sp.Area}
+	critBonus := SpellCritBonus * st.Mods.pct(OpCritDamage, sp)
+	if sp.IsPhysical {
+		critBonus = WhiteCritBonus * st.Mods.pct(OpCritDamage, sp)
+	} else if extra := st.Mods.SchoolCritBonusPct[sc]; !sp.IsHeal && extra > 0 {
+		// Ignite adds extra% of the total crit damage (1 + critBonus) over 4 s.
+		critBonus += (1 + critBonus) * (extra / 100)
+	}
+	s := CastShape{School: sc, IsHeal: sp.IsHeal, CritBonus: critBonus, Area: sp.Area}
 
 	// Time: talents may shorten the cast; haste shortens it further. The GCD
 	// is not haste-scaled (Classic rule, unverified for Forever).
@@ -209,6 +220,8 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 		cost = 0
 	}
 	s.ManaCost = cost
+	s.RageCost = sp.Cost.Rage
+	s.EnergyCost = sp.Cost.Energy
 
 	// Power and modifiers. The client keeps direct and periodic amounts
 	// apart: SpellModOp 0 changes the direct part, op 22 the periodic one
@@ -224,6 +237,75 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 	}
 	directPct := schoolPct * st.Mods.pct(OpDamage, sp)
 	tickPct := schoolPct * st.Mods.pct(OpPeriodic, sp)
+
+	if sp.IsPhysical {
+		skill := float64(st.Level * 5)
+		if sp.IsRanged {
+			if st.Ranged.Skill > 0 {
+				skill = st.Ranged.Skill
+			}
+			miss := RangedMiss(skill, tgt.Defense) - st.MeleeHit - st.Mods.flat(OpHit, sp)
+			if miss < 0 {
+				miss = 0
+			}
+			s.HitChance = 1 - miss/100
+			s.CritPct = st.RangedCrit - (tgt.Defense-skill)*0.2 + st.Mods.flat(OpCrit, sp)
+		} else {
+			if st.MainHand.Skill > 0 {
+				skill = st.MainHand.Skill
+			}
+			tbl := MeleeTable(skill, tgt.Defense, st.MeleeCrit, false)
+			miss := tbl.Miss - st.MeleeHit - st.Mods.flat(OpHit, sp)
+			if miss < 0 {
+				miss = 0
+			}
+			s.HitChance = math.Max(0, 1-(miss+tbl.Dodge)/100)
+			s.CritPct = tbl.Crit + st.Mods.flat(OpCrit, sp)
+		}
+		if s.CritPct < 0 {
+			s.CritPct = 0
+		}
+		if sp.Direct != nil {
+			base := st.Mods.points(sp.Direct.avgBase(st.Level, sp.Levels), sp.Direct, sp)
+			wep := 0.0
+			if sp.WeaponPct > 0 {
+				wep = WeaponHitAvg(st, sp) * (sp.WeaponPct / 100)
+			}
+			ap := EffectiveAP(st)
+			if sp.IsRanged {
+				ap = st.RangedAttackPower
+			}
+			armor := 1.0
+			if sp.School == Physical {
+				armor = ArmorMultiplier(st.Level, tgt.Level)
+			}
+			s.DirectAvg = (wep + base + sp.APCoeff*ap + st.Mods.flat(OpDamage, sp)) * armor * directPct
+			s.DirectLeech = sp.Direct.Leech
+		}
+		if sp.Periodic != nil && sp.DurationMs > 0 {
+			durMs := float64(sp.DurationMs) + st.Mods.flat(OpDuration, sp)
+			durMs *= st.Mods.pct(OpDuration, sp)
+			s.DurationSec = durMs / 1000
+			s.PeriodSec = float64(sp.Periodic.PeriodMs) / 1000
+			if s.PeriodSec > 0 {
+				s.Ticks = s.DurationSec / s.PeriodSec
+			}
+			base := st.Mods.points(sp.Periodic.avgBase(st.Level, sp.Levels), sp.Periodic, sp)
+			ap := EffectiveAP(st)
+			if sp.IsRanged {
+				ap = st.RangedAttackPower
+			}
+			// Bleeds ignore armor and scale with AP.
+			apTick := 0.0
+			if s.Ticks > 0 && sp.APCoeff > 0 {
+				apTick = sp.APCoeff * ap / s.Ticks
+			}
+			s.TickValue = (base + apTick) * tickPct
+			s.TickBase = s.TickValue
+		}
+		return s
+	}
+
 	s.CritPct = st.Crit[sc] + st.Mods.flat(OpCrit, sp)
 	if s.CritPct < 0 {
 		s.CritPct = 0
@@ -333,7 +415,30 @@ func ResolveCast(sp *Spell, st *State, tgt Target, rng *rand.Rand) CastResult {
 // table. Partial resists are not modeled in Stage 1 (noted in the docs).
 func ResolveCastIn(sp *Spell, st *State, tgt Target, ctx *Context, rng *rand.Rand) CastResult {
 	s := ShapeIn(sp, st, tgt, ctx)
-	r := CastResult{ManaCost: s.ManaCost, ExecuteSec: s.ExecuteSec, CooldownSec: s.CooldownSec, DurationSec: s.DurationSec}
+	manaCost := s.ManaCost
+	if manaCost > 0 && s.CritPct > 0 && len(st.Mods.CritManaRefunds) > 0 {
+		refundPct := 0.0
+		for _, ref := range st.Mods.CritManaRefunds {
+			if ref.HealOnly && !s.IsHeal {
+				continue
+			}
+			if ref.SchoolMask != 0 && ref.SchoolMask&(1<<uint(s.School)) == 0 {
+				continue
+			}
+			refundPct += ref.Pct
+		}
+		if refundPct > 100 {
+			refundPct = 100
+		}
+		if refundPct > 0 {
+			// Base mana cost refund on crit (Illumination, Master of Elements).
+			manaCost -= sp.Cost.Mana * (refundPct / 100) * s.HitChance * (s.CritPct / 100)
+			if manaCost < 0 {
+				manaCost = 0
+			}
+		}
+	}
+	r := CastResult{ManaCost: manaCost, RageCost: s.RageCost, EnergyCost: s.EnergyCost, ExecuteSec: s.ExecuteSec, CooldownSec: s.CooldownSec, DurationSec: s.DurationSec}
 
 	direct := s.SampleDirect(rng)
 

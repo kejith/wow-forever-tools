@@ -85,6 +85,14 @@ function statTiles(d) {
   const s = d.stats;
   const tile = (label, value, sub = '') => `<div class="heal-tile"><div class="small muted">${esc(label)}</div>
       <div class="big">${value}</div>${sub ? `<div class="small muted">${esc(sub)}</div>` : ''}</div>`;
+  if (s.physical) {
+    const apLabel = s.ranged ? t('Ranged attack power') : t('Attack power');
+    return `<div class="heal-tiles">
+        ${tile(apLabel, num(s.attackPower || 0), t('{pct} crit on the character sheet', { pct: percent(num(s.physCritPct || 0, 1)) }))}
+        ${s.weaponDps ? tile(s.ranged ? t('Ranged DPS') : t('Weapon DPS'), `${num(s.weaponDps, 1)} <span class="small muted">DPS</span>`, t('enemy {delta} levels above you', { delta: s.targetDelta })) : ''}
+        ${s.manaMax > 100 ? tile(t('Mana'), num(s.manaMax), t('{casting} per 5 sec. while casting, {idle} after 5 s without a cast', { casting: num(s.castingPer5, 1), idle: num(s.idlePer5, 1) })) : ''}
+      </div>`;
+  }
   return `<div class="heal-tiles">
       ${s.schools.map((x) => tile(t('Spell power: {school}', { school: x.label }), num(x.power), t('{pct} crit on the character sheet', { pct: percent(num(x.critPct, 1)) }))).join('')}
       ${tile(t('Spells that miss'), esc(percent(num(s.missPct, 1))), t('enemy {delta} levels above you', { delta: s.targetDelta }))}
@@ -118,14 +126,15 @@ function fightTable(d, list) {
 
 function weightTable(d) {
   const w = d.weights;
+  const refCol = d.stats.physical ? t('= attack power') : t('= spell power');
   const cell = (row, name, sep = '') => `<td class="num${sep}">${num(row[name], 2)}</td>
       <td class="num muted">${row[`${name}Power`] === null ? dash : num(row[`${name}Power`], 2)}</td>`;
   const body = w.rows.map((row) => `<tr><td>${esc(row.label)}</td>${cell(row, 'short')}${cell(row, 'long', ' group-sep')}</tr>`).join('');
   const fight = (seconds) => esc(t('Fight of {seconds} s', { seconds: num(seconds) }));
   return `<table class="compact heal-weights"><thead>
       <tr><th></th><th class="num" colspan="2">${fight(w.seconds)}</th><th class="num group-sep" colspan="2">${fight(w.longSeconds)}</th></tr>
-      <tr><th>${esc(t('One point of'))}</th><th class="num">${esc(d.unit)}</th><th class="num">${esc(t('= spell power'))}</th>
-        <th class="num group-sep">${esc(d.unit)}</th><th class="num">${esc(t('= spell power'))}</th></tr></thead><tbody>${body}</tbody></table>`;
+      <tr><th>${esc(t('One point of'))}</th><th class="num">${esc(d.unit)}</th><th class="num">${esc(refCol)}</th>
+        <th class="num group-sep">${esc(d.unit)}</th><th class="num">${esc(refCol)}</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
 // The whole section from the answer of the bridge command "damage".

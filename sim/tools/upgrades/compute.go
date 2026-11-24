@@ -368,6 +368,9 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	// The combat engine, when asked for: "on" must work, "auto" falls back to the weight scale.
 	var eng *enginebundle.Engine
 	classFile := ch.Str("classFile")
+	spec := enginebundle.SpecOf(c)
+	dw := canDualWield(classFile, level, spec, ch.Tab("stats"))
+	physical := isPhysicalRole(c)
 	if o.Engine != "off" {
 		var consumed *Consumed
 		eng, consumed, err = startEngine(c, classFile, totals, scale, o)
@@ -381,10 +384,6 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 			}
 			eng = nil
 		}
-	}
-	if eng == nil && enginebundle.Supported(classFile) && classFile != "WARLOCK" {
-		// The weight scale knows only the warlock; a class the engine models must not fall back to it.
-		return nil, errors.New(i18n.T("This class is rated by the combat engine (simforever), which did not run."))
 	}
 
 	// What the valuer sees: the engine keeps healing and per-school damage apart, the scale does not.
@@ -491,13 +490,31 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 			} else {
 				slot, variants = 0, [][]int64{{slots[0]}, {slots[1]}}
 			}
+		case len(slots) == 1 && slots[0] == 16 && it.Str("equipLoc") == "INVTYPE_WEAPON" && dw:
+			if isUnique(tip) {
+				id0, _ := equipped[16].Num("id")
+				id1, _ := equipped[17].Num("id")
+				if int64(id0) == iid {
+					slot, variants = 16, [][]int64{{16}}
+				} else if int64(id1) == iid {
+					slot, variants = 17, [][]int64{{17}}
+				} else if twoHanded {
+					slot, variants = 16, [][]int64{{16}}
+				} else {
+					slot, variants = 0, [][]int64{{16}, {17}}
+				}
+			} else if twoHanded {
+				slot, variants = 16, [][]int64{{16}}
+			} else {
+				slot, variants = 0, [][]int64{{16}, {17}}
+			}
 		case len(slots) == 1 && slots[0] == 17 && twoHanded: // an off-hand item means giving up the staff
 			slot, variants = 17, [][]int64{{16}}
 		default:
 			slot, variants = slots[0], [][]int64{{slots[0]}}
 		}
 		pool = append(pool, &cand{id: iid, it: it, price: price, slot: slot, variants: variants, norm: n,
-			extra: SpecialEffects(tip), soon: req > level, source: source, owner: owner})
+			extra: SpecialEffectsFor(tip, physical), soon: req > level, source: source, owner: owner})
 		return true
 	}
 
@@ -668,7 +685,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		}
 		req, _ := x.it.Num("reqLevel")
 		if len(x.extra) > 0 && x.gain < 5 && req >= level-15 {
-			row := pyjson.New("slot", SlotLabel(x.slot))
+			row := pyjson.New("slot", SlotLabelFor(x.slot, classFile))
 			out := itemOut(x, x.gain, x.remove)
 			for _, k := range out.Keys() {
 				row.Set(k, out.Get(k))
@@ -725,11 +742,11 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		}
 		var current any
 		if cur := equipped[slot]; sv.Truthy(cur) {
-			label := SlotLabel(slot)
+			label := SlotLabelFor(slot, classFile)
 			current = pyjson.New("name", cur.Get("name"), "id", cur.Get("id"), "quality", cur.Get("quality"),
 				"stats", Short(cur.Tab("stats")), "tip", Tooltip(cur, &label))
 		}
-		slotsOut = append(slotsOut, pyjson.New("slot", slot, "slotName", SlotLabel(slot), "current", current,
+		slotsOut = append(slotsOut, pyjson.New("slot", slot, "slotName", SlotLabelFor(slot, classFile), "current", current,
 			"candidates", cands))
 	}
 
@@ -784,11 +801,16 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		}
 		if x.slot == 17 {
 			offHand = append(offHand, x)
+		} else if dw && x.it.Str("equipLoc") == "INVTYPE_WEAPON" {
+			offHand = append(offHand, x)
 		}
 	}
 	oneHand, offHand = byPoints(oneHand, 10), byPoints(offHand, 10)
 	for _, x := range oneHand {
 		for _, y := range offHand {
+			if x.id == y.id && isUnique(tipLines(x.it)) {
+				continue
+			}
 			combos = append(combos, combo{"weapon", x, y, []int64{16}, []int64{17}})
 		}
 	}
@@ -1021,10 +1043,10 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		var compare any
 		if old != nil {
 			oldSlot, _ := sv.Num(old.Get("slot"))
-			label := SlotLabel(int64(oldSlot))
+			label := SlotLabelFor(int64(oldSlot), classFile)
 			compare = Tooltip(old, &label)
 		}
-		row := pyjson.New("slot", p.x.slot, "slotName", SlotLabel(p.x.slot), "replaces", replaced, "compareTip", compare)
+		row := pyjson.New("slot", p.x.slot, "slotName", SlotLabelFor(p.x.slot, classFile), "replaces", replaced, "compareTip", compare)
 		out := itemOut(p.x, step, p.remove)
 		for _, k := range out.Keys() {
 			row.Set(k, out.Get(k))

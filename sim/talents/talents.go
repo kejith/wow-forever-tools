@@ -288,6 +288,16 @@ func applyRule(cat *catalog.Catalog, mods *engine.Mods, info *Info, o override) 
 	case "school_damage_pct":
 		schools(func(s engine.School) { mods.SchoolDamagePct[s] += v })
 		info.set(StatusUsed, "rule")
+	case "school_crit_bonus_pct":
+		schools(func(s engine.School) { mods.SchoolCritBonusPct[s] += v })
+		info.set(StatusUsed, "rule")
+	case "crit_mana_refund":
+		var mask uint32
+		schools(func(s engine.School) { mask |= 1 << uint(s) })
+		mods.CritManaRefunds = append(mods.CritManaRefunds, engine.CritManaRefund{
+			Pct: v, SchoolMask: mask, HealOnly: o.Reason == "heal",
+		})
+		info.set(StatusUsed, "rule")
 	case "wand_pct":
 		mods.WandPct += v
 		info.set(StatusUsed, "wand")

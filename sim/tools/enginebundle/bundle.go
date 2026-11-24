@@ -29,13 +29,19 @@ const ReferenceLocale = "enUS"
 // WandsSkillID is the skill line of wands.
 const WandsSkillID = 228
 
-// itemKeys are the ITEM_MOD stats (in stat_key form) as the engine's delta keys. Armor and resistances are
-// left out: the modeled metrics cannot see them yet.
-var itemKeys = map[string]string{"spell_power": "sp", "spell_damage_done": "spDamage",
+// itemKeys are the ITEM_MOD stats (in stat_key form) as the engine's delta keys.
+var itemKeys = map[string]string{
+	"spell_power": "sp", "spell_damage_done": "spDamage",
 	"spell_healing_done": "healing", "holy_damage_done": "spHoly", "fire_damage_done": "spFire",
 	"nature_damage_done": "spNature", "frost_damage_done": "spFrost", "shadow_damage_done": "spShadow",
-	"arcane_damage_done": "spArcane", "stamina": "sta", "intellect": "int", "spirit": "spi",
-	"mana_regeneration": "mp5", "health_regen": "hp5"}
+	"arcane_damage_done": "spArcane",
+	"strength": "str", "agility": "agi", "stamina": "sta", "intellect": "int", "spirit": "spi",
+	"attack_power": "ap", "ranged_attack_power": "rap", "feral_attack_power": "feralAp",
+	"mana_regeneration": "mp5", "health_regen": "hp5",
+	"defense_skill_rating": "defense", "dodge_rating": "dodge", "parry_rating": "parry",
+	"block_rating": "block", "block_value": "blockValue",
+	"haste_rating": "haste", "melee_haste_rating": "meleeHaste",
+}
 
 // NormItem is simengine.norm_item: an item's stats as engine delta keys. Unlike the weight scale's
 // NormStats this keeps healing, per-school damage and the split between "damage done" and "damage and
@@ -55,6 +61,9 @@ func NormItem(rec *sv.Table, ranged bool, ratings map[string]float64, pctLine ma
 			n[itemKeys[k]] += val
 		case k == "damage_per_second" && ranged:
 			n["wandDps"] = val
+			n["rangedDps"] = val
+		case k == "damage_per_second" && !ranged:
+			n["weaponDps"] = val
 		case (k == "hit_rating" || k == "crit_rating") && ratings != nil && pctLine != nil:
 			kind := strings.TrimSuffix(k, "_rating")
 			var pct []float64
@@ -353,25 +362,45 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 	if level == 0 {
 		level = 60
 	}
+	classFile := ch.Str("classFile")
+	mh, oh, rangedWep, petDPS := physicalWeapons(c, ch, st, classFile)
+	agility := num(st, "agility")
+	critPerAgi := 0.0
+	if cfa, ok := st.Num("critFromAgility"); agility > 0 && ok {
+		critPerAgi = cfa / agility
+	}
 	in := run.Input{
 		CacheDir: cache, Build: build, Locale: locale,
 		Character: run.Character{
-			ClassFile: ch.Str("classFile"), Level: level, SpecOverride: spec,
+			ClassFile: classFile, Level: level, SpecOverride: spec,
 			Stats: run.Stats{
-				SpellDamage: numMap(st.Tab("spellDamage")),
-				SpellCrit:   numMap(st.Tab("spellCrit")),
-				SpellHit:    num(st, "spellHit"),
-				Healing:     num(st, "healing"),
-				Intellect:   intellect, Spirit: num(st, "spirit"),
-				MP5: gearMp5, HP5: gearHp5,
-				HealthMax: num(st, "healthMax"), ManaMax: num(st, "powerMax"),
-				CritPerInt: critPerInt,
-				ManaPerInt: orNum(st, "manaPerIntellect", 15),
-				HPPerSta:   orNum(st, "hpPerStamina", 10),
-				RangedCrit: num(st, "rangedCrit"),
-				Wand:       engine.Wand{DPS: wandDps, Speed: wandSpeed, Skill: wandSkill},
-				LifeTap:    lifeTap,
-				HastePct:   sheet.HastePct, SpiritRegen: sheet.SpiritRegen, CastingRegen: sheet.CastingRegen,
+				SpellDamage:       numMap(st.Tab("spellDamage")),
+				SpellCrit:         numMap(st.Tab("spellCrit")),
+				SpellHit:          num(st, "spellHit"),
+				Healing:           num(st, "healing"),
+				Strength:          num(st, "strength"),
+				Agility:           agility,
+				Intellect:         intellect, Spirit: num(st, "spirit"),
+				AttackPower:       num(st, "attackPower"),
+				RangedAttackPower: num(st, "rangedAttackPower"),
+				MeleeCrit:         num(st, "meleeCrit"),
+				MeleeHit:          num(st, "meleeHit"),
+				MeleeHastePct:     num(st, "meleeHaste"),
+				RangedHastePct:    num(st, "rangedHaste"),
+				CritPerAgi:        critPerAgi,
+				MainHand:          mh,
+				OffHand:           oh,
+				Ranged:            rangedWep,
+				PetDPS:            petDPS,
+				MP5:               gearMp5, HP5: gearHp5,
+				HealthMax:         num(st, "healthMax"), ManaMax: num(st, "powerMax"),
+				CritPerInt:        critPerInt,
+				ManaPerInt:        orNum(st, "manaPerIntellect", 15),
+				HPPerSta:          orNum(st, "hpPerStamina", 10),
+				RangedCrit:        num(st, "rangedCrit"),
+				Wand:              engine.Wand{DPS: wandDps, Speed: wandSpeed, Skill: wandSkill},
+				LifeTap:           lifeTap,
+				HastePct:          sheet.HastePct, SpiritRegen: sheet.SpiritRegen, CastingRegen: sheet.CastingRegen,
 			},
 			Talents: talents, Spellbook: spellbook,
 		},
@@ -401,4 +430,65 @@ func parseWandSpeed(wand *sv.Table) float64 {
 		}
 	}
 	return 0
+}
+
+func weaponFromSlot(c *sv.Table, slotID int64) engine.Weapon {
+	for _, e := range c.Tab("equipment").Tables() {
+		if slot, _ := e.Num("slot"); int64(slot) == slotID {
+			dps, _ := e.Tab("stats").Num("ITEM_MOD_DAMAGE_PER_SECOND_SHORT")
+			spd := parseWandSpeed(e)
+			if dps > 0 {
+				if spd <= 0 {
+					spd = 2.4
+				}
+				return engine.Weapon{DPS: dps, Speed: spd, Min: dps * spd * 0.85, Max: dps * spd * 1.15}
+			}
+		}
+	}
+	return engine.Weapon{}
+}
+
+func physicalWeapons(c, ch, st *sv.Table, classFile string) (mh, oh, ranged engine.Weapon, petDPS float64) {
+	// Skip for pure cloth casters so their bundles and deltas remain untouched.
+	if classFile == "WARLOCK" || classFile == "PRIEST" || classFile == "MAGE" {
+		return mh, oh, ranged, 0
+	}
+	mh = weaponFromSlot(c, 16)
+	if spd := num(st, "meleeSpeed"); spd > 0 {
+		mh.Speed = spd
+	}
+	if dmg := st.Tab("meleeDamage"); dmg != nil && num(dmg, "max") > 0 {
+		mh.Min, mh.Max = num(dmg, "min"), num(dmg, "max")
+		if mh.Speed > 0 {
+			mh.DPS = (mh.Min + mh.Max) / 2 / mh.Speed
+		}
+	}
+	oh = weaponFromSlot(c, 17)
+	if spd := num(st, "offhandSpeed"); spd > 0 {
+		oh.Speed = spd
+	}
+	if dmg := st.Tab("offhandDamage"); dmg != nil && num(dmg, "max") > 0 {
+		oh.Min, oh.Max = num(dmg, "min"), num(dmg, "max")
+		if oh.Speed > 0 {
+			oh.DPS = (oh.Min + oh.Max) / 2 / oh.Speed
+		}
+	}
+	ranged = weaponFromSlot(c, 18)
+	if spd := num(st, "rangedSpeed"); spd > 0 {
+		ranged.Speed = spd
+	}
+	if dmg := st.Tab("rangedDamage"); dmg != nil && num(dmg, "max") > 0 {
+		ranged.Min, ranged.Max = num(dmg, "min"), num(dmg, "max")
+		if ranged.Speed > 0 {
+			ranged.DPS = (ranged.Min + ranged.Max) / 2 / ranged.Speed
+		}
+	}
+	if pet := ch.Tab("pet"); pet != nil {
+		spd := num(pet, "speed")
+		dmg := pet.Tab("damage")
+		if spd > 0 && dmg != nil && num(dmg, "max") > 0 {
+			petDPS = (num(dmg, "min") + num(dmg, "max")) / 2 / spd
+		}
+	}
+	return mh, oh, ranged, petDPS
 }

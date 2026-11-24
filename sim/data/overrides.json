@@ -114,6 +114,58 @@
       "effect": 0,
       "perRank": 5,
       "source": "Talent text: 'Increases your damage with Wands by $s1%' (13/25 in the trait tables). The aura is a school damage percent limited to wands, so it must not count for spells."
+    },
+    {
+      "name": "Ignite",
+      "spells": [11119],
+      "kind": "school_crit_bonus_pct",
+      "effect": 0,
+      "perRank": 8,
+      "schools": ["fire"],
+      "unverified": true,
+      "source": "Mage Fire talent: critical strikes from Fire damage spells cause the target to burn for an additional 8/16/24/32/40% of your spell's damage over 4 sec."
+    },
+    {
+      "name": "Improved Scorch",
+      "spells": [11095],
+      "kind": "stack_proc",
+      "effect": 0,
+      "perRank": 33.33,
+      "schools": ["fire"],
+      "value": 3,
+      "max": 5,
+      "durationSec": 30,
+      "unverified": true,
+      "source": "Mage Fire talent: Scorch has a 33/67/100% chance to apply Fire Vulnerability (+3% Fire damage taken per stack, up to 5 stacks, 30 s)."
+    },
+    {
+      "name": "Master of Elements",
+      "spells": [29074],
+      "kind": "crit_mana_refund",
+      "effect": 0,
+      "perRank": 10,
+      "schools": ["fire", "frost"],
+      "unverified": true,
+      "source": "Mage Fire talent: Fire and Frost spell criticals refund 10/20/30% of their base mana cost."
+    },
+    {
+      "name": "Moonkin Form",
+      "spells": [24858],
+      "kind": "generic",
+      "generic": true,
+      "unverified": true,
+      "source": "Druid Balance talent: decoded from Moonkin Form's own auras; assumed active whenever the talent is taken."
+    },
+    {
+      "name": "Illumination",
+      "spells": [20210],
+      "kind": "crit_mana_refund",
+      "effect": 1,
+      "perRank": 20,
+      "schools": ["holy"],
+      "reason": "heal",
+      "unverified": true,
+      "source": "Paladin Holy talent: refunds mana on critical heals (20/40/60/80/100% per rank; modeled as expected base mana refund)."
     }
   ]
 }

@@ -18,8 +18,10 @@ var SlotOf = map[string][]int64{
 	"INVTYPE_HEAD": {1}, "INVTYPE_NECK": {2}, "INVTYPE_SHOULDER": {3}, "INVTYPE_CHEST": {5}, "INVTYPE_ROBE": {5},
 	"INVTYPE_WAIST": {6}, "INVTYPE_LEGS": {7}, "INVTYPE_FEET": {8}, "INVTYPE_WRIST": {9}, "INVTYPE_HAND": {10},
 	"INVTYPE_FINGER": {11, 12}, "INVTYPE_TRINKET": {13, 14}, "INVTYPE_CLOAK": {15},
-	"INVTYPE_WEAPON": {16}, "INVTYPE_WEAPONMAINHAND": {16}, "INVTYPE_HOLDABLE": {17}, "INVTYPE_SHIELD": {17},
-	"INVTYPE_RANGED": {18}, "INVTYPE_RANGEDRIGHT": {18}, "INVTYPE_2HWEAPON": {16, 17},
+	"INVTYPE_WEAPON": {16}, "INVTYPE_WEAPONMAINHAND": {16}, "INVTYPE_WEAPONOFFHAND": {17},
+	"INVTYPE_HOLDABLE": {17}, "INVTYPE_SHIELD": {17},
+	"INVTYPE_RANGED": {18}, "INVTYPE_RANGEDRIGHT": {18}, "INVTYPE_THROWN": {18}, "INVTYPE_RELIC": {18},
+	"INVTYPE_2HWEAPON": {16, 17},
 }
 
 // Weapon subclasses usable per class (WoW ItemSubclassWeapon):
@@ -47,10 +49,12 @@ func usableWeaponsFor(classFile string) map[int64]bool {
 
 // usableArmorFor returns the ItemSubclassArmor values a class can equip at
 // level (0=Misc/rings/trinkets/cloaks/offhand, 1=Cloth, 2=Leather, 3=Mail,
-// 4=Plate, 6=Shield).
+// 4=Plate, 6=Shield, 7=Libram, 8=Idol, 9=Totem).
 func usableArmorFor(classFile string, level float64) map[int64]bool {
 	switch classFile {
-	case "DRUID", "ROGUE":
+	case "DRUID":
+		return map[int64]bool{0: true, 1: true, 2: true, 8: true}
+	case "ROGUE":
 		return map[int64]bool{0: true, 1: true, 2: true}
 	case "HUNTER":
 		if level >= 40 {
@@ -59,10 +63,15 @@ func usableArmorFor(classFile string, level float64) map[int64]bool {
 		return map[int64]bool{0: true, 1: true, 2: true}
 	case "SHAMAN":
 		if level >= 40 {
-			return map[int64]bool{0: true, 1: true, 2: true, 3: true, 6: true}
+			return map[int64]bool{0: true, 1: true, 2: true, 3: true, 6: true, 9: true}
 		}
-		return map[int64]bool{0: true, 1: true, 2: true, 6: true}
-	case "PALADIN", "WARRIOR":
+		return map[int64]bool{0: true, 1: true, 2: true, 6: true, 9: true}
+	case "PALADIN":
+		if level >= 40 {
+			return map[int64]bool{0: true, 1: true, 2: true, 3: true, 4: true, 6: true, 7: true}
+		}
+		return map[int64]bool{0: true, 1: true, 2: true, 3: true, 6: true, 7: true}
+	case "WARRIOR":
 		if level >= 40 {
 			return map[int64]bool{0: true, 1: true, 2: true, 3: true, 4: true, 6: true}
 		}
@@ -70,6 +79,22 @@ func usableArmorFor(classFile string, level float64) map[int64]bool {
 	default: // WARLOCK, PRIEST, MAGE, unknown
 		return map[int64]bool{0: true, 1: true}
 	}
+}
+
+// canDualWield reports whether a character can equip a one-hand weapon in slot 17.
+func canDualWield(classFile string, level float64, spec string, stats *sv.Table) bool {
+	if stats != nil && sv.Truthy(stats.Get("dualWield")) {
+		return true
+	}
+	switch classFile {
+	case "ROGUE":
+		return level >= 10
+	case "WARRIOR", "HUNTER":
+		return level >= 20
+	case "SHAMAN":
+		return spec == "enhancement" && level >= 40
+	}
+	return false
 }
 
 func isUnique(tip []string) bool {
@@ -85,6 +110,7 @@ func isUnique(tip []string) bool {
 var (
 	equipPrefix   = []string{"Equip:", "Anlegen:"}
 	usePrefix     = []string{"Use:", "Benutzen:"}
+	procPrefix    = []string{"Chance on hit:", "Trefferchance:"}
 	classesPrefix = []string{"Classes:", "Klassen:"}
 	warlockNames  = []string{"Warlock", "Hexenmeister", "Hexenmeisterin"}
 )
@@ -94,13 +120,15 @@ const pyD = `\p{Nd}`
 
 // statLine is upgrades.STAT_LINE without its two negative lookaheads, which RE2 does not have: the two
 // alternatives that use them are checked by statIncrease.
-var statLine = regexp.MustCompile(`^(?:Equip: (?:\+` + pyD + `+ Attack Power` +
+var statLine = regexp.MustCompile(`^(?:Equip: (?:\+` + pyD + `+ (?:Ranged |Feral )?Attack Power` +
 	`|Improves your chance to hit by|Improves your chance to get a critical strike by|Your spells pierce ` + pyD + `+` +
 	`|Decreases the magical resistances of your spell targets by ` + pyD + `+` +
-	`|Restores ` + pyD + `+ (?:mana|health) per ` + pyD + `+ sec|Increased Defense \+` + pyD + `+)` +
-	`|Anlegen: (?:\+` + pyD + `+ Angriffskraft` +
+	`|Restores ` + pyD + `+ (?:mana|health) per ` + pyD + `+ sec|Increased Defense \+` + pyD + `+` +
+	`|Increases your chance to (?:dodge|parry|block) an attack by|Increases the block value of your shield by ` + pyD + `+)` +
+	`|Anlegen: (?:\+` + pyD + `+ (?:Distanz|wilde )?Angriffskraft` +
 	`|Verbessert Eure Trefferchance um|Erhöht Eure kritische Trefferchance um|Eure Zauber durchdringen ` + pyD + `+` +
-	`|Stellt alle ` + pyD + `+ Sek\. ` + pyD + `+ (?:Mana|Gesundheit) wieder her|Verteidigung \+` + pyD + `+))`)
+	`|Stellt alle ` + pyD + `+ Sek\. ` + pyD + `+ (?:Mana|Gesundheit) wieder her|Verteidigung \+` + pyD + `+` +
+	`|Erhöht Eure Chance, (?:einem Angriff auszuweichen|einen Angriff zu parieren|Angriffe mit einem Schild abzublocken)|Erhöht den Blockwert Eures Schildes um ` + pyD + `+))`)
 
 var (
 	increaseEN = regexp.MustCompile(`^.*(?:damage|healing).*by up to ` + pyD + `+`)
@@ -142,12 +170,18 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 	return false
 }
 
-// SpecialEffects is upgrades.special_effects: tooltip effects the scale cannot rate. "Chance on hit:" procs
-// need melee hits and are left out.
+// SpecialEffects is upgrades.special_effects: tooltip effects the scale cannot rate.
 func SpecialEffects(tip []string) []string {
+	return SpecialEffectsFor(tip, false)
+}
+
+// SpecialEffectsFor extracts unrated tooltip effects. When physical is true, weapon
+// "Chance on hit:" procs are included as well.
+func SpecialEffectsFor(tip []string, physical bool) []string {
 	out := []string{}
 	for _, t := range tip {
-		if hasAnyPrefix(t, usePrefix) || (hasAnyPrefix(t, equipPrefix) && !isStatLine(t)) {
+		if hasAnyPrefix(t, usePrefix) || (hasAnyPrefix(t, equipPrefix) && !isStatLine(t)) ||
+			(physical && hasAnyPrefix(t, procPrefix)) {
 			out = append(out, t)
 		}
 	}

@@ -32,12 +32,14 @@ type Action struct {
 	// than the spell's own cooldown limits it: Weakened Soul after Power
 	// Word: Shield on the one target the model heals.
 	CycleSec float64
-	// Kind "mana" is a spell that trades health for mana (Dark Sacrifice),
-	// cast on demand like Life Tap: it returns Spell.Energize per tick over
-	// its duration plus ManaPerSpirit times the spirit, and costs HealthCost
-	// per tick.
+	// Kind "mana" is a spell that restores mana on a cooldown (Dark Sacrifice,
+	// Evocation, Innervate, Mana Tide Totem): it returns Spell.Energize per
+	// tick over its duration, plus ManaPerSpirit*spirit, ManaRegenMult*duration*RegenPS,
+	// or ManaPctMax*ManaMax, and optionally costs HealthCost per tick.
 	HealthCost    *Effect
 	ManaPerSpirit float64
+	ManaRegenMult float64 // extra multiples of spirit regeneration over duration (Evocation 15, Innervate 4)
+	ManaPctMax    float64 // fraction of ManaMax restored per cast (Mana Tide Totem 0.24)
 }
 
 // converter is what turns health into mana when the rotation runs short:
@@ -59,20 +61,35 @@ func converterOf(st *State, fight Fight, actions []Action) *converter {
 		return &converter{kind: "lifetap", mana: mana, health: st.LifeTap.HealthPerCast, gcd: lifeTapGCDSec}
 	}
 	for _, a := range actions {
-		if a.Kind != "mana" || a.Spell == nil || a.Spell.Energize == nil {
+		if a.Kind != "mana" || a.Spell == nil {
+			continue
+		}
+		if a.Spell.Energize == nil && a.ManaRegenMult <= 0 && a.ManaPctMax <= 0 {
 			continue
 		}
 		sp := a.Spell
 		ticks := 1.0
 		duration := float64(sp.DurationMs) / 1000
-		if sp.Energize.PeriodMs > 0 && sp.DurationMs > 0 {
+		if sp.Energize != nil && sp.Energize.PeriodMs > 0 && sp.DurationMs > 0 {
 			ticks = float64(sp.DurationMs) / float64(sp.Energize.PeriodMs)
 		}
 		c := &converter{kind: "mana", spell: sp, gcd: lifeTapGCDSec, duration: duration, cooldown: CooldownSec(sp, st)}
 		if sp.GCDMs > 0 {
 			c.gcd = float64(sp.GCDMs) / 1000
 		}
-		c.mana = ticks*sp.Energize.avgBase(st.Level, sp.Levels) + a.ManaPerSpirit*st.Spirit
+		if sp.Channeled && duration > c.gcd {
+			c.gcd = duration
+		}
+		if sp.Energize != nil {
+			c.mana += ticks * sp.Energize.avgBase(st.Level, sp.Levels)
+		}
+		c.mana += a.ManaPerSpirit * st.Spirit
+		if a.ManaRegenMult > 0 && duration > 0 {
+			c.mana += a.ManaRegenMult * duration * st.RegenPS()
+		}
+		if a.ManaPctMax > 0 {
+			c.mana += a.ManaPctMax * st.ManaMax
+		}
 		if a.HealthCost != nil {
 			c.health = ticks * a.HealthCost.avgBase(st.Level, sp.Levels)
 		}
@@ -210,12 +227,23 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	fillerIdx := -1
 	var standby *part  // the "recover" spell
 	var procCast *part // the "proc_cast" spell (Shadow Bolt for Nightfall when another filler is active)
+	autoAtkDPS, autoShotDPS, petDPS := 0.0, 0.0, 0.0
+	if metric == "dps" {
+		autoAtkDPS, autoShotDPS, petDPS = passiveSources(st, tgt, actions)
+	}
+	usesRage, usesEnergy := usesNonMana(actions)
 	for _, a := range actions {
-		if a.Kind == "wand" || a.Kind == "mana" || a.Kind == "burn" || a.Spell == nil {
+		if a.Kind == "wand" || a.Kind == "mana" || a.Kind == "burn" ||
+			a.Kind == "autoattack" || a.Kind == "autoshot" || a.Kind == "pet" || a.Spell == nil {
 			continue
 		}
 		sh := ShapeIn(a.Spell, st, tgt, ctx)
 		res := ResolveCastIn(a.Spell, st, tgt, ctx, nil)
+		if usesEnergy {
+			res.ManaCost = res.EnergyCost
+		} else if usesRage {
+			res.ManaCost = res.RageCost
+		}
 		p := part{act: a, res: res, sh: sh, on: 1}
 		if a.Kind == "recover" {
 			if standby == nil && res.ExecuteSec > 0 {
@@ -558,8 +586,17 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	// runs out of mana and falls back to wanding/idling, time outside the
 	// five-second rule regenerates at the full (idle) spirit rate.
 	regenCast, regenIdle := st.Regen(fight)
+	poolMax := st.ManaMax
+	if usesEnergy {
+		poolMax = 100
+		regenCast, regenIdle = 10.0, 10.0
+	} else if usesRage {
+		poolMax = 25
+		r := rageBudgetPS(st.Level, autoAtkDPS)
+		regenCast, regenIdle = r, r
+	}
 	m.KillBuffPct = st.KillProcUptime(fight) * 100
-	baseBudgetPS := st.ManaMax/fight.Seconds + regenCast
+	baseBudgetPS := poolMax/fight.Seconds + regenCast
 	m.ManaSpentPS = rotMPS
 	m.ManaBudgetPS = baseBudgetPS
 
@@ -789,7 +826,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	share, maintScale, wandFraction := chosen.share, chosen.maintScale, chosen.wand
 
 	_, maintHPS, maintLeech := maintenance(share)
-	m.DPS = damage(chosen)
+	m.DPS = damage(chosen) + autoAtkDPS + autoShotDPS + petDPS
 	m.HPS = maintHPS*maintScale + share*fHPS
 	if conv != nil && netHealth {
 		m.HPS -= chosen.rate * conv.health
@@ -858,7 +895,16 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			m.Breakdown = append(m.Breakdown, row)
 		}
 	}
-	if wandFraction > 0.0005 {
+	if autoAtkDPS > 0 {
+		m.Breakdown = append(m.Breakdown, Row{Label: "Auto Attack", Kind: "autoattack", Value: autoAtkDPS})
+	}
+	if autoShotDPS > 0 {
+		m.Breakdown = append(m.Breakdown, Row{Label: "Auto Shot", Kind: "autoshot", Value: autoShotDPS})
+	}
+	if petDPS > 0 {
+		m.Breakdown = append(m.Breakdown, Row{Label: "Pet", Kind: "pet", Value: petDPS})
+	}
+	if wandFraction > 0.0005 && !usesRage && !usesEnergy {
 		// The wand is damage: in a healing breakdown the row only says how
 		// much of the fight is left without mana.
 		wandValue := wandDPS * wandFraction

@@ -83,17 +83,53 @@ type LifeTap struct {
 // gave 510 mana at 120 spirit, 538 with 23 more and 552 with 35 more.
 const lifeTapPerSpirit = 1.0
 
+// Weapon represents an equipped melee or ranged weapon.
+type Weapon struct {
+	Min       float64 `json:"min"`
+	Max       float64 `json:"max"`
+	Speed     float64 `json:"speed"`
+	NormSpeed float64 `json:"normSpeed,omitempty"` // 1.7 dagger, 2.4 1H, 3.3 2H, 2.8 ranged
+	DPS       float64 `json:"dps"`
+	Skill     float64 `json:"skill"`
+}
+
+// Avg returns the weapon's average base hit damage.
+func (w Weapon) Avg() float64 {
+	if w.Min > 0 || w.Max > 0 {
+		return (w.Min + w.Max) / 2
+	}
+	if w.DPS > 0 && w.Speed > 0 {
+		return w.DPS * w.Speed
+	}
+	return 0
+}
+
 // State is the character at the moment of evaluation: snapshot sheet totals
 // (gear and buffs included) plus the talent modifiers that the sheet does
 // not show. Copy it with ApplyDelta to rate an item swap.
 type State struct {
+	ClassFile  string
+	Spec       string
 	Level      int
 	SP         [NumSchools]float64 // bonus spell damage per school (sheet totals)
 	Healing    float64
 	Crit       [NumSchools]float64 // spell crit percent per school
 	Hit        float64             // spell hit percent from gear/talents on the sheet
+	Strength   float64
+	Agility    float64
 	Intellect  float64
 	Spirit     float64
+	AttackPower       float64
+	RangedAttackPower float64
+	FeralAP           float64
+	MeleeCrit         float64
+	MeleeHit          float64
+	MeleeHastePct     float64
+	RangedHastePct    float64
+	CritPerAgi        float64
+	APPerStr          float64
+	APPerAgi          float64
+	RAPPerAgi         float64
 	MP5        float64 // mana per 5 s that works while casting (gear)
 	HP5        float64
 	HealthMax  float64
@@ -109,6 +145,10 @@ type State struct {
 	RegenBasePS       float64
 	RegenSpiritFactor float64
 	Wand              Wand
+	MainHand          Weapon
+	OffHand           Weapon
+	Ranged            Weapon
+	PetDPS            float64
 	LifeTap           LifeTap
 	Mods              Mods
 }
@@ -231,9 +271,73 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 			s.Healing += v
 		case "hit":
 			s.Hit += v
+			s.MeleeHit += v
 		case "crit":
 			for _, sc := range magicSchools {
 				s.Crit[sc] += v
+			}
+			s.MeleeCrit += v
+			if s.ClassFile == "HUNTER" {
+				s.RangedCrit += v
+			}
+		case "str":
+			s.Strength += v
+			apPer := s.APPerStr
+			if apPer == 0 {
+				if s.ClassFile == "ROGUE" || s.ClassFile == "HUNTER" {
+					apPer = 1
+				} else {
+					apPer = 2
+				}
+			}
+			s.AttackPower += v * apPer
+		case "agi":
+			s.Agility += v
+			s.AttackPower += v * s.APPerAgi
+			s.RangedAttackPower += v * s.RAPPerAgi
+			cpa := s.CritPerAgi
+			if cpa == 0 {
+				switch s.ClassFile {
+				case "ROGUE":
+					cpa = 1.0 / 29.0
+				case "HUNTER":
+					cpa = 1.0 / 53.0
+				default:
+					cpa = 1.0 / 20.0
+				}
+			}
+			s.MeleeCrit += v * cpa
+			if s.ClassFile == "HUNTER" {
+				s.RangedCrit += v * cpa
+			}
+		case "ap":
+			s.AttackPower += v
+			s.RangedAttackPower += v
+		case "rap":
+			s.RangedAttackPower += v
+		case "feralAp":
+			s.FeralAP += v
+		case "meleeHaste":
+			s.MeleeHastePct += v
+			s.RangedHastePct += v
+		case "meleeCrit":
+			s.MeleeCrit += v
+			if s.ClassFile == "HUNTER" {
+				s.RangedCrit += v
+			}
+		case "weaponDps":
+			if s.MainHand.Speed > 0 {
+				s.MainHand.DPS += v
+				deltaHit := v * s.MainHand.Speed
+				s.MainHand.Min += deltaHit
+				s.MainHand.Max += deltaHit
+			}
+		case "rangedDps":
+			if s.Ranged.Speed > 0 {
+				s.Ranged.DPS += v
+				deltaHit := v * s.Ranged.Speed
+				s.Ranged.Min += deltaHit
+				s.Ranged.Max += deltaHit
 			}
 		case "int":
 			v *= 1 + s.Mods.IntellectPct/100

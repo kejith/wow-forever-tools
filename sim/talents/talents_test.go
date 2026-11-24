@@ -220,6 +220,7 @@ func TestOverridesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	kinds := map[string]bool{"life_tap_pct": true, "dot_crit": true, "healing_pct": true, "school_damage_pct": true,
+		"school_crit_bonus_pct": true, "crit_mana_refund": true,
 		"wand_pct": true, "dot_stack": true, "channel_dot_haste": true, "kill_proc": true, "stack_proc": true,
 		"crit_debuff": true, "instant_proc": true, "generic": true, "ignore": true}
 	for id, o := range over {

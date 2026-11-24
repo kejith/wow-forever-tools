@@ -94,7 +94,46 @@ func union(a map[string]bool, xs ...string) map[string]bool {
 var caster = set("sp", "intellect", "spirit", "mp5", "stamina", "health", "spell_crit", "all_stats")
 var melee = set("strength", "agility", "ap", "crit", "stamina", "health", "armor", "hp5", "all_stats")
 
-// relevant are the stats that help a class; Paladin, Shaman, Druid and unknown classes: every stat.
+// relevantFor returns the buff stat groups relevant to a class and spec.
+func relevantFor(classFile, spec, role string) map[string]bool {
+	if rel, ok := relevant[classFile]; ok {
+		return rel
+	}
+	switch classFile {
+	case "PALADIN":
+		switch role {
+		case "healer":
+			return union(caster, "healing", "sp_holy")
+		case "tank":
+			return union(melee, "sp", "sp_holy", "intellect", "mp5")
+		default:
+			return union(melee, "sp", "intellect", "mp5")
+		}
+	case "SHAMAN":
+		switch role {
+		case "healer":
+			return union(caster, "healing")
+		case "melee":
+			return union(melee, "sp", "intellect", "mp5")
+		default:
+			return union(caster, "sp_nature", "sp_fire")
+		}
+	case "DRUID":
+		switch role {
+		case "healer":
+			return union(caster, "healing")
+		case "melee", "tank":
+			return melee
+		default:
+			return union(caster, "sp_nature", "sp_arcane")
+		}
+	}
+	all := map[string]bool{}
+	for _, s := range stats {
+		all[s[0]] = true
+	}
+	return all
+}
 var relevant = map[string]map[string]bool{
 	"WARLOCK": union(caster, "sp_shadow", "sp_fire"),
 	"PRIEST":  union(caster, "sp_shadow", "sp_holy", "healing"),
@@ -723,13 +762,7 @@ func evaluate(c *sv.Table, cat *Catalog, recipeCat *recipes.Catalog, prices, ven
 	for _, k := range categories {
 		cats = append(cats, group(k[0], k[1], now[k[0]], later[k[0]]))
 	}
-	rel, ok := relevant[x.classFile]
-	if !ok {
-		rel = map[string]bool{}
-		for _, s := range stats {
-			rel[s[0]] = true
-		}
-	}
+	rel := relevantFor(x.classFile, enginebundle.SpecOf(c), enginebundle.RoleForChar(c))
 	buffs := []any{}
 	for _, s := range stats {
 		key := s[0]

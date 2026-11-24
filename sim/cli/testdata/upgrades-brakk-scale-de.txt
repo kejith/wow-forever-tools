@@ -19,14 +19,13 @@ Preise = Mindest-Sofortkauf beim Scan.
 == Hals: jetzt Halsschmuck des Hochschamanen (Int 5, Wil 8)
      +9.2 +265%  vorhanden            Schnallengürtel des Kuriers (in deinen Taschen) [NEU in Forever]  [ZM 8, Int 10, Wil 7]  id 279833
             Anlegen: Erhöht den durch magische Zauber und Effekte verursachten Schaden gegen Humanoide um bis zu 10.
-== Taille: jetzt Salzige Schärpe (ZS 9, Int 9)
-     +1.8  +14%     3g 01s     0.6/g  Gürtel des Gläubigen  [ZS 4, Ausd 4, Int 20, Wil 9]  id 16696
+== Taille: jetzt Salzige Schärpe (ZS 9, Heil 26, Int 9)
+     +1.8  +14%     3g 01s     0.6/g  Gürtel des Gläubigen  [ZS 4, Heil 11, Ausd 4, Int 20, Wil 9]  id 16696
 == Handgelenk: jetzt Blutbandarmschienen (ZM 5, Int 9, Wil 3)
      +5.6  +65%     4g 99s     1.1/g  Kultistenmanschetten [NEU in Forever]  [ZM 12, Wil 8]  id 284104
 == Zauberstab: jetzt Zauberstab des Gezeitenlieds (Ausd 3, Int 4, Kritwertung 7, DPS 51)
      +0.6   +2%     1g 32s     0.4/g  Kleiner ewiger Zauberstab [NEU in Forever]  [ZM 8, DPS 45.8]  id 249232
 
 == Mit Spezialeffekt, bitte selbst ansehen
-   Waffenhand    0s 00c  Katerinas Messer: Anlegen: Erhöht Eure Chance, einem Angriff auszuweichen, um 0.5%.
    Schildhand    3g 05s  Lapidis Tidesippe-Humpen: Benutzen: Stellt im Verlauf von 30 Sek. 1.915 Punkt(e) Mana wieder her. Ihr müsst beim Trinken sitzen bleiben. (10 |4Min.:Min.; Abklingzeit)
    Taille        4g 90s  Sandbedeckte Seidenschärpe: Benutzen: Entfernt alle Unbeweglichkeitseffekte und macht Euch 5 Sek. lang immun gegen Unbeweglichkeitseffekte. (30 |4Min.:Min.; Abklingzeit)

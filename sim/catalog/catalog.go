@@ -224,20 +224,38 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		r := durations.Row(i)
 		durBase[r.IntAt(cDurID)] = r.IntAt(cDurVal)
 	}
-	type pow struct{ mana, perLevel float64 }
+	type pow struct {
+		mana, perLevel float64
+		rage, energy   float64
+		combo          bool
+	}
 	powerOf := make(map[int]pow, power.Len())
 	cPowSpell, cPowOrder := power.Col("SpellID"), power.Col("OrderIndex")
 	cPowMana, cPowPerLvl, cPowType := power.Col("ManaCost"), power.Col("ManaCostPerLevel"), power.Col("PowerType")
 	for i := 0; i < power.Len(); i++ {
 		r := power.Row(i)
-		if cPowType >= 0 && r.IntAt(cPowType) != 0 {
-			continue // ignore non-mana power types (rage, energy, health, soul shards)
+		pt := 0
+		if cPowType >= 0 {
+			pt = r.IntAt(cPowType)
 		}
 		id := r.IntAt(cPowSpell)
-		if _, seen := powerOf[id]; seen && r.IntAt(cPowOrder) != 0 {
+		p := powerOf[id]
+		switch pt {
+		case 0: // Mana
+			if p.mana == 0 || r.IntAt(cPowOrder) == 0 {
+				p.mana = r.FloatAt(cPowMana)
+				p.perLevel = r.FloatAt(cPowPerLvl)
+			}
+		case 1: // Rage (stored in tenths in DB2: 150 = 15 rage)
+			p.rage = r.FloatAt(cPowMana) / 10
+		case 3: // Energy
+			p.energy = r.FloatAt(cPowMana)
+		case 4: // Combo points
+			p.combo = true
+		default:
 			continue
 		}
-		powerOf[id] = pow{mana: r.FloatAt(cPowMana), perLevel: r.FloatAt(cPowPerLvl)}
+		powerOf[id] = p
 	}
 	levelsOf := make(map[int]engine.Levels, levels.Len())
 	cLvDiff, cLvSpell := levels.Col("DifficultyID"), levels.Col("SpellID")
@@ -348,7 +366,7 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 	}
 	for id, sp := range cat.Spells {
 		if p, ok := powerOf[id]; ok {
-			sp.Cost = engine.Cost{Mana: p.mana, PerLevel: p.perLevel}
+			sp.Cost = engine.Cost{Mana: p.mana, PerLevel: p.perLevel, Rage: p.rage, Energy: p.energy, ComboPoints: p.combo}
 		}
 		if lv, ok := levelsOf[id]; ok {
 			sp.Levels = lv
@@ -416,6 +434,30 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		switch effect {
 		case effSchoolDamage:
 			sp.Direct = eff
+			if sp.School == engine.Physical {
+				sp.IsPhysical = true
+			}
+		case 17, 58: // WEAPON_DAMAGE_NOSCHOOL, WEAPON_DAMAGE
+			sp.Direct = eff
+			sp.IsPhysical = true
+			if sp.WeaponPct == 0 {
+				sp.WeaponPct = 100
+			}
+		case 121: // NORMALIZED_WEAPON_DMG
+			sp.Direct = eff
+			sp.IsPhysical = true
+			sp.Normalized = true
+			if sp.WeaponPct == 0 {
+				sp.WeaponPct = 100
+			}
+		case 31: // WEAPON_PERCENT_DAMAGE
+			sp.IsPhysical = true
+			if eff.BP > 0 {
+				sp.WeaponPct = eff.BP
+			}
+			if sp.Direct == nil {
+				sp.Direct = &engine.Effect{Index: eff.Index}
+			}
 		case effHealthLeech:
 			leech()
 			sp.Direct = eff

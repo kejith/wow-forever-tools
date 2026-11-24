@@ -176,7 +176,6 @@
     Kleiner ewiger Zauberstab  +3,4  1g 32s 99c
     Verwirbelter Netherzauberstab  +2,1 · in deinen Taschen  
   Mit Spezialeffekt  die Skala kann sie nicht bewerten
-    Katerinas Messer  Waffenhand  
     Lapidis Tidesippe-Humpen  Schildhand  3g 5s 67c
     Sandbedeckte Seidenschärpe  Taille  4g 90s
 

@@ -56,6 +56,11 @@ var engineKeys = map[string][]string{
 	"hp5": {"hp5"}, "all_stats": {"int", "sta", "spi"},
 }
 
+var physicalEngineKeys = map[string][]string{
+	"strength": {"str"}, "agility": {"agi"}, "ap": {"ap"}, "rap": {"rap"}, "crit": {"meleeCrit"},
+	"all_stats": {"str", "agi"},
+}
+
 var planUnits = map[string]string{"dps": "DPS", "hps": "HPS"}
 
 // planTitle is tr(PLAN_TITLES.get(metric, metric)).
@@ -218,6 +223,10 @@ func usesIn(seconds float64) int64 {
 // stat keys. A buff shorter than the fight counts for its share of the time; mana and health from a potion or
 // a rune count as mana and health per 5 seconds over the fight, a rune's damage to its user as health lost.
 func fightDelta(it *Item, kind string, seconds, hpPerStamina float64) *Delta {
+	return fightDeltaFor(it, kind, seconds, hpPerStamina, false)
+}
+
+func fightDeltaFor(it *Item, kind string, seconds, hpPerStamina float64, physical bool) *Delta {
 	out := newDelta()
 	add := func(k string, v float64) { out.set(k, out.vals[k]+v) }
 	seconds = math.Max(1.0, seconds)
@@ -258,6 +267,11 @@ func fightDelta(it *Item, kind string, seconds, hpPerStamina float64) *Delta {
 		}
 		for _, k := range engineKeys[b.Stat] {
 			add(k, float64(b.Amount)*share)
+		}
+		if physical {
+			for _, k := range physicalEngineKeys[b.Stat] {
+				add(k, float64(b.Amount)*share)
+			}
 		}
 	}
 	rounded := newDelta()
@@ -306,6 +320,8 @@ func fightCandidates(c *sv.Table, cat *Catalog, x *ctx, seconds float64) []*Row 
 			}
 		}
 	}
+	role := enginebundle.RoleForChar(c)
+	physical := role == "melee" || role == "ranged" || role == "tank"
 	rows := []*Row{}
 	for _, key := range cat.Items.Keys {
 		it := cat.Items.ByKey[key]
@@ -364,7 +380,7 @@ func fightCandidates(c *sv.Table, cat *Catalog, x *ctx, seconds float64) []*Row 
 		row.Kind, row.Slots, row.Active = kind, fightSlots(iid, it, kind), active
 		row.Delta = newDelta()
 		if !active {
-			row.Delta = fightDelta(it, kind, seconds, hpPerStamina)
+			row.Delta = fightDeltaFor(it, kind, seconds, hpPerStamina, physical)
 		}
 		uses := int64(1)
 		if kind == "potion" || kind == "rune" {

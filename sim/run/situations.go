@@ -6,8 +6,15 @@ import (
 	"sync"
 
 	"github.com/kejith/wow-tools-forever/sim/catalog"
+	"github.com/kejith/wow-tools-forever/sim/classes/druid"
+	"github.com/kejith/wow-tools-forever/sim/classes/hunter"
+	"github.com/kejith/wow-tools-forever/sim/classes/mage"
+	"github.com/kejith/wow-tools-forever/sim/classes/paladin"
 	"github.com/kejith/wow-tools-forever/sim/classes/priest"
+	"github.com/kejith/wow-tools-forever/sim/classes/rogue"
+	"github.com/kejith/wow-tools-forever/sim/classes/shaman"
 	"github.com/kejith/wow-tools-forever/sim/classes/warlock"
+	"github.com/kejith/wow-tools-forever/sim/classes/warrior"
 	"github.com/kejith/wow-tools-forever/sim/engine"
 )
 
@@ -180,12 +187,26 @@ func resolveKills(fight engine.Fight, metric string) engine.Fight {
 	return fight
 }
 
-func choices(classFile string, cat *catalog.Catalog, known map[int]bool, level, enemies int) engine.Choices {
+func choices(classFile, spec string, cat *catalog.Catalog, known map[int]bool, level, enemies int) engine.Choices {
 	switch classFile {
 	case "WARLOCK":
 		return warlock.Choices(cat, known, level, enemies)
 	case "PRIEST":
 		return priest.Choices(cat, known, level)
+	case "MAGE":
+		return mage.Choices(cat, known, level, enemies)
+	case "DRUID":
+		return druid.ChoicesForSpec(spec, cat, known, level, enemies)
+	case "SHAMAN":
+		return shaman.ChoicesForSpec(spec, cat, known, level, enemies)
+	case "PALADIN":
+		return paladin.ChoicesForSpec(spec, cat, known, level, enemies)
+	case "WARRIOR":
+		return warrior.Choices(cat, known, level, enemies)
+	case "ROGUE":
+		return rogue.Choices(cat, known, level, enemies)
+	case "HUNTER":
+		return hunter.Choices(cat, known, level, enemies)
 	}
 	return engine.Choices{}
 }
@@ -198,7 +219,7 @@ func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool
 	for _, df := range damageFights(standard) {
 		fight := resolveKills(df.fight, "dps")
 		// Against several enemies the class may have more to cast.
-		rots := choices(classFile, cat, known, st.Level, fight.Enemies()).Rotations()
+		rots := choices(classFile, st.Spec, cat, known, st.Level, fight.Enemies()).Rotations()
 		if len(rots) == 0 {
 			return nil
 		}
@@ -434,13 +455,13 @@ const groupTargets = 5
 // healSituations plans every level of demand: the spells that supply it for
 // the longest time, how long that is, and what it costs.
 func healSituations(classFile string, cat *catalog.Catalog, known map[int]bool, st *engine.State, standard engine.Fight) []Situation {
-	if classFile != "PRIEST" {
+	if !metricAllowed(classFile, "hps") {
 		return nil
 	}
 	fight := resolveKills(standard, "hps")
 	var out []Situation
 	for _, d := range healDemands {
-		sources, convert := priest.HealSources(cat, known, st.Level, d.targets)
+		sources, convert := classHealSources(classFile, cat, known, st.Level, d.targets)
 		max := engine.MaxHealing(st, sources)
 		if max <= 0 {
 			return nil

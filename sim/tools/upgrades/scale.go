@@ -14,6 +14,7 @@ import (
 	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
 )
 
 // Profile is one of upgrades.PROFILES: the enemies' level above the character, how much one percent more mana
@@ -153,24 +154,45 @@ func tooltipPct(rec *sv.Table, re *regexp.Regexp) float64 {
 	return pyfmt.Sum(pcts...)
 }
 
-// NormStats is upgrades.norm_stats: an item's stats in the units of the scale. Everything the scale ignores
-// (healing, other schools, melee stats) is dropped, and so is every stat that is 0.
+// NormStats is upgrades.norm_stats: an item's stats in the units of the scale.
 func NormStats(rec *sv.Table, ranged bool, ratings map[string]float64) Stats {
 	if ratings == nil {
 		ratings = DefaultRatings
 	}
 	raw := rawStats(rec)
 	n := Stats{}
+	spAll := pyfmt.Sum(raw["spell_power"], raw["spell_damage_done"])
 	sps := make([]float64, len(spKeys))
 	for i, k := range spKeys {
 		sps[i] = raw[k]
 	}
 	n["sp"] = pyfmt.Sum(sps...)
+	n["sp_all"] = spAll
+	n["healing"] = pyfmt.Sum(raw["spell_power"], raw["spell_healing_done"])
+	n["sp_holy"] = pyfmt.Sum(spAll, raw["holy_damage_done"])
+	n["sp_fire"] = pyfmt.Sum(spAll, raw["fire_damage_done"])
+	n["sp_nature"] = pyfmt.Sum(spAll, raw["nature_damage_done"])
+	n["sp_frost"] = pyfmt.Sum(spAll, raw["frost_damage_done"])
+	n["sp_shadow"] = pyfmt.Sum(spAll, raw["shadow_damage_done"])
+	n["sp_arcane"] = pyfmt.Sum(spAll, raw["arcane_damage_done"])
 	for _, lk := range linearKeys {
 		n[lk.name] = raw[lk.raw]
 	}
+	n["strength"] = raw["strength"]
+	n["agility"] = raw["agility"]
+	n["ap"] = raw["attack_power"]
+	n["rap"] = pyfmt.Sum(raw["attack_power"], raw["ranged_attack_power"])
+	n["feral_ap"] = raw["feral_attack_power"]
+	n["defense"] = raw["defense_skill_rating"]
+	n["dodge"] = raw["dodge_rating"]
+	n["parry"] = raw["parry_rating"]
+	n["block"] = raw["block_rating"]
+	n["block_value"] = raw["block_value"]
 	if ranged {
 		n["wand_dps"] = raw["damage_per_second"]
+		n["ranged_dps"] = raw["damage_per_second"]
+	} else {
+		n["weapon_dps"] = raw["damage_per_second"]
 	}
 	for _, pl := range PctLine {
 		if rating := raw[pl.Kind+"_rating"]; rating != 0 {
@@ -328,7 +350,8 @@ func talentRanks(char *sv.Table) map[int64]int64 {
 	return out
 }
 
-// BuildScale is upgrades.build_scale: the weights for this character, in points of shadow spell power.
+// BuildScale is upgrades.build_scale: the weights for this character. Warlock keeps its
+// Shadow spell power + Life Tap derivation; all other classes use role/spec scales.
 func BuildScale(char *sv.Table, profile string, gearHit, gearCrit float64) *Scale {
 	ch := char.Tab("character")
 	st := ch.Tab("stats")
@@ -338,6 +361,12 @@ func BuildScale(char *sv.Table, profile string, gearHit, gearCrit float64) *Scal
 		if level < 60 {
 			profile = "leveling"
 		}
+	}
+	classFile := ch.Str("classFile")
+	if classFile != "" && classFile != "WARLOCK" {
+		spec := enginebundle.SpecOf(char)
+		role := enginebundle.RoleForChar(char)
+		return buildClassScale(char, classFile, spec, role, profile, gearHit, gearCrit)
 	}
 	p := Profiles[profile]
 	talents := talentRanks(char)
@@ -451,11 +480,33 @@ func SetValue(total Stats, s *Scale) float64 {
 	return pyfmt.Sum(terms...) + s.Pct*pyfmt.Sum(steps...)
 }
 
-var shortName = []struct{ key, name string }{{"spell_power", i18n.Mark("SP")},
-	{"spell_damage_done", i18n.Mark("SD")}, {"shadow_damage_done", i18n.Mark("Shadow")},
-	{"stamina", i18n.Mark("Sta")}, {"intellect", i18n.Mark("Int")}, {"spirit", i18n.Mark("Spi")},
-	{"hit_rating", i18n.Mark("Hit rating")}, {"crit_rating", i18n.Mark("Crit rating")},
-	{"mana_regeneration", i18n.Mark("Mana/5s")}, {"damage_per_second", i18n.Mark("DPS")}}
+var shortName = []struct{ key, name string }{
+	{"spell_power", i18n.Mark("SP")},
+	{"spell_damage_done", i18n.Mark("SD")},
+	{"spell_healing_done", i18n.Mark("Heal")},
+	{"shadow_damage_done", i18n.Mark("Shadow")},
+	{"fire_damage_done", i18n.Mark("Fire")},
+	{"frost_damage_done", i18n.Mark("Frost")},
+	{"arcane_damage_done", i18n.Mark("Arcane")},
+	{"nature_damage_done", i18n.Mark("Nature")},
+	{"holy_damage_done", i18n.Mark("Holy")},
+	{"attack_power", i18n.Mark("AP")},
+	{"ranged_attack_power", i18n.Mark("RAP")},
+	{"feral_attack_power", i18n.Mark("Feral AP")},
+	{"strength", i18n.Mark("Str")},
+	{"agility", i18n.Mark("Agi")},
+	{"stamina", i18n.Mark("Sta")},
+	{"intellect", i18n.Mark("Int")},
+	{"spirit", i18n.Mark("Spi")},
+	{"defense_skill_rating", i18n.Mark("Def")},
+	{"dodge_rating", i18n.Mark("Dodge")},
+	{"parry_rating", i18n.Mark("Parry")},
+	{"block_rating", i18n.Mark("Block")},
+	{"hit_rating", i18n.Mark("Hit rating")},
+	{"crit_rating", i18n.Mark("Crit rating")},
+	{"mana_regeneration", i18n.Mark("Mana/5s")},
+	{"damage_per_second", i18n.Mark("DPS")},
+}
 
 // statValues is the item's stats under their stat_key names with their own values (int or float).
 func statValues(stats *sv.Table) map[string]any {

@@ -191,9 +191,9 @@ func TestTalentsRaiseTheMetric(t *testing.T) {
 
 func TestUnsupportedClassAndMethod(t *testing.T) {
 	in := input()
-	in.Character.ClassFile = "MAGE"
+	in.Character.ClassFile = "DEATHKNIGHT"
 	if out := Run(in); out.Error == "" {
-		t.Error("mage should not be modeled yet")
+		t.Error("unknown class should not be modeled")
 	}
 	in = input()
 	in.Method = "bogus"

@@ -20,10 +20,20 @@ import (
 // Metric is the engine metric of the damage analysis.
 const Metric = "dps"
 
-// Weights are damage.WEIGHTS.
+// Weights are damage.WEIGHTS (caster specs).
 var Weights = []healing.Weight{w("sp", i18n.Mark("Spell power"), 10), w("int", i18n.Mark("Intellect"), 10),
 	w("spi", i18n.Mark("Spirit"), 10), w("sta", i18n.Mark("Stamina"), 10), w("mp5", i18n.Mark("Mana per 5 sec."), 5),
 	w("hit", i18n.Mark("Spell hit, per 1%"), 1), w("crit", i18n.Mark("Spell crit, per 1%"), 1)}
+
+// MeleeWeights are the stat weights evaluated for melee DPS specs.
+var MeleeWeights = []healing.Weight{w("ap", i18n.Mark("Attack power"), 20), w("str", i18n.Mark("Strength"), 10),
+	w("agi", i18n.Mark("Agility"), 10), w("hit", i18n.Mark("Hit, per 1%"), 1), w("crit", i18n.Mark("Crit, per 1%"), 1),
+	w("weaponDps", i18n.Mark("Weapon DPS"), 5)}
+
+// RangedWeights are the stat weights evaluated for Hunter ranged DPS specs.
+var RangedWeights = []healing.Weight{w("rap", i18n.Mark("Ranged attack power"), 20), w("agi", i18n.Mark("Agility"), 10),
+	w("hit", i18n.Mark("Hit, per 1%"), 1), w("crit", i18n.Mark("Crit, per 1%"), 1),
+	w("rangedDps", i18n.Mark("Ranged DPS"), 5), w("int", i18n.Mark("Intellect"), 10)}
 
 func w(key, label string, amount float64) healing.Weight {
 	return healing.Weight{Key: key, Label: label, Amount: amount}
@@ -123,7 +133,15 @@ func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMi
 		return nil, fmt.Errorf("%s", i18n.T("The combat engine has no damage spells for this class ({cls}).", "cls", cls))
 	}
 	label := rotations.NewLabeler(c)
-	evals := healing.Evals(Weights)
+	role := enginebundle.RoleForChar(c)
+	weights := Weights
+	switch role {
+	case "melee", "tank":
+		weights = MeleeWeights
+	case "ranged":
+		weights = RangedWeights
+	}
+	evals := healing.Evals(weights)
 
 	eng, err := setup.Start(Metric, 0, nil)
 	if err != nil {
@@ -228,6 +246,22 @@ func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMi
 		"castingPer5", pyfmt.Round(casting*5, 1), "idlePer5", pyfmt.Round(idle*5, 1),
 		"wandDps", pyfmt.Round(table.WandDPS, 1),
 		"tapMana", pyfmt.RoundInt(table.TapMana), "tapHealth", pyfmt.RoundInt(table.TapHealth))
+	if role == "melee" || role == "ranged" || role == "tank" {
+		st := ch.Tab("stats")
+		ap, _ := st.Num("attackPower")
+		crit, _ := st.Num("meleeCrit")
+		wepDps := eng.Input.Character.Stats.MainHand.DPS
+		if role == "ranged" {
+			ap, _ = st.Num("rangedAttackPower")
+			crit, _ = st.Num("rangedCrit")
+			wepDps = eng.Input.Character.Stats.Ranged.DPS
+		}
+		stats.Set("physical", true)
+		stats.Set("ranged", role == "ranged")
+		stats.Set("attackPower", pyfmt.RoundInt(ap))
+		stats.Set("physCritPct", pyfmt.Round(crit, 1))
+		stats.Set("weaponDps", pyfmt.Round(wepDps, 1))
+	}
 	notes := []any{
 		i18n.T("Every number is against an enemy {delta} levels above you, with your talents in it and the "+
 			"buffs you had at your last snapshot.", "delta", delta),
@@ -261,7 +295,7 @@ func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMi
 		"rows", rowList, "stats", stats, "notes", notes, "rotations", outRotations,
 		// The gear rating's number for the fight asked for: a faster estimate of the same fight.
 		"rated", pyjson.New("seconds", fightSeconds, "value", pyfmt.Round(baseline.Value, 1)),
-		"weights", healing.WeightsOf(Weights, "Power", short, long, fightSeconds),
+		"weights", healing.WeightsOf(weights, "Power", short, long, fightSeconds),
 		"engine", pyjson.New("version", eng.Version, "spellbookSource", eng.SpellbookSource),
 		"fight", pyjson.New("seconds", fightSeconds, "targetDelta", setup.Fight.TargetDelta)), nil
 }

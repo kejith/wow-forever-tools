@@ -35,6 +35,13 @@ type Spell struct {
 	// SelfTick is the damage a channel deals to its own caster per tick
 	// (Hellfire): spell power raises it like the damage on the enemies.
 	SelfTick *Effect
+	// Physical melee/ranged combat properties decoded from DB2 or class Prepare.
+	IsPhysical bool    // uses melee/ranged hit, crit (2x), and target armor mitigation
+	IsRanged   bool    // uses ranged weapon, RAP, ranged hit/crit (Hunter shots)
+	WeaponPct  float64 // weapon damage percentage (100 = 100% weapon dmg; 0 = none)
+	Normalized bool    // AP weapon bonus uses normalized weapon speed (Effect 121)
+	APCoeff    float64 // direct attack power scaling coefficient (e.g. Bloodthirst 0.45)
+	OnSwing    bool    // replaces next white swing instead of spending GCD (Heroic Strike, Cleave)
 }
 
 // Heals reports whether the spell counts for the healer metrics: a heal or
@@ -43,8 +50,11 @@ func (sp *Spell) Heals() bool { return sp.IsHeal || sp.Absorb != nil }
 
 // Cost is what one cast takes.
 type Cost struct {
-	Mana     float64
-	PerLevel float64
+	Mana        float64
+	PerLevel    float64
+	Rage        float64
+	Energy      float64
+	ComboPoints bool
 }
 
 // Levels are the spell's level bounds from SpellLevels.

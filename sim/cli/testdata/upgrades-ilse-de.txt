@@ -32,7 +32,7 @@ Preise = Mindest-Sofortkauf beim Scan.
 7 Gegenstände, die du besitzt, sind nur dem Namen nach bekannt (Szepter des Verlasseneren auf deiner Bank, Geisterhafter Mantel auf deiner Bank, Monstrositätenhautreste auf deiner Bank, Zerfledderte Fäustlinge auf deiner Bank, Reich mit Juwelen besetzter Ring auf deiner Bank, Banditen-Umhang der Magie auf deiner Bank, ...): öffne die Bank einmal mit WoW Tools Forever 1.12 oder neuer, dann /reload.
 
 == Bestes Paket für 47g 17s: +14.5 HPS (+11%) für 1g 82s
-   Brust        +4.3  +69%  vorhanden            Gewand des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [ZS 4, Int 10]  id 286978
+   Brust        +4.3  +69%  vorhanden            Gewand des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [ZS 4, Heil 11, Int 10]  id 286978
               bis hier 0s 00c für +4.3 HPS, ersetzt Robe von Arugal
    Taille       +3.2 +139%    13s 90c    23.2/g  Nachthauchschärpe  [Ausd 3, Int 8]  id 4720
               bis hier 13s 90c für +7.5 HPS, ersetzt Hauerwickelgürtel
@@ -44,13 +44,13 @@ Preise = Mindest-Sofortkauf beim Scan.
               bis hier 1g 82s für +14.5 HPS, ersetzt Feuerwandler-Stiefel
 
 == Hals: jetzt Selbstvertrauen des Wegwächters (Wil 3)
-     +3.2   neu     1g 81s     1.7/g  Halskette der Harmonie (ab Stufe 31)  [Int 4, Wil 4]  id 5180
-     +3.2   neu     4g 52s     0.7/g  Kaleidoskopkette (ab Stufe 30)  [Ausd 4, Int 4, Wil 4]  id 13084
+     +3.2   neu     1g 81s     1.7/g  Halskette der Harmonie (ab Stufe 31)  [Bew 4, Int 4, Wil 4]  id 5180
+     +3.2   neu     4g 52s     0.7/g  Kaleidoskopkette (ab Stufe 30)  [Stä 4, Bew 4, Ausd 4, Int 4, Wil 4]  id 13084
 == Schulter: jetzt Grünzwirnmantel der Eule (Int 5, Wil 5)
      +1.9  +98%    24s 99c     7.7/g  Steinstoffschulterklappen (ab Stufe 31)  [Ausd 4, Int 9]  id 14412
-== Brust: jetzt Robe von Arugal (ZS 6, Ausd 5, Wil 6)
+== Brust: jetzt Robe von Arugal (ZS 6, Heil 18, Ausd 5, Wil 6)
      +6.9 +110%     3g 40s     2.0/g  Täuscher-Roben (ab Stufe 29)  [ZM 9, Int 12, Wil 8]  id 7728
-     +4.3  +69%  vorhanden            Gewand des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [ZS 4, Int 10]  id 286978
+     +4.3  +69%  vorhanden            Gewand des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [ZS 4, Heil 11, Int 10]  id 286978
      +2.7  +44%    94s 00c     2.9/g  Schwarze Samtroben  [Ausd 5, Int 12]  id 2800
 == Taille: jetzt Hauerwickelgürtel (ZM 6, Wil 5)
      +3.3 +142%    13s 90c    23.7/g  Nachthauchschärpe  [Ausd 3, Int 8]  id 4720
