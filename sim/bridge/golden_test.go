@@ -68,7 +68,10 @@ func TestGolden(t *testing.T) {
 	if len(rec.Cases) == 0 {
 		t.Fatal("no recorded cases")
 	}
-	for _, c := range rec.Cases {
+	update := os.Getenv("UPDATE_GOLDEN") == "1"
+	updated := false
+	for idx := range rec.Cases {
+		c := &rec.Cases[idx]
 		t.Run(c.Name, func(t *testing.T) {
 			args := append(append([]string{}, c.Args...), "--wow", wow, "--lang", c.Lang)
 			r, err := Run(c.Command, args)
@@ -87,6 +90,15 @@ func TestGolden(t *testing.T) {
 			}
 			var diffs []string
 			compareJSON("", want, got, skip, &diffs)
+			if len(diffs) > 0 && update {
+				raw, err := json.Marshal(got)
+				if err != nil {
+					t.Fatal(err)
+				}
+				c.Answer = raw
+				updated = true
+				return
+			}
 			for i, d := range diffs {
 				if i == 8 {
 					t.Errorf("… %d more", len(diffs)-i)
@@ -95,6 +107,19 @@ func TestGolden(t *testing.T) {
 				t.Error(d)
 			}
 		})
+	}
+	if updated {
+		var buf bytes.Buffer
+		gw := gzip.NewWriter(&buf)
+		if err := json.NewEncoder(gw).Encode(rec); err != nil {
+			t.Fatal(err)
+		}
+		if err := gw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join("testdata", "golden.json.gz"), buf.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

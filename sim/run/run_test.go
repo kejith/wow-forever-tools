@@ -229,3 +229,25 @@ func TestMonteCarloRun(t *testing.T) {
 		t.Error("only the top gains are refined")
 	}
 }
+
+// NoMC evaluations (such as rm:* / pt:* helpers) must not consume MCTop slots.
+func TestNoMCSkipsHelpers(t *testing.T) {
+	in := input()
+	in.Method = "montecarlo"
+	in.Iterations = 200
+	in.MCTop = 1
+	in.Evaluations = []Evaluation{
+		{Key: "rm:16", Delta: map[string]float64{"sp": -80}, NoMC: true},
+		{Key: "sw:0:0", Delta: map[string]float64{"sp": 10}},
+	}
+	out := Run(in)
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	if out.Results["rm:16"].MC {
+		t.Error("NoMC helper should not be MC-refined")
+	}
+	if !out.Results["sw:0:0"].MC {
+		t.Error("real swap should receive the MCTop slot")
+	}
+}

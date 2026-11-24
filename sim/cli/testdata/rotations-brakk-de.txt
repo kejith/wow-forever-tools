@@ -1,123 +1,123 @@
-Brakk, Stufe 53 Hexenmeister | Kampfmodell 0.10.0
+Brakk, Stufe 53 Hexenmeister | Kampfmodell 0.11.0
 
 === Schaden ===
 Jeder Kampf wird Zauber für Zauber mit jeder Rotation durchgespielt, die du wirken könntest; das ist die beste.
 
-Schneller Kill: 251.0 DPS  (Ein Gegner, der in 15 Sekunden stirbt.)
-  Das Mana reicht für den ganzen Kampf. Am Ende sind 59 % Mana und 100 % Leben übrig.
-  1. Omen der Pein (Rang 5): auf dem Gegner halten  [4.0/min, 10 % der Zeit, 63.6 DPS]
-  2. Verderbnis (Rang 5): auf dem Gegner halten  [4.0/min, 10 % der Zeit, 50.5 DPS]
-  3. Lebensentzug (Rang 3): auf dem Gegner halten  [4.0/min, 10 % der Zeit, 20.9 DPS]
+Schneller Kill: 250.3 DPS  (Ein Gegner, der in 15 Sekunden stirbt.)
+  Das Mana reicht für den ganzen Kampf. Am Ende sind 56 % Mana und 100 % Leben übrig.
+  1. Omen der Pein (Rang 5): auf dem Gegner halten  [4.0/min, 11 % der Zeit, 66.2 DPS]
+  2. Verderbnis (Rang 5): auf dem Gegner halten  [4.0/min, 11 % der Zeit, 57.4 DPS]
+  3. Lebensentzug (Rang 3): auf dem Gegner halten  [4.0/min, 11 % der Zeit, 20.4 DPS]
   4. Todesmantel (Rang 2): immer wenn bereit  [4.0/min, 10 % der Zeit, 28.7 DPS]
-  5. Zermürben (Rang 1): füllt die restliche Zeit  [8.0/min, 60 % der Zeit, 87.3 DPS]
-  Weggelassen: Feuerbrand (Rang 6) (12.0 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Fluch der Elemente (Rang 4) (12.2 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Schattenblitz (Rang 8) (35.6 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelenfeuer (Rang 1) (43.8 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Blutsauger (Rang 5) (69.2 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Sengender Schmerz (Rang 3) (77.8 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelendieb (Rang 3) (80.5 DPS weniger; in diesem Kampf der schwächere Füller)
-  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Omen der Pein (Rang 5) [100/100] > 2 s Verderbnis (Rang 5) [95/100] > 3 s Lebensentzug (Rang 3) [88/100] > 4 s Todesmantel (Rang 2) [80/100] > 6 s Zermürben (Rang 1) x2 [64/100]
+  5. Zermürben (Rang 1): füllt die restliche Zeit  [8.0/min, 56 % der Zeit, 77.6 DPS]
+  Weggelassen: Feuerbrand (Rang 6) (4.5 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Fluch der Elemente (Rang 4) (20.6 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Seelenfeuer (Rang 1) (36.0 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Schattenblitz (Rang 8) (39.2 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Blutsauger (Rang 5) (68.7 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Sengender Schmerz (Rang 3) (73.7 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Seelendieb (Rang 3) (80.8 DPS weniger; in diesem Kampf der schwächere Füller)
+  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Omen der Pein (Rang 5) [100/100] > 2 s Verderbnis (Rang 5) [94/100] > 3 s Lebensentzug (Rang 3) [87/100] > 5 s Todesmantel (Rang 2) [77/100] > 7 s Zermürben (Rang 1) x2 [62/100]
 
-Normaler Kampf: 272.1 DPS  (90 Sekunden gegen einen Gegner 3 Stufen über dir: der Kampf, für den deine Ausrüstung bewertet wird.)
-  Das Mana reicht mit Aderlass (Rang 5). Am Ende sind 6 % Mana und 100 % Leben übrig.
+Normaler Kampf: 266.3 DPS  (90 Sekunden gegen einen Gegner 3 Stufen über dir: der Kampf, für den deine Ausrüstung bewertet wird.)
+  Das Mana reicht mit Aderlass (Rang 5). Am Ende sind 18 % Mana und 84 % Leben übrig.
   1. Fluch der Elemente (Rang 4): zuerst wirken und auf dem Gegner halten: darunter machen deine Zauber 10 % mehr Schaden  [0.7/min, 2 % der Zeit]
-  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.7/min, 7 % der Zeit, 68.0 DPS]
-  3. Verderbnis (Rang 5): auf dem Gegner halten  [3.3/min, 8 % der Zeit, 62.2 DPS]
-  4. Lebensentzug (Rang 3): auf dem Gegner halten  [2.0/min, 5 % der Zeit, 24.7 DPS]
+  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.7/min, 8 % der Zeit, 72.9 DPS]
+  3. Verderbnis (Rang 5): auf dem Gegner halten  [3.3/min, 8 % der Zeit, 55.6 DPS]
+  4. Lebensentzug (Rang 3): auf dem Gegner halten  [2.0/min, 6 % der Zeit, 29.3 DPS]
   5. Todesmantel (Rang 2): immer wenn bereit  [0.7/min, 2 % der Zeit, 5.3 DPS]
-  6. Zermürben (Rang 1): füllt die restliche Zeit  [7.3/min, 70 % der Zeit, 112.0 DPS]
-  7. Aderlass (Rang 5): sobald das Leben voll ist und das Mana Platz dafür hat, und wenn das Mana leer ist  [2.7/min, 7 % der Zeit]
-  Weggelassen: Feuerbrand (Rang 6) (14.7 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Seelenfeuer (Rang 1) (20.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Schattenblitz (Rang 8) (82.6 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Blutsauger (Rang 5) (90.0 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Sengender Schmerz (Rang 3) (104.4 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelendieb (Rang 3) (126.8 DPS weniger; in diesem Kampf der schwächere Füller)
-  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [94/100] > 3 s Verderbnis (Rang 5) [89/100] > 4 s Lebensentzug (Rang 3) [82/100] > 6 s Todesmantel (Rang 2) [74/100] > 8 s Aderlass (Rang 5) [58/100] > 9 s Zermürben (Rang 1) x2 [74/84] > 21 s Verderbnis (Rang 5) [63/100] > 22 s Aderlass (Rang 5) [56/100] > 24 s Zermürben (Rang 1) [72/84] > 30 s Omen der Pein (Rang 5) [66/92] > 32 s Aderlass (Rang 5) [61/94] > 33 s Zermürben (Rang 1) [77/78] > 39 s Verderbnis (Rang 5) [71/80] > 40 s Lebensentzug (Rang 3) [64/80] > 42 s Zermürben (Rang 1) x2 [56/80] > 54 s Omen der Pein (Rang 5) [45/97] > 56 s Aderlass (Rang 5) [40/99] > 57 s Verderbnis (Rang 5) [55/82] > 58 s Zermürben (Rang 1) x2 [49/84] > 1:10 min Lebensentzug (Rang 3) [37/100] > 1:12 min Zermürben (Rang 1) [29/100] > 1:18 min Omen der Pein (Rang 5) [23/100] > 1:19 min Verderbnis (Rang 5) [18/100] > 1:21 min Zermürben (Rang 1) x2 [12/100]
+  6. Zermürben (Rang 1): füllt die restliche Zeit  [6.7/min, 67 % der Zeit, 103.2 DPS]
+  7. Aderlass (Rang 5): sobald das Leben voll ist und das Mana Platz dafür hat, und wenn das Mana leer ist  [3.3/min, 8 % der Zeit]
+  Weggelassen: Feuerbrand (Rang 6) (0.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Seelenfeuer (Rang 1) (6.2 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Schattenblitz (Rang 8) (72.7 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Sengender Schmerz (Rang 3) (92.2 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Seelendieb (Rang 3) (117.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [93/100] > 3 s Verderbnis (Rang 5) [88/100] > 5 s Lebensentzug (Rang 3) [80/100] > 7 s Todesmantel (Rang 2) [71/100] > 8 s Aderlass (Rang 5) x2 [55/100] > 11 s Zermürben (Rang 1) [86/70] > 17 s Aderlass (Rang 5) [80/79] > 19 s Zermürben (Rang 1) [96/62] > 25 s Verderbnis (Rang 5) [90/72] > 26 s Omen der Pein (Rang 5) [83/74] > 28 s Zermürben (Rang 1) [77/74] > 34 s Aderlass (Rang 5) [71/83] > 36 s Lebensentzug (Rang 3) [87/69] > 37 s Zermürben (Rang 1) [77/69] > 43 s Verderbnis (Rang 5) [72/78] > 45 s Zermürben (Rang 1) [64/81] > 51 s Omen der Pein (Rang 5) [59/90] > 53 s Zermürben (Rang 1) x2 [53/90] > 1:04 min Verderbnis (Rang 5) [42/100] > 1:06 min Lebensentzug (Rang 3) [34/100] > 1:08 min Zermürben (Rang 1) x2 [25/100] > 1:20 min Omen der Pein (Rang 5) [13/100] > 1:22 min Zermürben (Rang 1) [8/100] > 1:28 min Aderlass (Rang 5) [2/100] > 1:29 min Verderbnis (Rang 5) [18/84]
 
-Maximaler Schaden: 284.4 DPS  (Der normale Kampf, als ginge dein Mana nie aus: der meiste Schaden, den du in 90 Sekunden machen kannst, egal was es kostet.)
-  Dein Mana reicht dafür 48 s. Ein Kampf, der länger dauert, braucht die Rotation des normalen Kampfs.
+Maximaler Schaden: 288.5 DPS  (Der normale Kampf, als ginge dein Mana nie aus: der meiste Schaden, den du in 90 Sekunden machen kannst, egal was es kostet.)
+  Dein Mana reicht dafür 34 s. Ein Kampf, der länger dauert, braucht die Rotation des normalen Kampfs.
   1. Fluch der Elemente (Rang 4): zuerst wirken und auf dem Gegner halten: darunter machen deine Zauber 10 % mehr Schaden  [0.7/min, 2 % der Zeit]
-  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.7/min, 7 % der Zeit, 71.9 DPS]
-  3. Verderbnis (Rang 5): auf dem Gegner halten  [2.7/min, 7 % der Zeit, 55.6 DPS]
-  4. Lebensentzug (Rang 3): auf dem Gegner halten  [2.0/min, 5 % der Zeit, 26.3 DPS]
-  5. Todesmantel (Rang 2): immer wenn bereit  [0.7/min, 2 % der Zeit, 5.3 DPS]
-  6. Zermürben (Rang 1): füllt die restliche Zeit  [8.0/min, 78 % der Zeit, 125.3 DPS]
-  Weggelassen: Feuerbrand (Rang 6) (3.8 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Seelenfeuer (Rang 1) (17.7 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Schattenblitz (Rang 8) (40.5 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Blutsauger (Rang 5) (87.0 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Sengender Schmerz (Rang 3) (98.4 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelendieb (Rang 3) (132.6 DPS weniger; in diesem Kampf der schwächere Füller)
-  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [94/100] > 3 s Verderbnis (Rang 5) [89/100] > 4 s Lebensentzug (Rang 3) [82/100] > 6 s Todesmantel (Rang 2) [74/100] > 8 s Zermürben (Rang 1) x3 [58/100] > 26 s Omen der Pein (Rang 5) [42/100] > 27 s Verderbnis (Rang 5) [37/100] > 28 s Zermürben (Rang 1) [30/100] > 34 s Lebensentzug (Rang 3) [24/100] > 36 s Zermürben (Rang 1) x2 [16/100] > 48 s Verderbnis (Rang 5) [5/100] > 50 s Omen der Pein (Rang 5) [0/100] > 51 s Zermürben (Rang 1) x3 [0/100] > 1:09 min Verderbnis (Rang 5) [0/100] > 1:10 min Lebensentzug (Rang 3) [0/100] > 1:12 min Zermürben (Rang 1) [0/100] > 1:18 min Omen der Pein (Rang 5) [0/100] > 1:19 min Zermürben (Rang 1) x2 [0/100]
+  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.7/min, 8 % der Zeit, 77.3 DPS]
+  3. Verderbnis (Rang 5): auf dem Gegner halten  [3.3/min, 10 % der Zeit, 60.1 DPS]
+  4. Lebensentzug (Rang 3): auf dem Gegner halten  [2.0/min, 6 % der Zeit, 24.9 DPS]
+  5. Feuerbrand (Rang 6): auf dem Gegner halten  [3.3/min, 11 % der Zeit, 24.7 DPS]
+  6. Todesmantel (Rang 2): immer wenn bereit  [0.7/min, 2 % der Zeit, 5.3 DPS]
+  7. Zermürben (Rang 1): füllt die restliche Zeit  [6.7/min, 63 % der Zeit, 96.3 DPS]
+  Weggelassen: Seelenfeuer (Rang 1) (14.1 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Schattenblitz (Rang 8) (40.1 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Blutsauger (Rang 5) (85.7 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Sengender Schmerz (Rang 3) (94.4 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Seelendieb (Rang 3) (129.6 DPS weniger; in diesem Kampf der schwächere Füller)
+  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [93/100] > 3 s Verderbnis (Rang 5) [88/100] > 5 s Lebensentzug (Rang 3) [80/100] > 7 s Feuerbrand (Rang 6) [71/100] > 9 s Todesmantel (Rang 2) [61/100] > 10 s Zermürben (Rang 1) x2 [45/100] > 22 s Verderbnis (Rang 5) [34/100] > 24 s Feuerbrand (Rang 6) [26/100] > 26 s Omen der Pein (Rang 5) [16/100] > 28 s Zermürben (Rang 1) x2 [11/100] > 40 s Lebensentzug (Rang 3) [0/100] > 41 s Verderbnis (Rang 5) [0/100] > 43 s Feuerbrand (Rang 6) [0/100] > 45 s Zermürben (Rang 1) [0/100] > 51 s Omen der Pein (Rang 5) [0/100] > 53 s Zermürben (Rang 1) x2 [0/100] > 1:04 min Verderbnis (Rang 5) [0/100] > 1:06 min Feuerbrand (Rang 6) [0/100] > 1:08 min Zermürben (Rang 1) [0/100] > 1:14 min Lebensentzug (Rang 3) [0/100] > 1:16 min Omen der Pein (Rang 5) [0/100] > 1:17 min Zermürben (Rang 1) [0/100] > 1:23 min Verderbnis (Rang 5) [0/100] > 1:25 min Feuerbrand (Rang 6) [0/100] > 1:27 min Zermürben (Rang 1) [0/100]
 
-Boss: 262.7 DPS  (3 Minuten gegen einen Gegner 3 Stufen über dir.)
-  Das Mana reicht mit Aderlass (Rang 5). Am Ende sind 17 % Mana und 86 % Leben übrig.
+Boss: 267.6 DPS  (3 Minuten gegen einen Gegner 3 Stufen über dir.)
+  Das Mana reicht mit Aderlass (Rang 5). Am Ende sind 18 % Mana und 79 % Leben übrig.
   1. Fluch der Elemente (Rang 4): zuerst wirken und auf dem Gegner halten: darunter machen deine Zauber 10 % mehr Schaden  [0.3/min, 1 % der Zeit]
-  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.7/min, 7 % der Zeit, 68.5 DPS]
-  3. Verderbnis (Rang 5): auf dem Gegner halten  [3.0/min, 8 % der Zeit, 57.5 DPS]
-  4. Lebensentzug (Rang 3): auf dem Gegner halten  [2.0/min, 5 % der Zeit, 24.7 DPS]
-  5. Zermürben (Rang 1): füllt die restliche Zeit  [7.0/min, 70 % der Zeit, 112.0 DPS]
-  6. Aderlass (Rang 5): sobald das Leben voll ist und das Mana Platz dafür hat, und wenn das Mana leer ist  [4.0/min, 10 % der Zeit]
-  Weggelassen: Todesmantel (Rang 2) (4.0 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Seelenfeuer (Rang 1) (14.3 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Feuerbrand (Rang 6) (19.4 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Schattenblitz (Rang 8) (72.4 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelendieb (Rang 3) (107.7 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Sengender Schmerz (Rang 3) (111.9 DPS weniger; in diesem Kampf der schwächere Füller)
-  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [94/100] > 3 s Verderbnis (Rang 5) [89/100] > 4 s Lebensentzug (Rang 3) [82/100] > 6 s Aderlass (Rang 5) [74/100] > 8 s Zermürben (Rang 1) [90/86] > 14 s Aderlass (Rang 5) [84/94] > 15 s Zermürben (Rang 1) [100/77] > 21 s Verderbnis (Rang 5) [94/86] > 22 s Zermürben (Rang 1) [87/88] > 28 s Omen der Pein (Rang 5) [82/96] > 30 s Aderlass (Rang 5) [77/96] > 32 s Zermürben (Rang 1) [92/81] > 38 s Lebensentzug (Rang 3) [87/86] > 39 s Verderbnis (Rang 5) [78/86] > 40 s Aderlass (Rang 5) [72/88] > 42 s Zermürben (Rang 1) [87/72] > 48 s Aderlass (Rang 5) [81/80] > 50 s Zermürben (Rang 1) [97/65] > 56 s Omen der Pein (Rang 5) [91/74] > 57 s Verderbnis (Rang 5) [86/74] > 58 s Zermürben (Rang 1) [80/76] > 1:04 min Aderlass (Rang 5) [74/84] > 1:06 min Zermürben (Rang 1) [90/68] > 1:12 min Lebensentzug (Rang 3) [84/70] > 1:13 min Zermürben (Rang 1) [76/70] > 1:19 min Omen der Pein (Rang 5) [70/78] > 1:21 min Verderbnis (Rang 5) [65/80] > 1:22 min Aderlass (Rang 5) [58/80] > 1:24 min Zermürben (Rang 1) x2 [74/66] > 1:36 min Aderlass (Rang 5) [63/82] > 1:37 min Zermürben (Rang 1) [78/66] > 1:43 min Omen der Pein (Rang 5) [73/72] > 1:45 min Verderbnis (Rang 5) [68/72] > 1:46 min Lebensentzug (Rang 3) [61/73] > 1:48 min Zermürben (Rang 1) [53/73] > 1:54 min Aderlass (Rang 5) [47/81] > 1:55 min Zermürben (Rang 1) x2 [63/66] > 2:07 min Omen der Pein (Rang 5) [51/83] > 2:09 min Verderbnis (Rang 5) [46/83] ... und 15 weitere Aktionen
+  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.3/min, 7 % der Zeit, 72.3 DPS]
+  3. Verderbnis (Rang 5): auf dem Gegner halten  [3.0/min, 8 % der Zeit, 66.1 DPS]
+  4. Lebensentzug (Rang 3): auf dem Gegner halten  [2.0/min, 6 % der Zeit, 25.6 DPS]
+  5. Zermürben (Rang 1): füllt die restliche Zeit  [7.0/min, 67 % der Zeit, 103.5 DPS]
+  6. Aderlass (Rang 5): sobald das Leben voll ist und das Mana Platz dafür hat, und wenn das Mana leer ist  [4.3/min, 11 % der Zeit]
+  Weggelassen: Todesmantel (Rang 2) (1.8 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Seelenfeuer (Rang 1) (13.3 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Feuerbrand (Rang 6) (29.3 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Schattenblitz (Rang 8) (79.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Sengender Schmerz (Rang 3) (98.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Seelendieb (Rang 3) (109.6 DPS weniger; in diesem Kampf der schwächere Füller)
+  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [93/100] > 3 s Verderbnis (Rang 5) [88/100] > 5 s Lebensentzug (Rang 3) [80/100] > 7 s Aderlass (Rang 5) [71/100] > 8 s Zermürben (Rang 1) [86/86] > 14 s Aderlass (Rang 5) [80/95] > 16 s Zermürben (Rang 1) [96/79] > 22 s Verderbnis (Rang 5) [90/88] > 24 s Aderlass (Rang 5) [83/90] > 25 s Zermürben (Rang 1) [98/74] > 31 s Omen der Pein (Rang 5) [93/83] > 33 s Zermürben (Rang 1) [87/85] > 39 s Lebensentzug (Rang 3) [81/88] > 40 s Verderbnis (Rang 5) [72/88] > 42 s Aderlass (Rang 5) [64/91] > 44 s Zermürben (Rang 1) [80/74] > 50 s Aderlass (Rang 5) [74/83] > 51 s Zermürben (Rang 1) [90/69] > 57 s Omen der Pein (Rang 5) [84/78] > 59 s Verderbnis (Rang 5) [79/79] > 1:00 min Aderlass (Rang 5) [71/81] > 1:02 min Zermürben (Rang 1) x2 [87/65] > 1:14 min Lebensentzug (Rang 3) [75/76] > 1:15 min Aderlass (Rang 5) [66/77] > 1:17 min Verderbnis (Rang 5) [81/62] > 1:19 min Zermürben (Rang 1) [74/63] > 1:25 min Omen der Pein (Rang 5) [68/72] > 1:26 min Zermürben (Rang 1) [62/74] > 1:32 min Aderlass (Rang 5) [57/83] > 1:34 min Zermürben (Rang 1) [72/67] > 1:40 min Verderbnis (Rang 5) [67/76] > 1:41 min Aderlass (Rang 5) [59/78] > 1:43 min Zermürben (Rang 1) [75/62] > 1:49 min Omen der Pein (Rang 5) [69/65] > 1:51 min Lebensentzug (Rang 3) [63/65] > 1:52 min Zermürben (Rang 1) [54/65] > 1:58 min Verderbnis (Rang 5) [48/74] > 2:00 min Aderlass (Rang 5) [41/77] > 2:02 min Zermürben (Rang 1) x2 [56/60] ... und 15 weitere Aktionen
 
-Dauerkampf: 246.9 DPS  (10 Minuten Kampf ohne Pause.)
-  Ab 2:51 min ist das Leben zu niedrig für Aderlass (Rang 5): Blutsauger (Rang 5) holt es zurück. Am Ende sind 14 % Mana und 66 % Leben übrig.
-  1. Fluch der Elemente (Rang 4): zuerst wirken und auf dem Gegner halten: darunter machen deine Zauber 10 % mehr Schaden  [0.2/min, 0 % der Zeit]
-  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.4/min, 6 % der Zeit, 63.0 DPS]
-  3. Verderbnis (Rang 5): auf dem Gegner halten  [3.1/min, 8 % der Zeit, 55.6 DPS]
-  4. Lebensentzug (Rang 3): auf dem Gegner halten  [1.8/min, 4 % der Zeit, 22.4 DPS]
-  5. Todesmantel (Rang 2): immer wenn bereit  [0.5/min, 1 % der Zeit, 3.9 DPS]
-  6. Zermürben (Rang 1): füllt die restliche Zeit  [5.7/min, 57 % der Zeit, 90.5 DPS]
-  7. Aderlass (Rang 5): sobald das Leben es erlaubt und das Mana Platz dafür hat, und wenn das Mana leer ist  [5.6/min, 14 % der Zeit]
-  8. Blutsauger (Rang 5): wenn das Leben zu niedrig ist, um es gegen Mana zu tauschen, und das Mana ausgeht (zuerst nach 2:51 min)  [1.1/min, 9 % der Zeit, 11.4 DPS]
-  9. Zauberstab: wenn das Mana leer ist (zuerst nach 9:37 min)  [0.1/min, 0 % der Zeit, 0.1 DPS]
-  Weggelassen: Seelenfeuer (Rang 1) (15.3 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Feuerbrand (Rang 6) (19.5 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Schattenblitz (Rang 8) (62.0 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelendieb (Rang 3) (98.9 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Sengender Schmerz (Rang 3) (119.0 DPS weniger; in diesem Kampf der schwächere Füller)
-  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [94/100] > 3 s Verderbnis (Rang 5) [89/100] > 4 s Lebensentzug (Rang 3) [82/100] > 6 s Todesmantel (Rang 2) [74/100] > 8 s Aderlass (Rang 5) x2 [58/100] > 10 s Zermürben (Rang 1) [90/69] > 16 s Aderlass (Rang 5) [84/77] > 18 s Zermürben (Rang 1) [99/61] > 24 s Verderbnis (Rang 5) [94/69] > 26 s Omen der Pein (Rang 5) [87/71] > 27 s Zermürben (Rang 1) [82/71] > 33 s Aderlass (Rang 5) [77/80] > 34 s Lebensentzug (Rang 3) [92/65] > 36 s Zermürben (Rang 1) [84/65] > 42 s Verderbnis (Rang 5) [78/73] > 44 s Zermürben (Rang 1) [71/75] > 50 s Omen der Pein (Rang 5) [66/84] > 51 s Aderlass (Rang 5) [61/84] > 52 s Zermürben (Rang 1) [76/69] > 58 s Aderlass (Rang 5) [71/77] > 1:00 min Verderbnis (Rang 5) [86/61] > 1:01 min Zermürben (Rang 1) [80/63] > 1:07 min Lebensentzug (Rang 3) [74/68] > 1:09 min Zermürben (Rang 1) [66/68] > 1:15 min Omen der Pein (Rang 5) [60/76] > 1:16 min Aderlass (Rang 5) [55/78] > 1:18 min Verderbnis (Rang 5) [71/62] > 1:19 min Zermürben (Rang 1) x2 [64/64] > 1:31 min Aderlass (Rang 5) [53/80] > 1:33 min Zermürben (Rang 1) [68/64] > 1:39 min Omen der Pein (Rang 5) [63/70] > 1:40 min Verderbnis (Rang 5) [58/70] > 1:42 min Lebensentzug (Rang 3) [51/70] > 1:43 min Zermürben (Rang 1) [43/70] > 1:49 min Aderlass (Rang 5) [37/78] > 1:51 min Zermürben (Rang 1) x2 [53/64] > 2:03 min Omen der Pein (Rang 5) [41/80] > 2:04 min Verderbnis (Rang 5) [36/80] > 2:06 min Todesmantel (Rang 2) [30/82] ... und 162 weitere Aktionen
+Dauerkampf: 245.9 DPS  (10 Minuten Kampf ohne Pause.)
+  Ab 3:46 min ist das Leben zu niedrig für Aderlass (Rang 5): Blutsauger (Rang 5) holt es zurück. Am Ende sind 16 % Mana und 75 % Leben übrig.
+  1. Fluch der Elemente (Rang 4): zuerst wirken und auf dem Gegner halten: darunter machen deine Zauber 10 % mehr Schaden  [0.2/min, 1 % der Zeit]
+  2. Omen der Pein (Rang 5): auf dem Gegner halten  [2.3/min, 6 % der Zeit, 67.2 DPS]
+  3. Verderbnis (Rang 5): auf dem Gegner halten  [2.9/min, 8 % der Zeit, 58.8 DPS]
+  4. Lebensentzug (Rang 3): auf dem Gegner halten  [1.7/min, 5 % der Zeit, 22.8 DPS]
+  5. Zermürben (Rang 1): füllt die restliche Zeit  [5.6/min, 55 % der Zeit, 84.2 DPS]
+  6. Aderlass (Rang 5): sobald das Leben es erlaubt und das Mana Platz dafür hat, und wenn das Mana leer ist  [5.4/min, 14 % der Zeit]
+  7. Blutsauger (Rang 5): wenn das Leben zu niedrig ist, um es gegen Mana zu tauschen, und das Mana ausgeht (zuerst nach 3:46 min)  [1.3/min, 11 % der Zeit, 12.7 DPS]
+  8. Zauberstab: wenn das Mana leer ist (zuerst nach 3:41 min)  [0.1/min, 0 % der Zeit, 0.2 DPS]
+  Weggelassen: Seelenfeuer (Rang 1) (16.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Todesmantel (Rang 2) (19.1 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Feuerbrand (Rang 6) (28.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Schattenblitz (Rang 8) (59.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Sengender Schmerz (Rang 3) (90.5 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Seelendieb (Rang 3) (97.3 DPS weniger; in diesem Kampf der schwächere Füller)
+  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) [100/100] > 2 s Omen der Pein (Rang 5) [93/100] > 3 s Verderbnis (Rang 5) [88/100] > 5 s Lebensentzug (Rang 3) [80/100] > 7 s Aderlass (Rang 5) [71/100] > 8 s Zermürben (Rang 1) [86/86] > 14 s Aderlass (Rang 5) [80/95] > 16 s Zermürben (Rang 1) [96/79] > 22 s Verderbnis (Rang 5) [90/88] > 24 s Aderlass (Rang 5) [83/90] > 25 s Zermürben (Rang 1) [98/74] > 31 s Omen der Pein (Rang 5) [93/83] > 33 s Zermürben (Rang 1) [87/85] > 39 s Lebensentzug (Rang 3) [81/88] > 40 s Verderbnis (Rang 5) [72/88] > 42 s Aderlass (Rang 5) [64/91] > 44 s Zermürben (Rang 1) [80/74] > 50 s Aderlass (Rang 5) [74/83] > 51 s Zermürben (Rang 1) [90/69] > 57 s Omen der Pein (Rang 5) [84/78] > 59 s Verderbnis (Rang 5) [79/79] > 1:00 min Aderlass (Rang 5) [71/81] > 1:02 min Zermürben (Rang 1) x2 [87/65] > 1:14 min Lebensentzug (Rang 3) [75/76] > 1:15 min Aderlass (Rang 5) [66/77] > 1:17 min Verderbnis (Rang 5) [81/62] > 1:19 min Zermürben (Rang 1) [74/63] > 1:25 min Omen der Pein (Rang 5) [68/72] > 1:26 min Zermürben (Rang 1) [62/74] > 1:32 min Aderlass (Rang 5) [57/83] > 1:34 min Zermürben (Rang 1) [72/67] > 1:40 min Verderbnis (Rang 5) [67/76] > 1:41 min Aderlass (Rang 5) [59/78] > 1:43 min Zermürben (Rang 1) [75/62] > 1:49 min Omen der Pein (Rang 5) [69/65] > 1:51 min Lebensentzug (Rang 3) [63/65] > 1:52 min Zermürben (Rang 1) [54/65] > 1:58 min Verderbnis (Rang 5) [48/74] > 2:00 min Aderlass (Rang 5) [41/77] > 2:02 min Zermürben (Rang 1) x2 [56/60] ... und 153 weitere Aktionen
 
-Mehrere Gegner: 357.6 DPS  (3 Gegner zugleich, die 30 Sekunden leben; die Zahl ist der Schaden auf allen zusammen.)
-  Das Mana reicht für den ganzen Kampf. Am Ende sind 13 % Mana und 46 % Leben übrig.
-  1. Fluch der Elemente (Rang 4): zuerst auf jeden Gegner wirken: darunter machen deine Zauber 10 % mehr Schaden  [6.0/min, 15 % der Zeit]
-  2. Omen der Pein (Rang 5): auf jedem Gegner halten  [8.0/min, 17 % der Zeit, 107.8 DPS]
-  3. Verderbnis (Rang 5): auf jedem Gegner halten  [6.0/min, 15 % der Zeit, 75.4 DPS]
-  4. Höllenfeuer (Rang 2): sobald die Zauber darüber laufen, solange dein Leben über 40 % liegt: trifft alle Gegner und kostet dich 146 Leben pro Sekunde  [2.0/min, 33 % der Zeit, 145.2 DPS]
-  5. Zermürben (Rang 1): füllt die restliche Zeit, auf einen Gegner  [2.0/min, 20 % der Zeit, 29.2 DPS]
-  Weggelassen: Feuerregen (Rang 3) (2.2 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelendieb (Rang 3) (5.7 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Schattenblitz (Rang 8) (5.7 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Feuerbrand (Rang 6) (5.7 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Blutsauger (Rang 5) (5.7 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelenfeuer (Rang 1) (5.8 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Sengender Schmerz (Rang 3) (5.8 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Todesmantel (Rang 2) (13.6 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Lebensentzug (Rang 3) (17.5 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Fluch der Elemente (Rang 4) x3 [100/100] > 4 s Omen der Pein (Rang 5) x3 [82/100] > 9 s Verderbnis (Rang 5) x3 [67/100] > 14 s Höllenfeuer (Rang 2) [47/100] > 24 s Zermürben (Rang 1) [19/45] > 30 s Omen der Pein (Rang 5) [13/46]
+Mehrere Gegner: 374.7 DPS  (3 Gegner zugleich, die 30 Sekunden leben; die Zahl ist der Schaden auf allen zusammen.)
+  Das Mana reicht für den ganzen Kampf. Am Ende sind 0 % Mana und 46 % Leben übrig.
+  1. Omen der Pein (Rang 5): auf jedem Gegner halten  [8.0/min, 23 % der Zeit, 108.4 DPS]
+  2. Verderbnis (Rang 5): auf jedem Gegner halten  [6.0/min, 17 % der Zeit, 73.8 DPS]
+  3. Höllenfeuer (Rang 2): sobald die Zauber darüber laufen, solange dein Leben über 40 % liegt: trifft alle Gegner und kostet dich 146 Leben pro Sekunde  [2.0/min, 33 % der Zeit, 132.0 DPS]
+  4. Feuerregen (Rang 3): füllt die restliche Zeit und trifft alle Gegner zugleich  [2.0/min, 27 % der Zeit, 60.4 DPS]
+  5. Zauberstab: wenn das Mana leer ist (zuerst nach 30 s)  [2.0/min, 0 % der Zeit, 0.1 DPS]
+  Weggelassen: Seelendieb (Rang 3) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Schattenblitz (Rang 8) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Feuerbrand (Rang 6) (10.0 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Blutsauger (Rang 5) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Sengender Schmerz (Rang 3) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Zermürben (Rang 1) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Todesmantel (Rang 2) (16.6 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Seelenfeuer (Rang 1) (20.5 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Fluch der Elemente (Rang 4) (22.2 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Lebensentzug (Rang 3) (22.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Beginn (Mana/Leben in % vor jeder Aktion): 0 s Omen der Pein (Rang 5) x3 [100/100] > 5 s Verderbnis (Rang 5) x3 [83/100] > 10 s Höllenfeuer (Rang 2) [60/100] > 20 s Feuerregen (Rang 3) [32/45] > 28 s Omen der Pein (Rang 5) [6/46] > 30 s Zauberstab [0/46]
 
 Viele Gegner: 622.5 DPS  (6 Gegner zugleich, die 20 Sekunden leben; die Zahl ist der Schaden auf allen zusammen.)
   Das Mana reicht für den ganzen Kampf. Am Ende sind 45 % Mana und 46 % Leben übrig.
   1. Höllenfeuer (Rang 2): sobald die Zauber darüber laufen, solange dein Leben über 40 % liegt: trifft alle Gegner und kostet dich 146 Leben pro Sekunde  [3.0/min, 50 % der Zeit, 396.0 DPS]
   2. Feuerregen (Rang 3): füllt die restliche Zeit und trifft alle Gegner zugleich  [6.0/min, 50 % der Zeit, 226.5 DPS]
-  Weggelassen: Todesmantel (Rang 2) (12.5 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Omen der Pein (Rang 5) (17.0 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Schattenblitz (Rang 8) (31.4 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Zermürben (Rang 1) (33.7 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Blutsauger (Rang 5) (35.0 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Sengender Schmerz (Rang 3) (35.1 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Seelendieb (Rang 3) (37.8 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Verderbnis (Rang 5) (62.4 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Seelenfeuer (Rang 1) (89.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Feuerbrand (Rang 6) (123.5 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Lebensentzug (Rang 3) (150.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Fluch der Elemente (Rang 4) (162.0 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Todesmantel (Rang 2) (23.8 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Omen der Pein (Rang 5) (61.1 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Seelendieb (Rang 3) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Schattenblitz (Rang 8) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Blutsauger (Rang 5) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Sengender Schmerz (Rang 3) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Zermürben (Rang 1) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
+  Weggelassen: Verderbnis (Rang 5) (93.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Seelenfeuer (Rang 1) (109.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Feuerbrand (Rang 6) (186.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Lebensentzug (Rang 3) (192.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
+  Weggelassen: Fluch der Elemente (Rang 4) (228.7 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Beginn (Mana/Leben in % vor jeder Aktion): 0 s Höllenfeuer (Rang 2) [100/100] > 10 s Feuerregen (Rang 3) x2 [71/45]

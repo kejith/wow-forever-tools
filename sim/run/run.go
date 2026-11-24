@@ -7,7 +7,9 @@ package run
 import (
 	"fmt"
 	"math"
+	"runtime"
 	"sort"
+	"sync"
 
 	"github.com/kejith/wow-forever-tools/sim/catalog"
 	"github.com/kejith/wow-forever-tools/sim/classes/priest"
@@ -17,7 +19,7 @@ import (
 )
 
 // Version of the engine contract; printed by --version and in the output.
-const Version = "0.10.0"
+const Version = "0.11.0"
 
 // Input is the bundle the Python side sends. Stats are the character
 // sheet's totals (gear included) from the WoWMCP snapshot; deltas are
@@ -96,6 +98,7 @@ type Stats struct {
 type Evaluation struct {
 	Key   string             `json:"key"`
 	Delta map[string]float64 `json:"delta"`
+	NoMC  bool               `json:"noMc,omitempty"` // skip Monte-Carlo refinement (helper evaluations like rm:/pt:)
 }
 
 // Result is the metric change of one evaluation. MC marks gains that were
@@ -298,22 +301,41 @@ func rotations(classFile, metric string, cat *catalog.Catalog, known map[int]boo
 	return nil
 }
 
-// Run evaluates one input bundle.
-func Run(in Input) Output {
+// Session holds the prepared character, catalog, rotations and baseline of
+// one engine run so callers making several batches in-process (upgrades,
+// consumables) avoid rebuilding the catalog, re-solving all rotations, and
+// re-running baseline Monte-Carlo on every batch.
+type Session struct {
+	in          Input
+	cat         *catalog.Catalog
+	st          *engine.State
+	fight       engine.Fight
+	metric      string
+	scoreMetric string
+	rots        [][]engine.Action
+	actions     []engine.Action
+	baseline    engine.Metrics
+	mcBase      *engine.MCStats
+	baseOut     Output
+}
+
+// Prepare builds the catalog, decodes talents, picks the best baseline
+// rotation and (when Method == "montecarlo") runs baseline Monte-Carlo once.
+func Prepare(in Input) (*Session, Output) {
 	out := Output{Engine: Version}
 	if !Supported(in.Character.ClassFile) {
 		out.Error = fmt.Sprintf("class %s is not modeled yet", in.Character.ClassFile)
-		return out
+		return nil, out
 	}
 	if in.Method != "" && in.Method != "expectation" && in.Method != "montecarlo" {
 		out.Error = fmt.Sprintf("unknown method %q", in.Method)
-		return out
+		return nil, out
 	}
 
 	cat, err := catalog.Build(in.CacheDir, in.Build, in.Locale, in.Character.ClassFile)
 	if err != nil {
 		out.Error = err.Error()
-		return out
+		return nil, out
 	}
 
 	if in.Character.ClassFile == "WARLOCK" {
@@ -330,7 +352,7 @@ func Run(in Input) Output {
 	mods, talentInfos, err := talents.Decode(cat, ranks)
 	if err != nil {
 		out.Error = err.Error()
-		return out
+		return nil, out
 	}
 
 	st := buildState(in.Character, mods)
@@ -357,13 +379,10 @@ func Run(in Input) Output {
 	}
 	if !metricAllowed(in.Character.ClassFile, metric) {
 		out.Error = fmt.Sprintf("metric %s is not modeled for %s", metric, in.Character.ClassFile)
-		return out
+		return nil, out
 	}
 	out.Spec = in.Character.SpecOverride
 
-	// The fight as evaluated. Automatic kills: a damage dealer against
-	// normal enemies lands one killing blow per fight, which is when buffs
-	// like Spirit Tap start; a boss fight has none, and a healer has none.
 	fight := in.Fight
 	if fight.Seconds <= 0 {
 		fight.Seconds = 60
@@ -423,13 +442,8 @@ func Run(in Input) Output {
 	rots := rotations(in.Character.ClassFile, metric, cat, known, in.Character.Level)
 	if len(rots) == 0 {
 		out.Error = "no castable rotation: the spellbook has none of the modeled spells"
-		return out
+		return nil, out
 	}
-	// Several candidates are compared and the best one stays fixed for the
-	// deltas. A healer's candidates are the known ranks of each heal, ranked
-	// by sustained healing under the mana budget (that is how downranking
-	// enters the model, also for the time-to-OOM metric); a damage dealer's
-	// are the fillers and optional spells, ranked by damage.
 	scoreMetric := metric
 	if metric != "dps" {
 		scoreMetric = "hps"
@@ -440,8 +454,8 @@ func Run(in Input) Output {
 		variant string // what the rotation casts besides the filler
 		score   float64
 	}
-	var all []scored
-	for _, r := range rots {
+	all := make([]scored, len(rots))
+	for i, r := range rots {
 		m := engine.Evaluate(st, fight, r, scoreMetric)
 		var filler *engine.Spell
 		variant := ""
@@ -449,11 +463,11 @@ func Run(in Input) Output {
 			switch {
 			case a.Kind == "heal" || a.Kind == "filler":
 				filler = a.Spell
-			case a.Spell != nil:
+			case a.Spell != nil && a.Kind != "proc_cast":
 				variant += fmt.Sprintf("%s%d,", a.Kind, a.Spell.ID)
 			}
 		}
-		all = append(all, scored{r, filler, variant, m.Value})
+		all[i] = scored{r, filler, variant, m.Value}
 	}
 	best := 0
 	for i, s := range all {
@@ -464,11 +478,6 @@ func Run(in Input) Output {
 	actions := all[best].actions
 	if len(rots) > 1 && scoreMetric == "hps" {
 		chosen := all[best].filler
-
-		// The visible list: every heal-rank candidate with what one cast
-		// gives, what it costs, and what the rotation sustains with it. The
-		// ranks are compared within the best rotation's other spells (with
-		// or without Power Word: Shield).
 		same := all[best].variant
 		tgt := engine.NewTarget(in.Character.Level, fight.TargetDelta)
 		for i, s := range all {
@@ -494,9 +503,6 @@ func Run(in Input) Output {
 			return out.HealOptions[i].HPSSustained > out.HealOptions[j].HPSSustained
 		})
 
-		// The recommendation compares against what a player casts by
-		// default: first the next higher known rank of the SAME chain
-		// ("Heal rank 1 instead of rank 2"), else the biggest other heal.
 		naive := -1
 		if chosen != nil {
 			bestSame, bestOther := -1, -1
@@ -532,7 +538,7 @@ func Run(in Input) Output {
 	tried := map[int]float64{} // spell id -> the best score of a candidate that casts it
 	for _, s := range all {
 		for _, a := range s.actions {
-			if a.Spell == nil || a.Kind == "mana" {
+			if a.Spell == nil || a.Kind == "mana" || a.Kind == "proc_cast" {
 				continue
 			}
 			if old, ok := tried[a.Spell.ID]; !ok || s.score > old {
@@ -562,6 +568,11 @@ func Run(in Input) Output {
 			unused[a.Spell.ID] = "notworth"
 		}
 	}
+	for _, row := range baseline.Breakdown {
+		if row.Kind == "proc_cast" && row.SpellID != 0 {
+			support[row.SpellID] = "rotation"
+		}
+	}
 	if in.Character.ClassFile == "WARLOCK" { // spells for several enemies: the rotation guide plays them
 		for _, sp := range warlock.AreaSpells(cat, known, in.Character.Level) {
 			if _, ok := tried[sp.ID]; !ok {
@@ -586,70 +597,216 @@ func Run(in Input) Output {
 			row.Rank = cat.RankNumber(row.SpellID)
 		}
 	}
-	out.Baseline = &baseline
-
-	out.Results = make(map[string]Result, len(in.Evaluations))
-	for _, ev := range in.Evaluations {
-		s := st.ApplyDelta(ev.Delta)
-		with := actions
-		if in.Reoptimize {
-			top := math.Inf(-1)
-			for _, r := range rots {
-				if v := engine.Evaluate(s, fight, r, scoreMetric).Value; v > top {
-					top, with = v, r
-				}
-			}
-		}
-		m := engine.Evaluate(s, fight, with, metric)
-		r := Result{Value: m.Value, Gain: m.Value - baseline.Value}
-		if baseline.Value != 0 {
-			r.GainPct = r.Gain / baseline.Value * 100
-		}
-		out.Results[ev.Key] = r
+	sess := &Session{
+		in: in, cat: cat, st: st, fight: fight, metric: metric, scoreMetric: scoreMetric,
+		rots: rots, actions: actions, baseline: baseline, baseOut: out,
 	}
-
-	// Monte-Carlo: play the rotation for the baseline and refine the
-	// evaluations with the biggest closed-form gains; the rest keep their
-	// deterministic delta. Every run shares the seed, so the difference
-	// between two gear states comes from the gear, not the dice.
 	if in.Method == "montecarlo" {
 		seed := in.Seed
 		if seed == 0 {
 			seed = 1
 		}
 		mc := engine.RunMC(st, fight, actions, metric, in.Iterations, seed)
-		baseline.MC = &mc
-		baseline.Value = mc.Mean
-		top := in.MCTop
+		sess.mcBase = &mc
+		sess.baseline.MC = &mc
+		sess.baseline.Value = mc.Mean
+	}
+	b := sess.baseline
+	sess.baseOut.Baseline = &b
+	return sess, sess.baseOut
+}
+
+// deltaSignature returns a canonical string key for a stat delta so identical
+// deltas in one batch are evaluated only once.
+func deltaSignature(d map[string]float64) string {
+	if len(d) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(d))
+	for k, v := range d {
+		if v != 0 {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		return ""
+	}
+	sort.Strings(keys)
+	var b []byte
+	for i, k := range keys {
+		if i > 0 {
+			b = append(b, ';')
+		}
+		b = append(b, k...)
+		b = append(b, '=')
+		b = fmt.Appendf(b, "%.12g", d[k])
+	}
+	return string(b)
+}
+
+// Eval evaluates one batch of deltas against the prepared session. Identical
+// deltas are deduplicated; Monte-Carlo refinement skips NoMC evaluations.
+func (s *Session) Eval(evals []Evaluation, reoptimize bool) Output {
+	out := s.baseOut
+	b := s.baseline
+	out.Baseline = &b
+	out.Results = make(map[string]Result, len(evals))
+	if len(evals) == 0 {
+		return out
+	}
+
+	// Deduplicate identical stat deltas so items with identical (or empty)
+	// relevant stats are evaluated once.
+	type uniqueEval struct {
+		delta map[string]float64
+		res   Result
+		best  []engine.Action
+	}
+	sigIdx := make(map[string]int, len(evals))
+	uniques := make([]uniqueEval, 0, len(evals))
+	evToUniq := make([]int, len(evals))
+	for i, ev := range evals {
+		sig := deltaSignature(ev.Delta)
+		if idx, ok := sigIdx[sig]; ok {
+			evToUniq[i] = idx
+			continue
+		}
+		idx := len(uniques)
+		sigIdx[sig] = idx
+		evToUniq[i] = idx
+		uniques = append(uniques, uniqueEval{delta: ev.Delta})
+	}
+
+	baseDetVal := s.baseline.Value
+	if s.mcBase != nil {
+		// Deterministic baseline for closed-form deltas before MC refinement.
+		baseDetVal = engine.Evaluate(s.st, s.fight, s.actions, s.metric).Value
+	}
+
+	evalOne := func(i int) {
+		u := &uniques[i]
+		if len(u.delta) == 0 {
+			u.res = Result{Value: baseDetVal}
+			u.best = s.actions
+			return
+		}
+		st := s.st.ApplyDelta(u.delta)
+		with := s.actions
+		if reoptimize {
+			top := math.Inf(-1)
+			for _, r := range s.rots {
+				if v := engine.Evaluate(st, s.fight, r, s.scoreMetric).Value; v > top {
+					top, with = v, r
+				}
+			}
+		}
+		m := engine.Evaluate(st, s.fight, with, s.metric)
+		r := Result{Value: m.Value, Gain: m.Value - baseDetVal}
+		if baseDetVal != 0 {
+			r.GainPct = r.Gain / baseDetVal * 100
+		}
+		u.res = r
+		u.best = with
+	}
+	workers := runtime.GOMAXPROCS(0)
+	if workers > 1 && len(uniques) >= 8 && (reoptimize || len(uniques) >= 64) {
+		if workers > len(uniques) {
+			workers = len(uniques)
+		}
+		var wg sync.WaitGroup
+		wg.Add(workers)
+		chunk := (len(uniques) + workers - 1) / workers
+		for w := 0; w < workers; w++ {
+			lo := w * chunk
+			hi := lo + chunk
+			if hi > len(uniques) {
+				hi = len(uniques)
+			}
+			if lo >= hi {
+				wg.Done()
+				continue
+			}
+			go func(lo, hi int) {
+				defer wg.Done()
+				for i := lo; i < hi; i++ {
+					evalOne(i)
+				}
+			}(lo, hi)
+		}
+		wg.Wait()
+	} else {
+		for i := range uniques {
+			evalOne(i)
+		}
+	}
+	for i, ev := range evals {
+		out.Results[ev.Key] = uniques[evToUniq[i]].res
+	}
+
+	// Monte-Carlo: refine only eligible (non-NoMC) evaluations with the
+	// biggest closed-form gains, deduplicated by unique stat delta.
+	if s.mcBase != nil {
+		seed := s.in.Seed
+		if seed == 0 {
+			seed = 1
+		}
+		top := s.in.MCTop
 		if top <= 0 {
 			top = 16
 		}
-		keys := make([]string, 0, len(out.Results))
-		for k := range out.Results {
-			keys = append(keys, k)
+		// Collect eligible keys (excluding NoMC helpers such as rm:* and pt:*).
+		type cand struct {
+			key  string
+			uniq int
+			abs  float64
 		}
-		sort.Slice(keys, func(i, j int) bool {
-			gi, gj := math.Abs(out.Results[keys[i]].Gain), math.Abs(out.Results[keys[j]].Gain)
-			if gi != gj {
-				return gi > gj
+		cands := make([]cand, 0, len(evals))
+		for i, ev := range evals {
+			if ev.NoMC {
+				continue
 			}
-			return keys[i] < keys[j]
+			u := evToUniq[i]
+			cands = append(cands, cand{key: ev.Key, uniq: u, abs: math.Abs(uniques[u].res.Gain)})
+		}
+		sort.Slice(cands, func(i, j int) bool {
+			if cands[i].abs != cands[j].abs {
+				return cands[i].abs > cands[j].abs
+			}
+			return cands[i].key < cands[j].key
 		})
-		deltas := make(map[string]map[string]float64, len(in.Evaluations))
-		for _, ev := range in.Evaluations {
-			deltas[ev.Key] = ev.Delta
-		}
-		for i := 0; i < len(keys) && i < top; i++ {
-			key := keys[i]
-			m := engine.RunMC(st.ApplyDelta(deltas[key]), fight, actions, metric, in.Iterations, seed)
-			r := Result{Value: m.Mean, Gain: m.Mean - mc.Mean, MC: true}
-			if mc.Mean != 0 {
-				r.GainPct = r.Gain / mc.Mean * 100
+		mcCache := make(map[int]Result)
+		for i := 0; i < len(cands) && i < top; i++ {
+			c := cands[i]
+			if r, ok := mcCache[c.uniq]; ok {
+				out.Results[c.key] = r
+				continue
 			}
-			out.Results[key] = r
+			u := &uniques[c.uniq]
+			if len(u.delta) == 0 {
+				r := Result{Value: s.mcBase.Mean, MC: true}
+				mcCache[c.uniq] = r
+				out.Results[c.key] = r
+				continue
+			}
+			m := engine.RunMC(s.st.ApplyDelta(u.delta), s.fight, u.best, s.metric, s.in.Iterations, seed)
+			r := Result{Value: m.Mean, Gain: m.Mean - s.mcBase.Mean, MC: true}
+			if s.mcBase.Mean != 0 {
+				r.GainPct = r.Gain / s.mcBase.Mean * 100
+			}
+			mcCache[c.uniq] = r
+			out.Results[c.key] = r
 		}
 	}
 	return out
+}
+
+// Run evaluates one input bundle.
+func Run(in Input) Output {
+	sess, out := Prepare(in)
+	if out.Error != "" {
+		return out
+	}
+	return sess.Eval(in.Evaluations, in.Reoptimize)
 }
 
 func buildState(ch Character, mods engine.Mods) *engine.State {
@@ -733,7 +890,7 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 	inRotation := map[int]bool{}
 	var rotation []*engine.Spell
 	for _, a := range actions {
-		if a.Spell != nil && a.Kind != "mana" { // a "mana" spell is cast on demand: support or unused
+		if a.Spell != nil && a.Kind != "mana" && a.Kind != "proc_cast" { // mana & proc_cast are conditional
 			inRotation[a.Spell.ID] = true
 			rotation = append(rotation, a.Spell)
 		}

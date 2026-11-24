@@ -111,6 +111,15 @@ func (t *Table) Len() int { return len(t.rows) }
 // Has reports whether the table has a column.
 func (t *Table) Has(col string) bool { _, ok := t.cols[col]; return ok }
 
+// Col returns the index of a column, or -1 if missing. Resolving column
+// indices once before a tight loop avoids repeated map lookups.
+func (t *Table) Col(col string) int {
+	if c, ok := t.cols[col]; ok {
+		return c
+	}
+	return -1
+}
+
 // Row is one record with typed accessors. Missing columns and empty cells
 // read as zero, like the Python scripts treat them.
 type Row struct {
@@ -121,30 +130,30 @@ type Row struct {
 // Row returns the i-th row.
 func (t *Table) Row(i int) Row { return Row{t, i} }
 
-// Str returns a cell as string ("" when the column is missing).
-func (r Row) Str(col string) string {
-	c, ok := r.t.cols[col]
-	if !ok || c >= len(r.t.rows[r.i]) {
+// StrAt returns cell c as string ("" when c < 0 or out of bounds).
+func (r Row) StrAt(c int) string {
+	row := r.t.rows[r.i]
+	if c < 0 || c >= len(row) {
 		return ""
 	}
-	return r.t.rows[r.i][c]
+	return row[c]
 }
 
-// Int returns a cell as int (0 when missing or not a number).
-func (r Row) Int(col string) int {
-	v, _ := strconv.Atoi(r.Str(col))
+// IntAt returns cell c as int (0 when missing or not a number).
+func (r Row) IntAt(c int) int {
+	v, _ := strconv.Atoi(r.StrAt(c))
 	return v
 }
 
-// Float returns a cell as float64 (0 when missing or not a number).
-func (r Row) Float(col string) float64 {
-	v, _ := strconv.ParseFloat(r.Str(col), 64)
+// FloatAt returns cell c as float64 (0 when missing or not a number).
+func (r Row) FloatAt(c int) float64 {
+	v, _ := strconv.ParseFloat(r.StrAt(c), 64)
 	return v
 }
 
-// Uint32 returns a cell as uint32, accepting the signed spellings wago uses.
-func (r Row) Uint32(col string) uint32 {
-	s := r.Str(col)
+// Uint32At returns cell c as uint32, accepting the signed spellings wago uses.
+func (r Row) Uint32At(c int) uint32 {
+	s := r.StrAt(c)
 	if s == "" {
 		return 0
 	}
@@ -155,4 +164,24 @@ func (r Row) Uint32(col string) uint32 {
 		return uint32(i)
 	}
 	return 0
+}
+
+// Str returns a cell as string ("" when the column is missing).
+func (r Row) Str(col string) string {
+	return r.StrAt(r.t.Col(col))
+}
+
+// Int returns a cell as int (0 when missing or not a number).
+func (r Row) Int(col string) int {
+	return r.IntAt(r.t.Col(col))
+}
+
+// Float returns a cell as float64 (0 when missing or not a number).
+func (r Row) Float(col string) float64 {
+	return r.FloatAt(r.t.Col(col))
+}
+
+// Uint32 returns a cell as uint32, accepting the signed spellings wago uses.
+func (r Row) Uint32(col string) uint32 {
+	return r.Uint32At(r.t.Col(col))
 }

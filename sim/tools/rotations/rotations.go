@@ -75,8 +75,9 @@ var situations = map[string]guide{
 var rules = map[string]string{
 	"debuff":   i18n.Mark("cast it first and keep it on the enemy: your spells deal {pct:g}% more under it"),
 	"dot":      i18n.Mark("keep it on the enemy"),
-	"cooldown": i18n.Mark("whenever it is ready"),
-	"filler":   i18n.Mark("fills the rest of the time"),
+	"cooldown":  i18n.Mark("whenever it is ready"),
+	"proc_cast": i18n.Mark("whenever Nightfall makes it instant"),
+	"filler":    i18n.Mark("fills the rest of the time"),
 	"recover":  i18n.Mark("when the health is too low to trade for mana and the mana is running out (first after {time})"),
 	"lifetap":  i18n.Mark("as soon as the health bar is full and the mana has room for it, and when the mana is gone"),
 	"mana":     i18n.Mark("when mana is missing and the health allows it"),
@@ -89,8 +90,9 @@ var rules = map[string]string{
 var rulesSeveral = map[string]string{
 	"debuff":   i18n.Mark("cast it on every enemy first: your spells deal {pct:g}% more under it"),
 	"dot":      i18n.Mark("keep it on every enemy"),
-	"cooldown": i18n.Mark("whenever it is ready, on one enemy"),
-	"filler":   i18n.Mark("fills the rest of the time, on one enemy"),
+	"cooldown":  i18n.Mark("whenever it is ready, on one enemy"),
+	"proc_cast": i18n.Mark("whenever Nightfall makes it instant, on one enemy"),
+	"filler":    i18n.Mark("fills the rest of the time, on one enemy"),
 	"burn": i18n.Mark("once the spells above are up, while your health is above {floor:.0f}%: it hits every enemy and " +
 		"costs you {health:.0f} health per second"),
 }

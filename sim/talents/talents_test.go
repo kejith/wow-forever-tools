@@ -164,9 +164,9 @@ func TestRules(t *testing.T) {
 	if info := infos[427712]; info.Unverified || info.Note == "" || info.Status != StatusUsed {
 		t.Errorf("pandemic info = %+v", info) // confirmed in the game: not an assumption
 	}
-	// A rule that is an assumption says so (Shadow Weaving: five stacks).
-	if info := infos[15257]; !info.Unverified || info.Note == "" || mods.SchoolDamagePct[engine.Shadow] != 10 {
-		t.Errorf("shadow weaving info = %+v, shadow damage %g", info, mods.SchoolDamagePct[engine.Shadow])
+	// Shadow Weaving decodes into a rank-aware StackProc (unverified assumption).
+	if info := infos[15257]; !info.Unverified || info.Note == "" || len(mods.StackProcs) != 1 || mods.StackProcs[0].MaxStacks != 5 {
+		t.Errorf("shadow weaving info = %+v, stack procs = %+v", info, mods.StackProcs)
 	}
 
 	if len(mods.ChannelHastes) != 1 {
@@ -220,7 +220,8 @@ func TestOverridesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	kinds := map[string]bool{"life_tap_pct": true, "dot_crit": true, "healing_pct": true, "school_damage_pct": true,
-		"wand_pct": true, "dot_stack": true, "channel_dot_haste": true, "kill_proc": true, "generic": true, "ignore": true}
+		"wand_pct": true, "dot_stack": true, "channel_dot_haste": true, "kill_proc": true, "stack_proc": true,
+		"crit_debuff": true, "instant_proc": true, "generic": true, "ignore": true}
 	for id, o := range over {
 		if o.Source == "" {
 			t.Errorf("%d (%s): no source", id, o.Name)

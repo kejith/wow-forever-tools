@@ -7,6 +7,7 @@ package catalog
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/kejith/wow-forever-tools/sim/db2"
 	"github.com/kejith/wow-forever-tools/sim/engine"
@@ -76,7 +77,31 @@ type Catalog struct {
 	granted map[int]bool
 	rankOf  map[int]int    // spell id -> rank number (1 = first rank)
 	names   map[int]string // every spell's name in the client's language
+	prepMu  sync.Mutex
+	prepped bool
 }
+
+// PrepareOnce runs fn at most once on this catalog (used by class modules
+// such as warlock.Prepare so a cached catalog is mutated safely once).
+func (c *Catalog) PrepareOnce(fn func(*Catalog)) {
+	c.prepMu.Lock()
+	defer c.prepMu.Unlock()
+	if c.prepped {
+		return
+	}
+	fn(c)
+	c.prepped = true
+}
+
+type catKey struct {
+	classID int
+	tables  [14]*db2.Table
+}
+
+var (
+	catMu   sync.Mutex
+	catMemo = map[catKey]*Catalog{}
+)
 
 // Name is a spell's name in the client's language ("" without the table),
 // also for spells outside the class's family (some talents).
@@ -165,64 +190,98 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 			refNames = t
 		}
 	}
+	traitDefs, err1 := db2.Load(cacheDir, "TraitDefinition", build, locale)
+	traitPoints, err2 := db2.Load(cacheDir, "TraitDefinitionEffectPoints", build, locale)
+	traitCurves, err3 := db2.Load(cacheDir, "CurvePoint", build, locale)
+	if err1 != nil || err2 != nil || err3 != nil {
+		traitDefs, traitPoints, traitCurves = nil, nil, nil
+	}
 
-	// Index the lookup tables.
-	castBase := map[int]int{}
+	ck := catKey{
+		classID: classID,
+		tables: [14]*db2.Table{
+			classOpt, misc, effects, castTimes, durations, power, levels, cooldowns, sla,
+			names, refNames, traitDefs, traitPoints, traitCurves,
+		},
+	}
+	catMu.Lock()
+	if cached := catMemo[ck]; cached != nil {
+		catMu.Unlock()
+		return cached, nil
+	}
+	catMu.Unlock()
+
+	// Index the lookup tables (resolving column indices once per table).
+	castBase := make(map[int]int, castTimes.Len())
+	cCastID, cCastBase := castTimes.Col("ID"), castTimes.Col("Base")
 	for i := 0; i < castTimes.Len(); i++ {
 		r := castTimes.Row(i)
-		castBase[r.Int("ID")] = r.Int("Base")
+		castBase[r.IntAt(cCastID)] = r.IntAt(cCastBase)
 	}
-	durBase := map[int]int{}
+	durBase := make(map[int]int, durations.Len())
+	cDurID, cDurVal := durations.Col("ID"), durations.Col("Duration")
 	for i := 0; i < durations.Len(); i++ {
 		r := durations.Row(i)
-		durBase[r.Int("ID")] = r.Int("Duration")
+		durBase[r.IntAt(cDurID)] = r.IntAt(cDurVal)
 	}
 	type pow struct{ mana, perLevel float64 }
-	powerOf := map[int]pow{}
+	powerOf := make(map[int]pow, power.Len())
+	cPowSpell, cPowOrder := power.Col("SpellID"), power.Col("OrderIndex")
+	cPowMana, cPowPerLvl, cPowType := power.Col("ManaCost"), power.Col("ManaCostPerLevel"), power.Col("PowerType")
 	for i := 0; i < power.Len(); i++ {
 		r := power.Row(i)
-		id := r.Int("SpellID")
-		if _, seen := powerOf[id]; seen && r.Int("OrderIndex") != 0 {
+		if cPowType >= 0 && r.IntAt(cPowType) != 0 {
+			continue // ignore non-mana power types (rage, energy, health, soul shards)
+		}
+		id := r.IntAt(cPowSpell)
+		if _, seen := powerOf[id]; seen && r.IntAt(cPowOrder) != 0 {
 			continue
 		}
-		powerOf[id] = pow{mana: r.Float("ManaCost"), perLevel: r.Float("ManaCostPerLevel")}
+		powerOf[id] = pow{mana: r.FloatAt(cPowMana), perLevel: r.FloatAt(cPowPerLvl)}
 	}
-	levelsOf := map[int]engine.Levels{}
+	levelsOf := make(map[int]engine.Levels, levels.Len())
+	cLvDiff, cLvSpell := levels.Col("DifficultyID"), levels.Col("SpellID")
+	cLvBase, cLvMax, cLvReq := levels.Col("BaseLevel"), levels.Col("MaxLevel"), levels.Col("SpellLevel")
 	for i := 0; i < levels.Len(); i++ {
 		r := levels.Row(i)
-		if r.Int("DifficultyID") != 0 {
+		if r.IntAt(cLvDiff) != 0 {
 			continue
 		}
-		levelsOf[r.Int("SpellID")] = engine.Levels{
-			Base: r.Int("BaseLevel"), Max: r.Int("MaxLevel"), Spell: r.Int("SpellLevel"),
+		levelsOf[r.IntAt(cLvSpell)] = engine.Levels{
+			Base: r.IntAt(cLvBase), Max: r.IntAt(cLvMax), Spell: r.IntAt(cLvReq),
 		}
 	}
 	type cds struct{ recovery, gcd int }
-	cdOf := map[int]cds{}
+	cdOf := make(map[int]cds, cooldowns.Len())
+	cCdDiff, cCdSpell := cooldowns.Col("DifficultyID"), cooldowns.Col("SpellID")
+	cCdRec, cCdCat, cCdGCD := cooldowns.Col("RecoveryTime"), cooldowns.Col("CategoryRecoveryTime"), cooldowns.Col("StartRecoveryTime")
 	for i := 0; i < cooldowns.Len(); i++ {
 		r := cooldowns.Row(i)
-		if r.Int("DifficultyID") != 0 {
+		if r.IntAt(cCdDiff) != 0 {
 			continue
 		}
-		rec := r.Int("RecoveryTime")
-		if c := r.Int("CategoryRecoveryTime"); c > rec {
+		rec := r.IntAt(cCdRec)
+		if c := r.IntAt(cCdCat); c > rec {
 			rec = c
 		}
-		cdOf[r.Int("SpellID")] = cds{recovery: rec, gcd: r.Int("StartRecoveryTime")}
+		cdOf[r.IntAt(cCdSpell)] = cds{recovery: rec, gcd: r.IntAt(cCdGCD)}
 	}
 	nameOf := map[int]string{}
 	if names != nil {
+		nameOf = make(map[int]string, names.Len())
+		cNID, cNVal := names.Col("ID"), names.Col("Name_lang")
 		for i := 0; i < names.Len(); i++ {
 			r := names.Row(i)
-			nameOf[r.Int("ID")] = r.Str("Name_lang")
+			nameOf[r.IntAt(cNID)] = r.StrAt(cNVal)
 		}
 	}
 	chainName := nameOf
 	if refNames != nil && refNames != names {
-		chainName = map[int]string{}
+		chainName = make(map[int]string, refNames.Len())
+		cNID, cNVal := refNames.Col("ID"), refNames.Col("Name_lang")
 		for i := 0; i < refNames.Len(); i++ {
 			r := refNames.Row(i)
-			chainName[r.Int("ID")] = r.Str("Name_lang")
+			chainName[r.IntAt(cNID)] = r.StrAt(cNVal)
 		}
 	}
 
@@ -241,41 +300,51 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 		rankOf:       map[int]int{},
 		names:        nameOf,
 	}
+	cOptSet, cOptSpell := classOpt.Col("SpellClassSet"), classOpt.Col("SpellID")
+	cOptM0, cOptM1, cOptM2, cOptM3 := classOpt.Col("SpellClassMask_0"), classOpt.Col("SpellClassMask_1"),
+		classOpt.Col("SpellClassMask_2"), classOpt.Col("SpellClassMask_3")
 	for i := 0; i < classOpt.Len(); i++ {
 		r := classOpt.Row(i)
-		if r.Int("SpellClassSet") != set {
+		if r.IntAt(cOptSet) != set {
 			continue
 		}
-		id := r.Int("SpellID")
+		id := r.IntAt(cOptSpell)
 		cat.Spells[id] = &engine.Spell{
 			ID:     id,
 			BaseID: id,
 			Name:   nameOf[id],
 			ClassMask: [4]uint32{
-				r.Uint32("SpellClassMask_0"), r.Uint32("SpellClassMask_1"),
-				r.Uint32("SpellClassMask_2"), r.Uint32("SpellClassMask_3"),
+				r.Uint32At(cOptM0), r.Uint32At(cOptM1),
+				r.Uint32At(cOptM2), r.Uint32At(cOptM3),
 			},
 		}
 	}
 
 	// Timing, school, cost and levels.
+	cMDiff, cMSpell := misc.Col("DifficultyID"), misc.Col("SpellID")
+	cMDur, cMCast, cMSchool := misc.Col("DurationIndex"), misc.Col("CastingTimeIndex"), misc.Col("SchoolMask")
+	cMA0, cMA1 := misc.Col("Attributes_0"), misc.Col("Attributes_1")
 	for i := 0; i < misc.Len(); i++ {
 		r := misc.Row(i)
-		if r.Int("DifficultyID") != 0 {
+		if r.IntAt(cMDiff) != 0 {
 			continue
 		}
-		if d := durBase[r.Int("DurationIndex")]; d > 0 {
-			cat.DurationMs[r.Int("SpellID")] = d
+		id := r.IntAt(cMSpell)
+		d := durBase[r.IntAt(cMDur)]
+		if d > 0 {
+			cat.DurationMs[id] = d
 		}
-		sp := cat.Spells[r.Int("SpellID")]
+		sp := cat.Spells[id]
 		if sp == nil {
 			continue
 		}
-		sp.CastMs = castBase[r.Int("CastingTimeIndex")]
-		sp.DurationMs = durBase[r.Int("DurationIndex")]
-		sp.School = schoolOf(r.Int("SchoolMask"))
-		sp.Channeled = r.Int("Attributes_1")&(0x4|0x40) != 0 // SPELL_ATTR1_IS_(SELF_)CHANNELLED
-		sp.Passive = r.Int("Attributes_0")&attrPassive != 0
+		sp.CastMs = castBase[r.IntAt(cMCast)]
+		sp.DurationMs = d
+		smask := r.IntAt(cMSchool)
+		sp.SchoolMask = uint32(smask)
+		sp.School = schoolOf(smask)
+		sp.Channeled = r.IntAt(cMA1)&(0x4|0x40) != 0 // SPELL_ATTR1_IS_(SELF_)CHANNELLED
+		sp.Passive = r.IntAt(cMA0)&attrPassive != 0
 	}
 	for id, sp := range cat.Spells {
 		if p, ok := powerOf[id]; ok {
@@ -292,24 +361,32 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 
 	// Effects: decoded damage/heal parts of the class's spells, and the raw
 	// auras of every spell for the talents.
+	cEDiff, cESpell := effects.Col("DifficultyID"), effects.Col("SpellID")
+	cEEff, cEAura, cEIdx := effects.Col("Effect"), effects.Col("EffectAura"), effects.Col("EffectIndex")
+	cEBP, cEMisc0, cEMisc1, cETrig := effects.Col("EffectBasePointsF"), effects.Col("EffectMiscValue_0"),
+		effects.Col("EffectMiscValue_1"), effects.Col("EffectTriggerSpell")
+	cEM0, cEM1, cEM2, cEM3 := effects.Col("EffectSpellClassMask_0"), effects.Col("EffectSpellClassMask_1"),
+		effects.Col("EffectSpellClassMask_2"), effects.Col("EffectSpellClassMask_3")
+	cEPerLvl, cEVar, cECoef := effects.Col("EffectRealPointsPerLevel"), effects.Col("Variance"), effects.Col("EffectBonusCoefficient")
+	cEPer, cEAmp := effects.Col("EffectAuraPeriod"), effects.Col("EffectAmplitude")
 	for i := 0; i < effects.Len(); i++ {
 		r := effects.Row(i)
-		if r.Int("DifficultyID") != 0 {
+		if r.IntAt(cEDiff) != 0 {
 			continue
 		}
-		id := r.Int("SpellID")
-		effect, aura := r.Int("Effect"), r.Int("EffectAura")
+		id := r.IntAt(cESpell)
+		effect, aura := r.IntAt(cEEff), r.IntAt(cEAura)
 		rawAura := func() {
 			cat.Auras[id] = append(cat.Auras[id], Aura{
-				Index:   r.Int("EffectIndex"),
+				Index:   r.IntAt(cEIdx),
 				Aura:    aura,
-				BP:      r.Float("EffectBasePointsF"),
-				Misc0:   r.Int("EffectMiscValue_0"),
-				Misc1:   r.Int("EffectMiscValue_1"),
-				Trigger: r.Int("EffectTriggerSpell"),
+				BP:      r.FloatAt(cEBP),
+				Misc0:   r.IntAt(cEMisc0),
+				Misc1:   r.IntAt(cEMisc1),
+				Trigger: r.IntAt(cETrig),
 				Mask: [4]uint32{
-					r.Uint32("EffectSpellClassMask_0"), r.Uint32("EffectSpellClassMask_1"),
-					r.Uint32("EffectSpellClassMask_2"), r.Uint32("EffectSpellClassMask_3"),
+					r.Uint32At(cEM0), r.Uint32At(cEM1),
+					r.Uint32At(cEM2), r.Uint32At(cEM3),
 				},
 			})
 		}
@@ -321,17 +398,17 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 			continue
 		}
 		eff := &engine.Effect{
-			Index:    r.Int("EffectIndex"),
-			BP:       r.Float("EffectBasePointsF"),
-			PerLevel: r.Float("EffectRealPointsPerLevel"),
-			Variance: r.Float("Variance"),
-			Coeff:    r.Float("EffectBonusCoefficient"),
-			PeriodMs: r.Int("EffectAuraPeriod"),
+			Index:    r.IntAt(cEIdx),
+			BP:       r.FloatAt(cEBP),
+			PerLevel: r.FloatAt(cEPerLvl),
+			Variance: r.FloatAt(cEVar),
+			Coeff:    r.FloatAt(cECoef),
+			PeriodMs: r.IntAt(cEPer),
 		}
 		// A leech returns its damage as health, times the effect's
 		// multiplier (1 for Drain Life, Siphon Life and Death Coil).
 		leech := func() {
-			eff.Leech = r.Float("EffectAmplitude")
+			eff.Leech = r.FloatAt(cEAmp)
 			if eff.Leech <= 0 {
 				eff.Leech = 1
 			}
@@ -373,18 +450,21 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 			}
 		}
 	}
-	cat.loadTraits(cacheDir, build, locale)
+	if traitDefs != nil {
+		cat.loadTraitsFrom(traitDefs, traitPoints, traitCurves)
+	}
 
 	// Skill spells and the explicit rank links from SkillLineAbility.
 	supersedes := map[int]int{} // spell id -> the rank below it
+	cSlaSpell, cSlaSup, cSlaAcq := sla.Col("Spell"), sla.Col("SupercedesSpell"), sla.Col("AcquireMethod")
 	for i := 0; i < sla.Len(); i++ {
 		r := sla.Row(i)
-		id := r.Int("Spell")
+		id := r.IntAt(cSlaSpell)
 		sp := cat.Spells[id]
 		if sp == nil {
 			continue
 		}
-		if prev := r.Int("SupercedesSpell"); prev != 0 && cat.Spells[prev] != nil {
+		if prev := r.IntAt(cSlaSup); prev != 0 && cat.Spells[prev] != nil {
 			supersedes[id] = prev
 		}
 		lvl := 0
@@ -395,47 +475,50 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 			cat.skillSpells[id] = lvl
 		}
 		// Granted only if no row of the spell says it is trained.
-		if r.Int("AcquireMethod") != acquireGranted {
+		if r.IntAt(cSlaAcq) != acquireGranted {
 			cat.granted[id] = false
 		} else if _, seen := cat.granted[id]; !seen {
 			cat.granted[id] = true
 		}
 	}
 	cat.buildChains(supersedes, chainName)
+
+	catMu.Lock()
+	if existing := catMemo[ck]; existing != nil {
+		catMu.Unlock()
+		return existing, nil
+	}
+	catMemo[ck] = cat
+	catMu.Unlock()
 	return cat, nil
 }
 
-// loadTraits reads the per-rank talent values. TraitDefinition names the
-// talent's spell, TraitDefinitionEffectPoints the curve of each effect, and
-// CurvePoint the value (Pos_1) at each rank (Pos_0). Without the tables the
-// talents fall back to the single value in SpellEffect (HasTraits false).
-func (c *Catalog) loadTraits(cacheDir, build, locale string) {
-	defs, err1 := db2.Load(cacheDir, "TraitDefinition", build, locale)
-	points, err2 := db2.Load(cacheDir, "TraitDefinitionEffectPoints", build, locale)
-	curves, err3 := db2.Load(cacheDir, "CurvePoint", build, locale)
-	if err1 != nil || err2 != nil || err3 != nil {
-		return
-	}
-	spellOf := map[int]int{} // trait definition -> talent spell
+// loadTraitsFrom reads the per-rank talent values from preloaded trait tables.
+func (c *Catalog) loadTraitsFrom(defs, points, curves *db2.Table) {
+	spellOf := make(map[int]int, defs.Len()) // trait definition -> talent spell
+	cDefID, cDefSpell := defs.Col("ID"), defs.Col("SpellID")
 	for i := 0; i < defs.Len(); i++ {
 		r := defs.Row(i)
-		if id := r.Int("SpellID"); id != 0 {
-			spellOf[r.Int("ID")] = id
+		if id := r.IntAt(cDefSpell); id != 0 {
+			spellOf[r.IntAt(cDefID)] = id
 		}
 	}
 	type target struct{ spell, effect int }
 	curveOf := map[int][]target{}
+	cPtDef, cPtOp := points.Col("TraitDefinitionID"), points.Col("OperationType")
+	cPtCurve, cPtIdx := points.Col("CurveID"), points.Col("EffectIndex")
 	for i := 0; i < points.Len(); i++ {
 		r := points.Row(i)
-		spell := spellOf[r.Int("TraitDefinitionID")]
-		if spell == 0 || r.Int("OperationType") != 0 { // 0 = the curve sets the value
+		spell := spellOf[r.IntAt(cPtDef)]
+		if spell == 0 || r.IntAt(cPtOp) != 0 { // 0 = the curve sets the value
 			continue
 		}
-		curveOf[r.Int("CurveID")] = append(curveOf[r.Int("CurveID")], target{spell, r.Int("EffectIndex")})
+		curveOf[r.IntAt(cPtCurve)] = append(curveOf[r.IntAt(cPtCurve)], target{spell, r.IntAt(cPtIdx)})
 	}
+	cCrvID, cCrvP0, cCrvP1 := curves.Col("CurveID"), curves.Col("Pos_0"), curves.Col("Pos_1")
 	for i := 0; i < curves.Len(); i++ {
 		r := curves.Row(i)
-		for _, t := range curveOf[r.Int("CurveID")] {
+		for _, t := range curveOf[r.IntAt(cCrvID)] {
 			byEffect := c.TalentPoints[t.spell]
 			if byEffect == nil {
 				byEffect = map[int]map[int]float64{}
@@ -444,7 +527,7 @@ func (c *Catalog) loadTraits(cacheDir, build, locale string) {
 			if byEffect[t.effect] == nil {
 				byEffect[t.effect] = map[int]float64{}
 			}
-			byEffect[t.effect][int(r.Float("Pos_0")+0.5)] = r.Float("Pos_1")
+			byEffect[t.effect][int(r.FloatAt(cCrvP0)+0.5)] = r.FloatAt(cCrvP1)
 		}
 	}
 	c.HasTraits = true

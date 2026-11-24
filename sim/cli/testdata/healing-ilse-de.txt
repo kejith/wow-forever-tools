@@ -1,4 +1,4 @@
-Ilse, Stufe 28 Priester | Kampfmodell 0.10.0
+Ilse, Stufe 28 Priester | Kampfmodell 0.11.0
 Heilbonus 158, Krit 5.0 %, Mana 1879, Willenskraft 112
 Mana pro 5 Sek.: 55.6 beim Zaubern, 106.3 außerhalb der Fünf-Sekunden-Regel
   Mana pro 5 Sek. von Ausrüstung und Buffs zählt immer (jetzt 5). Die Regeneration aus Willenskraft (101 Mana pro 5 Sek.) setzt aus, während du zauberst und fünf Sekunden nach einem Zauber, der Mana kostet. Beide Zahlen stammen aus deinem Charakterfenster.

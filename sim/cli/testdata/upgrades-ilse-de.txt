@@ -31,33 +31,45 @@ Downranking lohnt sich: Heile mit Heilen (Rang 1) statt Heilen (Rang 2) (+2 % He
 Preise = Mindest-Sofortkauf beim Scan.
 7 Gegenstände, die du besitzt, sind nur dem Namen nach bekannt (Szepter des Verlasseneren auf deiner Bank, Geisterhafter Mantel auf deiner Bank, Monstrositätenhautreste auf deiner Bank, Zerfledderte Fäustlinge auf deiner Bank, Reich mit Juwelen besetzter Ring auf deiner Bank, Banditen-Umhang der Magie auf deiner Bank, ...): öffne die Bank einmal mit WoWMCP 1.12 oder neuer, dann /reload.
 
-== Bestes Paket für 47g 17s: +5.0 HPS (+4%) für 1g 38s
-   Finger       +1.6 +172%  vorhanden            Ring der Machtregulierung (in deinen Taschen) [NEU in Forever]  [ZM 6, Mana/5s 3]  id 273030
-              bis hier 0s 00c für +1.6 HPS, ersetzt Schädelring
-   Handgelenk   +1.3 +133%  vorhanden            Messerpoliertuch (in deinen Taschen) [NEU in Forever]  [ZM 6, Wil 4]  id 271740
-              bis hier 0s 00c für +2.9 HPS, ersetzt Tabithas Manschetten
-   Füße         +2.2 +159%     1g 38s     1.6/g  Spinnenseidenstiefel  [ZM 7, Ausd 4, Int 4]  id 4320
-              bis hier 1g 38s für +5.1 HPS, ersetzt Feuerwandler-Stiefel
+== Bestes Paket für 47g 17s: +14.5 HPS (+11%) für 1g 82s
+   Brust        +4.3  +69%  vorhanden            Gewand des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [ZS 4, Int 10]  id 286978
+              bis hier 0s 00c für +4.3 HPS, ersetzt Robe von Arugal
+   Taille       +3.2 +139%    13s 90c    23.2/g  Nachthauchschärpe  [Ausd 3, Int 8]  id 4720
+              bis hier 13s 90c für +7.5 HPS, ersetzt Hauerwickelgürtel
+   Handgelenk   +2.8 +294%    12s 70c    22.3/g  Silberfadenmanschetten  [Ausd 2, Int 5]  id 4036
+              bis hier 26s 60c für +10.4 HPS, ersetzt Tabithas Manschetten
+   Finger       +1.5 +157%    16s 90c     8.7/g  Azoras Testament  [Int 5]  id 4999
+              bis hier 43s 50c für +11.8 HPS, ersetzt Schädelring
+   Füße         +2.7 +197%     1g 38s     1.9/g  Spinnenseidenstiefel  [ZM 7, Ausd 4, Int 4]  id 4320
+              bis hier 1g 82s für +14.5 HPS, ersetzt Feuerwandler-Stiefel
 
 == Hals: jetzt Selbstvertrauen des Wegwächters (Wil 3)
-     +1.3   neu     1g 81s     0.7/g  Halskette der Harmonie (ab Stufe 31)  [Int 4, Wil 4]  id 5180
-     +1.3   neu     4g 52s     0.3/g  Kaleidoskopkette (ab Stufe 30)  [Ausd 4, Int 4, Wil 4]  id 13084
+     +3.2   neu     1g 81s     1.7/g  Halskette der Harmonie (ab Stufe 31)  [Int 4, Wil 4]  id 5180
+     +3.2   neu     4g 52s     0.7/g  Kaleidoskopkette (ab Stufe 30)  [Ausd 4, Int 4, Wil 4]  id 13084
 == Schulter: jetzt Grünzwirnmantel der Eule (Int 5, Wil 5)
-     +0.9  +44%    24s 99c     3.5/g  Steinstoffschulterklappen (ab Stufe 31)  [Ausd 4, Int 9]  id 14412
+     +1.9  +98%    24s 99c     7.7/g  Steinstoffschulterklappen (ab Stufe 31)  [Ausd 4, Int 9]  id 14412
 == Brust: jetzt Robe von Arugal (ZS 6, Ausd 5, Wil 6)
-     +1.0  +16%     3g 40s     0.3/g  Täuscher-Roben (ab Stufe 29)  [ZM 9, Int 12, Wil 8]  id 7728
+     +6.9 +110%     3g 40s     2.0/g  Täuscher-Roben (ab Stufe 29)  [ZM 9, Int 12, Wil 8]  id 7728
+     +4.3  +69%  vorhanden            Gewand des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [ZS 4, Int 10]  id 286978
+     +2.7  +44%    94s 00c     2.9/g  Schwarze Samtroben  [Ausd 5, Int 12]  id 2800
+== Taille: jetzt Hauerwickelgürtel (ZM 6, Wil 5)
+     +3.3 +142%    13s 90c    23.7/g  Nachthauchschärpe  [Ausd 3, Int 8]  id 4720
+     +1.8  +78%  vorhanden            Schärpe des Fäulnisheilers (auf deiner Bank) [NEU in Forever]  [Ausd 6, Int 6]  id 286980
+     +1.8  +78%    19s 99c     9.1/g  Nachtwind-Gürtel  [Ausd 3, Int 6]  id 4828
 == Beine: jetzt Gazeträumer-Hose (ZM 12, Wil 9)
-     +3.8  +83%    18g 50s     0.2/g  Gamaschen des Violetten Zauberers [NEU in Forever] (ab Stufe 29)  [ZM 12, Int 13, Wil 5]  id 286988
+     +8.9 +195%    18g 50s     0.5/g  Gamaschen des Violetten Zauberers [NEU in Forever] (ab Stufe 29)  [ZM 12, Int 13, Wil 5]  id 286988
 == Füße: jetzt Feuerwandler-Stiefel (ZM 2, Int 1, Wil 5)
-     +2.2 +159%     1g 38s     1.6/g  Spinnenseidenstiefel  [ZM 7, Ausd 4, Int 4]  id 4320
+     +2.6 +196%     1g 38s     1.9/g  Spinnenseidenstiefel  [ZM 7, Ausd 4, Int 4]  id 4320
 == Handgelenk: jetzt Tabithas Manschetten (ZM 3, Ausd 4)
-     +1.3 +133%  vorhanden            Messerpoliertuch (in deinen Taschen) [NEU in Forever]  [ZM 6, Wil 4]  id 271740
-     +0.6  +62%    12s 70c     4.7/g  Silberfadenmanschetten  [Ausd 2, Int 5]  id 4036
-     +0.6  +62%    19s 95c     3.0/g  Steinstoffbindungen (ab Stufe 29)  [Ausd 4, Int 5]  id 14416
+     +2.9 +302%    12s 70c    22.9/g  Silberfadenmanschetten  [Ausd 2, Int 5]  id 4036
+     +2.9 +302%    19s 95c    14.6/g  Steinstoffbindungen (ab Stufe 29)  [Ausd 4, Int 5]  id 14416
+     +1.6 +170%  vorhanden            Messerpoliertuch (in deinen Taschen) [NEU in Forever]  [ZM 6, Wil 4]  id 271740
 == Finger: jetzt Schädelring (Ausd 3, Int 3)
+     +3.6 +384%    19s 00c    18.9/g  Voodooband (ab Stufe 32)  [Int 7, Wil 3]  id 1996
      +1.6 +172%  vorhanden            Ring der Machtregulierung (in deinen Taschen) [NEU in Forever]  [ZM 6, Mana/5s 3]  id 273030
-     +1.5 +158%    19s 00c     7.8/g  Voodooband (ab Stufe 32)  [Int 7, Wil 3]  id 1996
-     +0.6  +67%    16s 90c     3.7/g  Azoras Testament  [Int 5]  id 4999
+     +1.5 +157%    16s 90c     8.7/g  Azoras Testament  [Int 5]  id 4999
+== Rücken: jetzt Widerstandsfähiges Cape (Int 6)
+     +0.7  +38%    26s 27c     2.7/g  Glyphenverzierter Umhang (ab Stufe 32)  [Ausd 2, Int 7]  id 4732
 
 == Mit Spezialeffekt, bitte selbst ansehen
    Taille       35s 00c  Spinnengürtel: Benutzen: Entfernt alle Unbeweglichkeitseffekte und macht Euch 5 Sek. lang immun gegen Unbeweglichkeitseffekte. (30 |4Min.:Min.; Abklingzeit)

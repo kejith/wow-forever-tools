@@ -69,16 +69,18 @@ func TestSeveralEnemiesClosedForm(t *testing.T) {
 }
 
 // The played fight puts the DoT on one enemy after the other. 18 s with
-// nothing else to cast: the first Corruption ticks six times, the ones cast
-// 1.5 s and 3 s later five times each before the fight ends: 16 ticks of 38.
+// nothing else to cast: with 95 % hit each DoT takes 1.5/0.95 s in
+// expectation and ticks at full strength (6 ticks on enemy 1, 5 on enemy 2,
+// 4 on enemy 3 before 18 s = 15 ticks of 40).
 func TestPlaySeveralEnemies(t *testing.T) {
 	st := mcState()
 	dot := []Action{{Kind: "dot", Spell: corruption()}, {Kind: "wand"}}
 	one := Play(st, Fight{Seconds: 18, TargetDelta: 2}, dot, "dps")
-	almost(t, "one enemy", one.Value, 6*38.0/18, 1e-9)
+	almost(t, "one enemy", one.Value, 6*40.0/18, 1e-9)
 	three := Play(st, Fight{Seconds: 18, TargetDelta: 2, Targets: 3}, dot, "dps")
-	almost(t, "three enemies", three.Value, 16*38.0/18, 1e-9)
-	for i, want := range []float64{0, 1.5, 3} {
+	almost(t, "three enemies", three.Value, 15*40.0/18, 1e-9)
+	step := 1.5 / 0.95
+	for i, want := range []float64{0, step, 2 * step} {
 		if e := three.Events[i]; e.Kind != "dot" || math.Abs(e.T-want) > 1e-9 {
 			t.Errorf("event %d: %+v", i, e)
 		}

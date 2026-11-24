@@ -14,7 +14,7 @@ Preise = Mindest-Sofortkauf beim Scan.
    Hals         +9.2 +265%  vorhanden            Schnallengürtel des Kuriers (in deinen Taschen) [NEU in Forever]  [ZM 8, Int 10, Wil 7]  id 279833
               bis hier 0s 00c für +9.2 Punkte, ersetzt Halsschmuck des Hochschamanen
    Handgelenk   +5.6  +65%     4g 99s     1.1/g  Kultistenmanschetten [NEU in Forever]  [ZM 12, Wil 8]  id 284104
-              bis hier 4g 99s für +14.8 Punkte, ersetzt Blutbandarmschienen
+              bis hier 4g 99s für +14.9 Punkte, ersetzt Blutbandarmschienen
 
 == Hals: jetzt Halsschmuck des Hochschamanen (Int 5, Wil 8)
      +9.2 +265%  vorhanden            Schnallengürtel des Kuriers (in deinen Taschen) [NEU in Forever]  [ZM 8, Int 10, Wil 7]  id 279833

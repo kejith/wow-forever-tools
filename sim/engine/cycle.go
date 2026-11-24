@@ -187,7 +187,9 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	type part struct {
 		act   Action
 		res   CastResult
+		sh    CastShape
 		cycle float64 // seconds between two casts
+		on    float64 // enemies kept on (DoT/debuff)
 		share float64 // fraction of the timeline
 		dps   float64
 		hps   float64
@@ -206,16 +208,24 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	var parts []part
 	used := 0.0
 	fillerIdx := -1
-	var standby *part // the "recover" spell
+	var standby *part  // the "recover" spell
+	var procCast *part // the "proc_cast" spell (Shadow Bolt for Nightfall when another filler is active)
 	for _, a := range actions {
 		if a.Kind == "wand" || a.Kind == "mana" || a.Kind == "burn" || a.Spell == nil {
 			continue
 		}
+		sh := ShapeIn(a.Spell, st, tgt, ctx)
 		res := ResolveCastIn(a.Spell, st, tgt, ctx, nil)
-		p := part{act: a, res: res}
+		p := part{act: a, res: res, sh: sh, on: 1}
 		if a.Kind == "recover" {
 			if standby == nil && res.ExecuteSec > 0 {
 				standby = &p
+			}
+			continue
+		}
+		if a.Kind == "proc_cast" {
+			if procCast == nil && res.ExecuteSec > 0 {
+				procCast = &p
 			}
 			continue
 		}
@@ -237,6 +247,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			if a.Kind == "dot" || a.Kind == "debuff" {
 				on = float64(KeptOn(int(enemies), p.cycle, res.CooldownSec))
 			}
+			p.on = on
 			p.share = res.ExecuteSec / p.cycle * on
 			p.dps = res.Damage / p.cycle * on
 			p.hps = res.Healing / p.cycle
@@ -271,7 +282,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	// rates are kept per unit of that share, because a mana shortage takes
 	// time from the filler first.
 	fillerShare := 0.0
-	var fDPS, fHPS, fMPS, fLeech float64
+	var fDPS, fHPS, fMPS, fLeech, fExec float64
 	if fillerIdx >= 0 {
 		f := &parts[fillerIdx]
 		fillerShare = 1 - used
@@ -300,10 +311,11 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			}
 		}
 		if f.res.ExecuteSec > 0 {
-			fDPS = f.res.Damage / f.res.ExecuteSec
-			fHPS = f.res.Healing / f.res.ExecuteSec
-			fMPS = f.res.ManaCost / f.res.ExecuteSec
-			fLeech = f.res.Leech / f.res.ExecuteSec
+			fExec = f.res.ExecuteSec
+			fDPS = f.res.Damage / fExec
+			fHPS = f.res.Healing / fExec
+			fMPS = f.res.ManaCost / fExec
+			fLeech = f.res.Leech / fExec
 			if f.act.Spell.Area {
 				fDPS *= enemies
 				fLeech *= enemies
@@ -313,11 +325,192 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		// of the timeline it is channeled, those DoTs deal that much more,
 		// on the one enemy it is channeled at.
 		for i := range parts {
-			if parts[i].act.Kind == "dot" {
-				parts[i].haste = st.Mods.channelHaste(f.act.Spell, parts[i].act.Spell) / 100 / enemies
+			if parts[i].act.Kind == "dot" && parts[i].on > 0 {
+				parts[i].haste = st.Mods.channelHaste(f.act.Spell, parts[i].act.Spell) / 100 / parts[i].on
 			}
 		}
 	}
+
+	// Instant-cast procs (Nightfall): Corruption / Drain Life ticks can make
+	// the next Shadow Bolt instant (GCD only).
+	var procRatePS, procGCD, procDmg, procMana float64
+	var procSpell *Spell
+	var procSchool School
+	var procCritPct float64
+	if metric == "dps" && len(st.Mods.InstantProcs) > 0 {
+		for _, ip := range st.Mods.InstantProcs {
+			fromTicksPS := 0.0
+			for i, p := range parts {
+				if i == fillerIdx || p.act.Spell == nil || !ip.FromBases[p.act.Spell.BaseID] {
+					continue
+				}
+				if p.sh.Ticks > 0 && p.cycle > 0 {
+					fromTicksPS += (p.sh.Ticks / p.cycle) * p.on * (1 + fillerShare*p.haste)
+				}
+			}
+			if fillerIdx >= 0 && parts[fillerIdx].act.Spell != nil && ip.FromBases[parts[fillerIdx].act.Spell.BaseID] {
+				f := &parts[fillerIdx]
+				if f.sh.Ticks > 0 && fExec > 0 {
+					fromTicksPS += fillerShare * (f.sh.Ticks / fExec)
+				}
+			}
+			rate := fromTicksPS * ip.ChancePct / 100
+			if rate <= 0 {
+				continue
+			}
+			// Case 1: filler itself is the proc target (Shadow Bolt): shorten its effective cast time.
+			if fillerIdx >= 0 && parts[fillerIdx].act.Spell != nil && parts[fillerIdx].act.Spell.BaseID == ip.CastBase {
+				f := &parts[fillerIdx]
+				if fExec > f.sh.GCDSec {
+					saved := math.Min(1, rate*fExec) * (fExec - f.sh.GCDSec)
+					eff := fExec - saved
+					if eff > 0 {
+						fExec = eff
+						fDPS = f.res.Damage / eff
+						fMPS = f.res.ManaCost / eff
+						fLeech = f.res.Leech / eff
+					}
+				}
+			} else if procCast != nil && procCast.act.Spell.BaseID == ip.CastBase && procCast.sh.GCDSec > 0 {
+				// Case 2: another filler (e.g. Wrack) — cast instant Shadow Bolt only if it beats the filler.
+				hasteDPS := 0.0
+				for i, p := range parts {
+					if i != fillerIdx {
+						hasteDPS += p.dps * p.haste
+					}
+				}
+				instantDPS := procCast.res.Damage / procCast.sh.GCDSec
+				if instantDPS > fDPS+hasteDPS {
+					procRatePS = rate
+					procGCD = procCast.sh.GCDSec
+					procDmg = procCast.res.Damage
+					procMana = procCast.res.ManaCost
+					procSpell = procCast.act.Spell
+					procSchool = procCast.sh.School
+					procCritPct = procCast.sh.CritPct
+				}
+			}
+		}
+	}
+
+	// Dynamic school damage multipliers from procs (Shadow Weaving, Improved
+	// Shadow Bolt): computed from the cycle's cast/crit rates and applied to
+	// matching schools.
+	var procMult [NumSchools]float64
+	for sc := range procMult {
+		procMult[sc] = 1
+	}
+	if metric == "dps" && (len(st.Mods.StackProcs) > 0 || len(st.Mods.CritDebuffs) > 0) {
+		var schoolCasts [NumSchools]float64
+		var schoolHits [NumSchools]float64
+		for i, p := range parts {
+			if i == fillerIdx || p.act.Spell == nil || p.cycle <= 0 {
+				continue
+			}
+			sc := p.sh.School
+			casts := (p.share / p.res.ExecuteSec) * p.sh.HitChance
+			schoolCasts[sc] += casts
+			if p.sh.DirectAvg > 0 {
+				schoolHits[sc] += casts
+			}
+			if p.sh.Ticks > 0 {
+				schoolHits[sc] += (p.sh.Ticks / p.cycle) * p.on * (1 + fillerShare*p.haste) * p.sh.HitChance
+			}
+		}
+		if fillerIdx >= 0 && fExec > 0 {
+			f := &parts[fillerIdx]
+			sc := f.sh.School
+			casts := (fillerShare / fExec) * f.sh.HitChance
+			schoolCasts[sc] += casts
+			if f.sh.DirectAvg > 0 {
+				schoolHits[sc] += casts
+			}
+			if f.sh.Ticks > 0 {
+				schoolHits[sc] += fillerShare * (f.sh.Ticks / fExec) * f.sh.HitChance
+			}
+		}
+		if procRatePS > 0 {
+			schoolCasts[procSchool] += procRatePS
+			schoolHits[procSchool] += procRatePS
+		}
+		for _, sp := range st.Mods.StackProcs {
+			castsPS := 0.0
+			for sc := School(0); sc < NumSchools; sc++ {
+				if sp.SchoolMask&(1<<uint(sc)) != 0 {
+					castsPS += schoolCasts[sc]
+				}
+			}
+			p := math.Min(1, sp.ChancePct/100)
+			if castsPS <= 0 || p <= 0 {
+				continue
+			}
+			rate := castsPS * p
+			steady := float64(sp.MaxStacks) * (1 - math.Exp(-rate*sp.DurationSec))
+			avgStacks := steady
+			if ramp := steady / rate; ramp > 0 {
+				if fight.Seconds <= ramp {
+					avgStacks = 0.5 * rate * fight.Seconds
+				} else {
+					avgStacks = steady * (1 - 0.5*ramp/fight.Seconds)
+				}
+			}
+			factor := 1 + avgStacks*sp.PctPerStack/100
+			for sc := School(0); sc < NumSchools; sc++ {
+				if sp.SchoolMask&(1<<uint(sc)) != 0 {
+					procMult[sc] *= factor
+				}
+			}
+		}
+		for _, cd := range st.Mods.CritDebuffs {
+			critRate := 0.0
+			if fillerIdx >= 0 && parts[fillerIdx].act.Spell != nil && parts[fillerIdx].act.Spell.BaseID == cd.TriggerBase && fExec > 0 {
+				f := &parts[fillerIdx]
+				critRate += (fillerShare / fExec) * f.sh.HitChance * (f.sh.CritPct / 100)
+			}
+			if procRatePS > 0 && procSpell != nil && procSpell.BaseID == cd.TriggerBase {
+				critRate += procRatePS * (procCritPct / 100)
+			}
+			if critRate <= 0 {
+				continue
+			}
+			consumeRate := 0.0
+			for sc := School(0); sc < NumSchools; sc++ {
+				if cd.SchoolMask&(1<<uint(sc)) != 0 {
+					consumeRate += schoolHits[sc]
+				}
+			}
+			dur := cd.DurationSec
+			if consumeRate > 0 {
+				if d := float64(cd.Charges) / consumeRate; d < dur {
+					dur = d
+				}
+			}
+			uptime := 1 - math.Exp(-critRate*dur)
+			factor := 1 + uptime*cd.Pct/100
+			for sc := School(0); sc < NumSchools; sc++ {
+				if cd.SchoolMask&(1<<uint(sc)) != 0 {
+					procMult[sc] *= factor
+				}
+			}
+		}
+		for i := range parts {
+			if i == fillerIdx || parts[i].act.Spell == nil || parts[i].act.Spell.IsHeal {
+				continue
+			}
+			k := procMult[parts[i].sh.School]
+			parts[i].dps *= k
+			parts[i].leech *= k
+		}
+		if fillerIdx >= 0 && parts[fillerIdx].act.Spell != nil && !parts[fillerIdx].act.Spell.IsHeal {
+			k := procMult[parts[fillerIdx].sh.School]
+			fDPS *= k
+			fLeech *= k
+		}
+		if procRatePS > 0 {
+			procDmg *= procMult[procSchool]
+		}
+	}
+
 	// maintenance sums what everything but the filler does per second while
 	// the filler holds `share` of the timeline.
 	maintenance := func(share float64) (dps, hps, leech float64) {
@@ -333,23 +526,42 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		return
 	}
 	maintMPS := 0.0
+	maintCastsPS := 0.0
 	for i, p := range parts {
 		if i != fillerIdx {
 			maintMPS += p.mps
+			if p.res.ExecuteSec > 0 {
+				maintCastsPS += p.share / p.res.ExecuteSec
+			}
 		}
+	}
+	// If Nightfall fires instant Shadow Bolts alongside another filler, fold
+	// their time and mana cost into the unconstrained cycle (capped by fillerShare).
+	procShare := 0.0
+	if procRatePS > 0 && fillerShare > 0 {
+		procShare = math.Min(fillerShare, procRatePS*procGCD)
+		fillerShare -= procShare
+		used += procShare
+	}
+	procDPS := 0.0
+	procMPS := 0.0
+	if procShare > 0 && procGCD > 0 {
+		procDPS = (procShare / procGCD) * procDmg
+		procMPS = (procShare / procGCD) * procMana
+		maintMPS += procMPS
+		maintCastsPS += procShare / procGCD
 	}
 	rotMPS := maintMPS + fillerShare*fMPS
 
 	// Mana budget: the pool spread over the fight, gear mp5, and the share
-	// of spirit regeneration that continues while casting (Meditation, and
-	// Spirit Tap for the share of the fight it is up). The model casts for
-	// the whole fight, so the rest of the spirit regeneration counts 0 under
-	// the five-second rule.
-	regenPS, _ := st.Regen(fight)
+	// of spirit regeneration that continues while casting. When the rotation
+	// runs out of mana and falls back to wanding/idling, time outside the
+	// five-second rule regenerates at the full (idle) spirit rate.
+	regenCast, regenIdle := st.Regen(fight)
 	m.KillBuffPct = st.KillProcUptime(fight) * 100
-	budgetPS := st.ManaMax/fight.Seconds + regenPS
+	baseBudgetPS := st.ManaMax/fight.Seconds + regenCast
 	m.ManaSpentPS = rotMPS
-	m.ManaBudgetPS = budgetPS
+	m.ManaBudgetPS = baseBudgetPS
 
 	conv := converterOf(st, fight, actions)
 	// A healer pays the health with healing (their own, or someone else's):
@@ -360,7 +572,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	// never end); a conversion with a cooldown does: one cast right away and
 	// one more each time the cooldown ends before the mana does.
 	ttoomCasts := 0.0
-	if drain := rotMPS - regenPS; drain > 0 {
+	if drain := rotMPS - regenCast; drain > 0 {
 		t := st.ManaMax / drain
 		sustained := false
 		if conv != nil && conv.cooldown > 0 {
@@ -389,7 +601,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		gcd        float64
 		wand       float64
 	}
-	solve := func(c *converter) plan {
+	solveBudget := func(c *converter, budgetPS float64) plan {
 		p := plan{share: fillerShare, maintScale: 1}
 		deficit := rotMPS - budgetPS
 		if deficit <= 0 {
@@ -441,6 +653,40 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		p.wand = math.Max(0, 1-used*p.maintScale-p.share-p.rate*p.gcd)
 		return p
 	}
+	// solveWith5SR finds the fixed point between wand/idle time and the
+	// five-second rule's extra spirit regeneration (monotone bisection).
+	solve := func(c *converter) (plan, float64) {
+		p0 := solveBudget(c, baseBudgetPS)
+		if p0.wand <= 1e-9 || regenIdle <= regenCast+1e-12 {
+			return p0, baseBudgetPS
+		}
+		evalRegen := func(r float64) (plan, float64) {
+			b := st.ManaMax/fight.Seconds + r
+			p := solveBudget(c, b)
+			castsPS := maintCastsPS*p.maintScale + p.rate
+			if fExec > 0 {
+				castsPS += p.share / fExec
+			}
+			idleShare := math.Min(p.wand, math.Max(0, 1-fiveSecondRule*castsPS))
+			return p, regenCast + (regenIdle-regenCast)*idleShare
+		}
+		if _, f0 := evalRegen(regenCast); f0 <= regenCast+1e-12 {
+			return p0, baseBudgetPS
+		}
+		lo, hi := regenCast, regenIdle
+		for i := 0; i < 48; i++ {
+			mid := (lo + hi) / 2
+			_, fMid := evalRegen(mid)
+			if fMid > mid {
+				lo = mid
+			} else {
+				hi = mid
+			}
+		}
+		r := (lo + hi) / 2
+		b := st.ManaMax/fight.Seconds + r
+		return solveBudget(c, b), b
+	}
 	healing := func(p plan, c *converter) float64 {
 		_, hps, _ := maintenance(p.share)
 		hps = hps*p.maintScale + p.share*fHPS
@@ -449,23 +695,30 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 		}
 		return hps
 	}
-	chosen := solve(conv)
+	chosen, effBudgetPS := solve(conv)
 	if conv != nil && netHealth {
 		// A healer converts only if the mana heals more than the health costs.
-		if without := solve(nil); healing(without, nil) >= healing(chosen, conv) {
-			chosen = without
+		if without, withoutBudget := solve(nil); healing(without, nil) >= healing(chosen, conv) {
+			chosen, effBudgetPS = without, withoutBudget
 		}
 	}
+	m.ManaBudgetPS = effBudgetPS
 	wandDPS := WandDPS(st, tgt)
-	var sDPS, sMPS, sLeech float64 // the standby spell per unit of its share
+	var sDPS, sMPS, sLeech, sExec float64 // the standby spell per unit of its share
 	if standby != nil {
-		sDPS = standby.res.Damage / standby.res.ExecuteSec
-		sMPS = standby.res.ManaCost / standby.res.ExecuteSec
-		sLeech = standby.res.Leech / standby.res.ExecuteSec
+		sExec = standby.res.ExecuteSec
+		sDPS = standby.res.Damage / sExec
+		sMPS = standby.res.ManaCost / sExec
+		sLeech = standby.res.Leech / sExec
+		if !standby.act.Spell.IsHeal {
+			k := procMult[standby.sh.School]
+			sDPS *= k
+			sLeech *= k
+		}
 	}
 	damage := func(p plan) float64 {
 		dps, _, _ := maintenance(p.share)
-		return dps*p.maintScale + p.share*fDPS + p.recover*sDPS + p.wand*wandDPS
+		return (dps+procDPS)*p.maintScale + p.share*fDPS + p.recover*sDPS + p.wand*wandDPS
 	}
 	// A standby spell that returns health (Drain Life) next to Life Tap: when
 	// the health limits the conversions, time on it buys more of them. What
@@ -474,7 +727,7 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 	// highest the mana and the health allow. Everything is linear in the four
 	// shares, the filler's haste on the DoTs included.
 	if standby != nil && fillerIdx >= 0 && conv != nil && conv.health > 0 && conv.maxRate == 0 &&
-		!netHealth && rotMPS > budgetPS {
+		!netHealth && rotMPS > baseBudgetPS {
 		var hasteDPS, hasteLeech, baseLeech float64
 		for i, p := range parts {
 			if i != fillerIdx {
@@ -484,18 +737,52 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			}
 		}
 		healthPS := healthUseFraction*st.HealthMax/fight.Seconds + st.HP5/5
-		// Variables: filler share, standby share, conversions per second, wand share.
-		x, _, ok := maximize(
-			[]float64{fDPS + hasteDPS, sDPS, 0, wandDPS},
-			[][]float64{{1, 1, conv.gcd, 1, fillerShare}},
-			[][]float64{
-				{fMPS, sMPS, -conv.mana, 0, budgetPS - maintMPS},
-				{-(fLeech + hasteLeech), -sLeech, conv.health, 0, healthPS + baseLeech},
-			})
-		if ok {
-			with := plan{share: x[0], recover: x[1], rate: x[2], wand: x[3], maintScale: 1, gcd: conv.gcd}
+		solveLP := func(bPS float64) (plan, bool) {
+			x, _, ok := maximize(
+				[]float64{fDPS + hasteDPS, sDPS, 0, wandDPS},
+				[][]float64{{1, 1, conv.gcd, 1, fillerShare}},
+				[][]float64{
+					{fMPS, sMPS, -conv.mana, 0, bPS - maintMPS},
+					{-(fLeech + hasteLeech), -sLeech, conv.health, 0, healthPS + baseLeech},
+				})
+			if !ok {
+				return plan{}, false
+			}
+			return plan{share: x[0], recover: x[1], rate: x[2], wand: x[3], maintScale: 1, gcd: conv.gcd}, true
+		}
+		if with, ok := solveLP(baseBudgetPS); ok {
+			lpBudget := baseBudgetPS
+			if with.wand > 1e-9 && regenIdle > regenCast+1e-12 {
+				lo, hi := regenCast, regenIdle
+				for i := 0; i < 24; i++ {
+					mid := (lo + hi) / 2
+					p, ok2 := solveLP(st.ManaMax/fight.Seconds + mid)
+					if !ok2 {
+						lo = mid
+						continue
+					}
+					castsPS := maintCastsPS + p.rate
+					if fExec > 0 {
+						castsPS += p.share / fExec
+					}
+					if sExec > 0 {
+						castsPS += p.recover / sExec
+					}
+					idleShare := math.Min(p.wand, math.Max(0, 1-fiveSecondRule*castsPS))
+					if regenCast+(regenIdle-regenCast)*idleShare > mid {
+						lo = mid
+					} else {
+						hi = mid
+					}
+				}
+				lpBudget = st.ManaMax/fight.Seconds + (lo+hi)/2
+				if p2, ok2 := solveLP(lpBudget); ok2 {
+					with = p2
+				}
+			}
 			if damage(with) > damage(chosen)*(1+1e-9) {
 				chosen = with
+				m.ManaBudgetPS = lpBudget
 			}
 		}
 	}
@@ -531,6 +818,15 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			row.Absorb = p.act.Spell.Absorb != nil && !p.act.Spell.IsHeal
 		}
 		m.Breakdown = append(m.Breakdown, row)
+	}
+	if procShare*maintScale > 0.0005 && procSpell != nil {
+		m.Breakdown = append(m.Breakdown, Row{
+			SpellID:  procSpell.ID,
+			Label:    procSpell.Name,
+			Kind:     "proc_cast",
+			Value:    procDPS * maintScale,
+			SharePct: procShare * maintScale * 100,
+		})
 	}
 	if chosen.recover > 0.0005 {
 		m.Breakdown = append(m.Breakdown, Row{

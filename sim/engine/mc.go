@@ -2,8 +2,10 @@ package engine
 
 import (
 	"math"
-	"math/rand"
+	"math/rand/v2"
+	"runtime"
 	"sort"
+	"sync"
 )
 
 // The Monte-Carlo stage: the same priority rotation, played cast by cast
@@ -30,15 +32,51 @@ func RunMC(st *State, fight Fight, actions []Action, metric string, iterations i
 	}
 	p := newPlayer(st, fight, actions, metric)
 	values := make([]float64, iterations)
-	for i := 0; i < iterations; i++ {
-		rng := rand.New(rand.NewSource(seed + int64(i)))
-		value, oom := p.play(rng, nil)
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
+	}
+	if iterations < 256 || workers == 1 {
+		runMCChunk(p, values, 0, iterations, metric, uint64(seed))
+	} else {
+		if workers > iterations {
+			workers = iterations
+		}
+		var wg sync.WaitGroup
+		wg.Add(workers)
+		chunk := (iterations + workers - 1) / workers
+		for w := 0; w < workers; w++ {
+			lo := w * chunk
+			hi := lo + chunk
+			if hi > iterations {
+				hi = iterations
+			}
+			if lo >= hi {
+				wg.Done()
+				continue
+			}
+			go func(lo, hi int) {
+				defer wg.Done()
+				runMCChunk(p, values, lo, hi, metric, uint64(seed))
+			}(lo, hi)
+		}
+		wg.Wait()
+	}
+	return summarize(values)
+}
+
+func runMCChunk(p *player, values []float64, lo, hi int, metric string, seed uint64) {
+	sc := p.newScratch()
+	pcg := rand.NewPCG(seed, 0)
+	rng := rand.New(pcg)
+	for i := lo; i < hi; i++ {
+		pcg.Seed(seed, uint64(i)+1)
+		value, oom := p.playWith(rng, nil, &sc)
 		if metric == "ttoom" {
 			value = oom
 		}
 		values[i] = value
 	}
-	return summarize(values)
 }
 
 func summarize(values []float64) MCStats {

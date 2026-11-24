@@ -2,7 +2,7 @@ package engine
 
 import (
 	"math"
-	"math/rand"
+	"math/rand/v2"
 )
 
 // CastResult is what one cast of a spell is worth. With rng == nil every
@@ -40,6 +40,7 @@ func hitChance(sp *Spell, st *State, tgt Target) float64 {
 // what the deterministic cycle and the Monte-Carlo loop share. Direct values
 // are pre-crit and pre-hit; the caller rolls or weighs those.
 type CastShape struct {
+	School      School
 	ExecuteSec  float64
 	CastSec     float64 // cast time or channel length; 0 for an instant
 	GCDSec      float64
@@ -148,9 +149,32 @@ func CooldownSec(sp *Spell, st *State) float64 {
 	return ms / 1000
 }
 
+// bestSchool picks the strongest school from sp.SchoolMask for multi-school
+// spells (in WoW a multi-school spell benefits from the highest SP/crit
+// among its schools). Single-school spells return sp.School directly.
+func bestSchool(sp *Spell, st *State) School {
+	mask := sp.SchoolMask
+	if mask == 0 || mask&(mask-1) == 0 {
+		return sp.School
+	}
+	best := sp.School
+	bestSP := st.SP[best]
+	bestCrit := st.Crit[best]
+	for sc := Holy; sc < NumSchools; sc++ {
+		if mask&(1<<uint(sc)) == 0 {
+			continue
+		}
+		if st.SP[sc] > bestSP || (st.SP[sc] == bestSP && st.Crit[sc] > bestCrit) {
+			best, bestSP, bestCrit = sc, st.SP[sc], st.Crit[sc]
+		}
+	}
+	return best
+}
+
 // ShapeIn computes a spell's cast shape within a rotation.
 func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
-	s := CastShape{IsHeal: sp.IsHeal, CritBonus: SpellCritBonus * st.Mods.pct(OpCritDamage, sp), Area: sp.Area}
+	sc := bestSchool(sp, st)
+	s := CastShape{School: sc, IsHeal: sp.IsHeal, CritBonus: SpellCritBonus * st.Mods.pct(OpCritDamage, sp), Area: sp.Area}
 
 	// Time: talents may shorten the cast; haste shortens it further. The GCD
 	// is not haste-scaled (Classic rule, unverified for Forever).
@@ -180,7 +204,7 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 
 	// Cost.
 	cost := sp.Cost.Mana + st.Mods.flat(OpCost, sp)
-	cost *= st.Mods.pct(OpCost, sp) * (1 + st.Mods.SchoolCostPct[sp.School]/100)
+	cost *= st.Mods.pct(OpCost, sp) * (1 + st.Mods.SchoolCostPct[sc]/100)
 	if cost < 0 {
 		cost = 0
 	}
@@ -189,18 +213,18 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 	// Power and modifiers. The client keeps direct and periodic amounts
 	// apart: SpellModOp 0 changes the direct part, op 22 the periodic one
 	// (Shadow Mastery carries both, each with its own spell mask).
-	power := st.SP[sp.School]
-	schoolPct := 1 + st.Mods.SchoolDamagePct[sp.School]/100
+	power := st.SP[sc]
+	schoolPct := 1 + st.Mods.SchoolDamagePct[sc]/100
 	if sp.IsHeal {
 		power = st.Healing * RankBonusShare(st.Level, sp.Levels)
 		schoolPct = 1 + st.Mods.HealingPct/100
 	} else if ctx != nil {
 		schoolPct *= st.Mods.dotStackPct(sp, ctx.Dots)
-		schoolPct *= 1 + ctx.Taken[sp.School]/100
+		schoolPct *= 1 + ctx.Taken[sc]/100
 	}
 	directPct := schoolPct * st.Mods.pct(OpDamage, sp)
 	tickPct := schoolPct * st.Mods.pct(OpPeriodic, sp)
-	s.CritPct = st.Crit[sp.School] + st.Mods.flat(OpCrit, sp)
+	s.CritPct = st.Crit[sc] + st.Mods.flat(OpCrit, sp)
 	if s.CritPct < 0 {
 		s.CritPct = 0
 	}
@@ -242,7 +266,7 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 		s.TickLeech = sp.Periodic.Leech
 		// DoTs crit only when a talent says so; the crit is weighed into the
 		// tick value (per-tick rolls would barely move the variance).
-		if !sp.IsHeal && (sp.Periodic.Crits || st.Mods.dotMayCrit(sp.School)) {
+		if !sp.IsHeal && (sp.Periodic.Crits || st.Mods.dotMayCrit(sc)) {
 			s.TickValue *= 1 + s.CritPct/100*s.CritBonus
 		}
 	}

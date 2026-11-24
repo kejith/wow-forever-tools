@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/kejith/wow-forever-tools/sim/catalog"
 	"github.com/kejith/wow-forever-tools/sim/data"
@@ -97,6 +98,7 @@ type override struct {
 	AffectsBases []int    `json:"affectsBases"`
 	CountsBases  []int    `json:"countsBases"`
 	Max          int      `json:"max"`
+	DurationSec  float64  `json:"durationSec"`
 	Generic      bool     `json:"generic"` // also decode the spell's auras
 	Reason       string   `json:"reason"`  // kind "ignore": why
 	Unverified   bool     `json:"unverified"`
@@ -107,18 +109,28 @@ type overridesFile struct {
 	Entries []override `json:"entries"`
 }
 
+var (
+	overridesOnce sync.Once
+	overridesMap  map[int]override
+	overridesErr  error
+)
+
 func loadOverrides() (map[int]override, error) {
-	var f overridesFile
-	if err := json.Unmarshal(data.Overrides, &f); err != nil {
-		return nil, fmt.Errorf("overrides.json: %w", err)
-	}
-	byID := map[int]override{}
-	for _, e := range f.Entries {
-		for _, id := range e.Spells {
-			byID[id] = e
+	overridesOnce.Do(func() {
+		var f overridesFile
+		if err := json.Unmarshal(data.Overrides, &f); err != nil {
+			overridesErr = fmt.Errorf("overrides.json: %w", err)
+			return
 		}
-	}
-	return byID, nil
+		byID := make(map[int]override, len(f.Entries))
+		for _, e := range f.Entries {
+			for _, id := range e.Spells {
+				byID[id] = e
+			}
+		}
+		overridesMap = byID
+	})
+	return overridesMap, overridesErr
 }
 
 // Decode builds the engine modifiers from the talent ranks the addon
@@ -279,6 +291,54 @@ func applyRule(cat *catalog.Catalog, mods *engine.Mods, info *Info, o override) 
 	case "wand_pct":
 		mods.WandPct += v
 		info.set(StatusUsed, "wand")
+	case "stack_proc":
+		var mask uint32
+		schools(func(s engine.School) { mask |= 1 << uint(s) })
+		pctPerStack := o.Value
+		if pctPerStack == 0 {
+			pctPerStack = 2
+		}
+		maxStacks := o.Max
+		if maxStacks <= 0 {
+			maxStacks = 5
+		}
+		dur := o.DurationSec
+		if dur <= 0 {
+			dur = 15
+		}
+		mods.StackProcs = append(mods.StackProcs, engine.StackProc{
+			ChancePct: v, PctPerStack: pctPerStack, MaxStacks: maxStacks, DurationSec: dur, SchoolMask: mask,
+		})
+		info.set(StatusUsed, "rule")
+	case "crit_debuff":
+		var mask uint32
+		schools(func(s engine.School) { mask |= 1 << uint(s) })
+		charges := o.Max
+		if charges <= 0 {
+			charges = 4
+		}
+		dur := o.DurationSec
+		if dur <= 0 {
+			dur = 12
+		}
+		info.Bases = bases(o.AffectsBases)
+		for _, trig := range o.AffectsBases {
+			mods.CritDebuffs = append(mods.CritDebuffs, engine.CritDebuff{
+				Pct: v, Charges: charges, DurationSec: dur, TriggerBase: trig, SchoolMask: mask,
+			})
+		}
+	case "instant_proc":
+		dur := o.DurationSec
+		if dur <= 0 {
+			dur = 10
+		}
+		from := bases(o.CountsBases)
+		info.Bases = from
+		for _, castBase := range o.AffectsBases {
+			mods.InstantProcs = append(mods.InstantProcs, engine.InstantProc{
+				ChancePct: v, DurationSec: dur, FromBases: from, CastBase: castBase,
+			})
+		}
 	case "dot_stack":
 		info.Bases = bases(o.AffectsBases)
 		mods.DotStacks = append(mods.DotStacks, engine.DotStack{

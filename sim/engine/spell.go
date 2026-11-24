@@ -10,6 +10,7 @@ type Spell struct {
 	BaseID     int // first rank of the chain (equals ID for unranked spells)
 	Name       string
 	School     School
+	SchoolMask uint32 // bitmask of schools (multi-school spells take the best school's SP/crit)
 	CastMs     int
 	GCDMs      int // 0 means the default 1500
 	CooldownMs int

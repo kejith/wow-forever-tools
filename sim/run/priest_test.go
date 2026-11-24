@@ -99,13 +99,14 @@ func TestPriestRanksAndNoDownrank(t *testing.T) {
 	}
 }
 
-// A tiny mana pool turns the rank choice around: Lesser Heal rank 1
-// sustains more healing than Flash Heal, and the answer says so.
+// A tiny mana pool without idle spirit regen turns the rank choice around:
+// Lesser Heal rank 1 sustains more healing than higher ranks, and the answer says so.
 func TestPriestDownrankRecommendation(t *testing.T) {
 	in := priestInput()
 	in.Character.Stats.ManaMax = 300
 	in.Character.Stats.MP5 = 0
 	in.Character.Stats.Spirit = 0
+	in.Character.Stats.SpiritRegen = 0.01 // suppress base 5SR regen so pure HPM decides
 	in.Character.Talents = nil
 	out := Run(in)
 	if out.Error != "" {

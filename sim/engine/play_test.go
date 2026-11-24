@@ -17,12 +17,12 @@ func TestPlayIsTheMeanFight(t *testing.T) {
 	if pb.OOMSec != nil {
 		t.Errorf("out of mana at %g with endless mana", *pb.OOMSec)
 	}
-	// Corruption first, then bolts; every action is on the record with the
-	// time it starts at.
+	// Corruption first, then bolts; with 95 % hit Corruption takes 1.5/0.95 s
+	// in expectation before the first bolt begins.
 	if len(pb.Events) < 3 || pb.Events[0].Kind != "dot" || pb.Events[0].SpellID != 172 || pb.Events[1].Kind != "filler" {
 		t.Fatalf("events: %+v", pb.Events)
 	}
-	almost(t, "second action starts", pb.Events[1].T, 1.5, 1e-9)
+	almost(t, "second action starts", pb.Events[1].T, 1.5/0.95, 1e-9)
 	sum := 0.0
 	for _, v := range pb.BySpell {
 		sum += v
@@ -30,23 +30,91 @@ func TestPlayIsTheMeanFight(t *testing.T) {
 	almost(t, "damage per spell adds up", sum/fight.Seconds, pb.Value, 1e-9)
 }
 
-// A cast that runs past the end of the fight counts for the part inside it:
-// 4 s of 3 s bolts à 139.65 are one bolt and a third, 46.55 dps.
+// A direct cast that runs past the end of the fight does not finish (0 damage):
+// 4 s of 3 s bolts à 139.65 lands only the first bolt (139.65 / 4 = 34.9125 dps).
 func TestPlayCutsTheLastCast(t *testing.T) {
 	st := mcState()
 	pb := Play(st, Fight{Seconds: 4, TargetDelta: 2}, []Action{{Kind: "filler", Spell: bolt()}}, "dps")
-	almost(t, "dps", pb.Value, 139.65/3, 1e-6)
+	almost(t, "dps", pb.Value, 139.65/4, 1e-6)
 	if len(pb.Events) != 2 {
 		t.Errorf("events: %+v", pb.Events)
 	}
 }
 
 // A DoT cast late ticks only for what is left of the fight: Corruption
-// (6 ticks à 40, hit 95 %) in a 7 s fight ticks twice.
+// (6 ticks à 40, recast on miss so 100 % uptime once landed) in a 7 s fight ticks twice.
 func TestPlayDotOutlivesTheFight(t *testing.T) {
 	st := mcState()
 	pb := Play(st, Fight{Seconds: 7, TargetDelta: 2}, []Action{{Kind: "dot", Spell: corruption()}}, "dps")
-	almost(t, "dps", pb.Value, 2*40*0.95/7, 1e-6)
+	almost(t, "dps", pb.Value, 2*40.0/7, 1e-6)
+}
+
+// A casted DoT (Immolate, 2 s cast, 3 s tick period) starts ticking after its
+// cast finishes at t=2 s (first tick at t=5 s), not during its own cast.
+func TestPlayCastedDotStartsAtCastEnd(t *testing.T) {
+	st := mcState()
+	st.Hit = 10 // 100 % hit
+	imm := twoPart()
+	// At 4.5 s: direct hit landed at t=2 s, first periodic tick would be at t=5 s (0 ticks).
+	pb45 := Play(st, Fight{Seconds: 4.5, TargetDelta: 2}, []Action{{Kind: "dot", Spell: imm}}, "dps")
+	sh := Shape(imm, st, NewTarget(20, 2))
+	direct := sh.SampleDirect(nil)
+	almost(t, "before first tick", pb45.BySpell[imm.ID], direct, 1e-6)
+	// At 5.5 s: direct hit + 1 tick at t=5 s.
+	pb55 := Play(st, Fight{Seconds: 5.5, TargetDelta: 2}, []Action{{Kind: "dot", Spell: imm}}, "dps")
+	tick := sh.TickValue
+	almost(t, "after first tick", pb55.BySpell[imm.ID], direct+tick, 1e-6)
+}
+
+// Shadow Weaving scales with rank (33/67/100 % proc chance) and ramps up over
+// casts rather than applying flat +10 % from cast 0.
+func TestShadowWeavingRanks(t *testing.T) {
+	base := mcState()
+	r1 := mcState()
+	r1.Mods.StackProcs = []StackProc{{ChancePct: 33, PctPerStack: 2, MaxStacks: 5, DurationSec: 15, SchoolMask: 1 << Shadow}}
+	r3 := mcState()
+	r3.Mods.StackProcs = []StackProc{{ChancePct: 100, PctPerStack: 2, MaxStacks: 5, DurationSec: 15, SchoolMask: 1 << Shadow}}
+	fight := Fight{Seconds: 60, TargetDelta: 2}
+	acts := mcActions()
+	d0, d1, d3 := Evaluate(base, fight, acts, "dps").DPS, Evaluate(r1, fight, acts, "dps").DPS, Evaluate(r3, fight, acts, "dps").DPS
+	if !(d0 < d1 && d1 < d3) {
+		t.Errorf("expected Evaluate DPS base < r1 < r3: %g, %g, %g", d0, d1, d3)
+	}
+	p0, p1, p3 := Play(base, fight, acts, "dps").Value, Play(r1, fight, acts, "dps").Value, Play(r3, fight, acts, "dps").Value
+	if !(p0 < p1 && p1 < p3) {
+		t.Errorf("expected Play DPS base < r1 < r3: %g, %g, %g", p0, p1, p3)
+	}
+}
+
+// Improved Shadow Bolt and Nightfall raise DPS in both Evaluate and Play/MC.
+func TestISBAndNightfallProcs(t *testing.T) {
+	base := mcState()
+	base.Crit[Shadow] = 20
+	fight := Fight{Seconds: 60, TargetDelta: 2}
+	acts := mcActions()
+
+	isb := mcState()
+	isb.Crit[Shadow] = 20
+	isb.Mods.CritDebuffs = []CritDebuff{{Pct: 20, Charges: 4, DurationSec: 12, TriggerBase: 686, SchoolMask: 1 << Shadow}}
+	if Evaluate(isb, fight, acts, "dps").DPS <= Evaluate(base, fight, acts, "dps").DPS {
+		t.Error("ISB should raise closed-form DPS")
+	}
+	if Play(isb, fight, acts, "dps").Value <= Play(base, fight, acts, "dps").Value {
+		t.Error("ISB should raise played DPS")
+	}
+	if RunMC(isb, fight, acts, "dps", 1000, 1).Mean <= RunMC(base, fight, acts, "dps", 1000, 1).Mean {
+		t.Error("ISB should raise MC DPS")
+	}
+
+	nf := mcState()
+	nf.Crit[Shadow] = 20
+	nf.Mods.InstantProcs = []InstantProc{{ChancePct: 4, DurationSec: 10, FromBases: map[int]bool{172: true}, CastBase: 686}}
+	if Evaluate(nf, fight, acts, "dps").DPS <= Evaluate(base, fight, acts, "dps").DPS {
+		t.Error("Nightfall should raise closed-form DPS")
+	}
+	if RunMC(nf, fight, acts, "dps", 1000, 1).Mean <= RunMC(base, fight, acts, "dps", 1000, 1).Mean {
+		t.Error("Nightfall should raise MC DPS")
+	}
 }
 
 // When the health is too low for Life Tap, a spell that returns health goes
@@ -275,7 +343,7 @@ func TestDebuff(t *testing.T) {
 	if len(pb.Events) < 3 || pb.Events[0].Kind != "debuff" || pb.Events[1].Kind != "dot" {
 		t.Fatalf("events: %+v", pb.Events[:3])
 	}
-	almost(t, "second action starts", pb.Events[1].T, 1.5, 1e-9)
+	almost(t, "second action starts", pb.Events[1].T, 1.5/0.95, 1e-9)
 	if pb.Value <= Play(st, fight, plain, "dps").Value {
 		t.Errorf("the curse should pay over 60 s: %g", pb.Value)
 	}

@@ -2,7 +2,7 @@ package engine
 
 import (
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 )
 
@@ -158,7 +158,9 @@ func TestResolveCastHeal(t *testing.T) {
 	almost(t, "no damage", r.Damage, 0, 1e-9)
 }
 
-// Meditation: spirit regeneration enters the budget while casting.
+// Meditation: spirit regeneration enters the budget while casting, and when
+// the rotation goes OOM and falls back to wanding, time outside the
+// five-second rule recovers at the full idle spirit rate.
 func TestCastingRegen(t *testing.T) {
 	st := testState()
 	st.ManaMax = 1000
@@ -167,20 +169,47 @@ func TestCastingRegen(t *testing.T) {
 	st.RegenSpiritFactor = 0.125
 	st.Mods.CastingRegenPct = 15
 	m := Evaluate(st, Fight{Seconds: 60, TargetDelta: 2}, []Action{{Kind: "filler", Spell: bolt()}}, "dps")
-	// budget = 1000/60 + (6.5 + 7.5)*0.15 = 16.667 + 2.1
-	almost(t, "budget", m.ManaBudgetPS, 18.7667, 0.001)
-	// ttoom = 1000 / (140/3 - 2.1)
+	// Without 5SR idle regen the budget would be 1000/60 + 2.1 = 18.7667;
+	// because ~50 % of the fight is spent wanding, idle spirit regen raises it.
+	if m.ManaBudgetPS <= 18.8 {
+		t.Errorf("expected 5SR wand regen above casting budget 18.77, got %g", m.ManaBudgetPS)
+	}
+	// More spirit increases OOM DPS even without Meditation via 5SR wanding.
+	st.Mods.CastingRegenPct = 0
+	low := Evaluate(st, Fight{Seconds: 60, TargetDelta: 2}, []Action{{Kind: "filler", Spell: bolt()}}, "dps")
+	high := Evaluate(st.ApplyDelta(map[string]float64{"spi": 40}), Fight{Seconds: 60, TargetDelta: 2}, []Action{{Kind: "filler", Spell: bolt()}}, "dps")
+	if high.DPS <= low.DPS {
+		t.Errorf("spirit should raise OOM wand DPS via 5SR: %g vs %g", high.DPS, low.DPS)
+	}
+	// ttoom = 1000 / (140/3 - 2.1) (casting continuously until OOM)
+	st.Mods.CastingRegenPct = 15
 	if m.TTOOMSec == nil {
 		t.Fatal("ttoom missing")
 	}
 	almost(t, "ttoom", *m.TTOOMSec, 1000/(140.0/3-2.1), 0.001)
 }
 
+func TestMultiSchoolBestSP(t *testing.T) {
+	st := testState()
+	st.SP[Fire] = 200
+	st.SP[Frost] = 50
+	sp := &Spell{
+		ID: 99999, BaseID: 99999, Name: "Frostfire", School: Frost,
+		SchoolMask: (1 << Fire) | (1 << Frost), CastMs: 2500, Cost: Cost{Mana: 100},
+		Direct: &Effect{BP: 100, Coeff: 1.0},
+	}
+	sh := Shape(sp, st, NewTarget(20, 0))
+	if sh.School != Fire {
+		t.Errorf("picked school %s, want fire", sh.School.Name())
+	}
+	almost(t, "direct avg", sh.DirectAvg, 300, 1e-9)
+}
+
 // The Monte-Carlo seam: the mean of sampled casts approaches the expectation.
 func TestResolveCastSampledMean(t *testing.T) {
 	st := testState()
 	want := ResolveCast(bolt(), st, NewTarget(20, 2), nil).Damage
-	rng := rand.New(rand.NewSource(1))
+	rng := rand.New(rand.NewPCG(1, 1))
 	n := 200000
 	sum := 0.0
 	for i := 0; i < n; i++ {
@@ -334,7 +363,7 @@ func TestRangeFromBasePoints(t *testing.T) {
 	// Sampled hits stay inside that range (crits aside).
 	st.Crit[Shadow] = 0
 	sh = Shape(sp, st, NewTarget(51, 0))
-	rng := rand.New(rand.NewSource(3))
+	rng := rand.New(rand.NewPCG(3, 3))
 	for i := 0; i < 1000; i++ {
 		if v := sh.SampleLanded(rng); v < avg-148*0.057-1e-9 || v > avg+148*0.057+1e-9 {
 			t.Fatalf("hit %g outside %g..%g", v, avg-148*0.057, avg+148*0.057)

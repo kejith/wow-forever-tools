@@ -18,12 +18,69 @@ var SlotOf = map[string][]int64{
 	"INVTYPE_HEAD": {1}, "INVTYPE_NECK": {2}, "INVTYPE_SHOULDER": {3}, "INVTYPE_CHEST": {5}, "INVTYPE_ROBE": {5},
 	"INVTYPE_WAIST": {6}, "INVTYPE_LEGS": {7}, "INVTYPE_FEET": {8}, "INVTYPE_WRIST": {9}, "INVTYPE_HAND": {10},
 	"INVTYPE_FINGER": {11, 12}, "INVTYPE_TRINKET": {13, 14}, "INVTYPE_CLOAK": {15},
-	"INVTYPE_WEAPON": {16}, "INVTYPE_WEAPONMAINHAND": {16}, "INVTYPE_HOLDABLE": {17},
+	"INVTYPE_WEAPON": {16}, "INVTYPE_WEAPONMAINHAND": {16}, "INVTYPE_HOLDABLE": {17}, "INVTYPE_SHIELD": {17},
 	"INVTYPE_RANGED": {18}, "INVTYPE_RANGEDRIGHT": {18}, "INVTYPE_2HWEAPON": {16, 17},
 }
 
-// usableWeapons are the weapon subclasses the scale knows (one-handed sword, staff, dagger, wand).
-var usableWeapons = map[int64]bool{7: true, 10: true, 15: true, 19: true}
+// Weapon subclasses usable per class (WoW ItemSubclassWeapon):
+// 0=1H Axe, 1=2H Axe, 2=Bow, 3=Gun, 4=1H Mace, 5=2H Mace, 6=Polearm,
+// 7=1H Sword, 8=2H Sword, 10=Staff, 13=Fist, 15=Dagger, 16=Thrown,
+// 18=Crossbow, 19=Wand.
+var usableWeaponsByClass = map[string]map[int64]bool{
+	"WARLOCK": {7: true, 10: true, 15: true, 19: true},
+	"PRIEST":  {4: true, 10: true, 15: true, 19: true},
+	"MAGE":    {7: true, 10: true, 15: true, 19: true},
+	"DRUID":   {4: true, 5: true, 10: true, 13: true, 15: true},
+	"SHAMAN":  {0: true, 1: true, 4: true, 5: true, 10: true, 13: true, 15: true},
+	"PALADIN": {0: true, 1: true, 4: true, 5: true, 6: true, 7: true, 8: true},
+	"ROGUE":   {0: true, 2: true, 3: true, 4: true, 7: true, 13: true, 15: true, 16: true, 18: true},
+	"HUNTER":  {0: true, 1: true, 2: true, 3: true, 6: true, 7: true, 8: true, 10: true, 13: true, 15: true, 18: true},
+	"WARRIOR": {0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 10: true, 13: true, 15: true, 16: true, 18: true},
+}
+
+func usableWeaponsFor(classFile string) map[int64]bool {
+	if m, ok := usableWeaponsByClass[classFile]; ok {
+		return m
+	}
+	return usableWeaponsByClass["WARLOCK"]
+}
+
+// usableArmorFor returns the ItemSubclassArmor values a class can equip at
+// level (0=Misc/rings/trinkets/cloaks/offhand, 1=Cloth, 2=Leather, 3=Mail,
+// 4=Plate, 6=Shield).
+func usableArmorFor(classFile string, level float64) map[int64]bool {
+	switch classFile {
+	case "DRUID", "ROGUE":
+		return map[int64]bool{0: true, 1: true, 2: true}
+	case "HUNTER":
+		if level >= 40 {
+			return map[int64]bool{0: true, 1: true, 2: true, 3: true}
+		}
+		return map[int64]bool{0: true, 1: true, 2: true}
+	case "SHAMAN":
+		if level >= 40 {
+			return map[int64]bool{0: true, 1: true, 2: true, 3: true, 6: true}
+		}
+		return map[int64]bool{0: true, 1: true, 2: true, 6: true}
+	case "PALADIN", "WARRIOR":
+		if level >= 40 {
+			return map[int64]bool{0: true, 1: true, 2: true, 3: true, 4: true, 6: true}
+		}
+		return map[int64]bool{0: true, 1: true, 2: true, 3: true, 6: true}
+	default: // WARLOCK, PRIEST, MAGE, unknown
+		return map[int64]bool{0: true, 1: true}
+	}
+}
+
+func isUnique(tip []string) bool {
+	for _, t := range tip {
+		if t == "Unique" || t == "Unique-Equipped" || t == "Einzigartig" || t == "Einzigartig anlegbar" ||
+			strings.HasPrefix(t, "Unique-Equipped:") || strings.HasPrefix(t, "Einzigartig anlegbar:") {
+			return true
+		}
+	}
+	return false
+}
 
 var (
 	equipPrefix   = []string{"Equip:", "Anlegen:"}

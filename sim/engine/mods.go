@@ -117,6 +117,38 @@ func (p KillProc) uptime(fight Fight) float64 {
 	return 1 - math.Pow(1-chance, n)
 }
 
+// StackProc is a stacking vulnerability debuff applied with a chance per
+// rank when casting spells of its schools (Shadow Weaving: 33/67/100%
+// chance for +2% Shadow damage taken, stacking up to 5, 15 s duration).
+type StackProc struct {
+	ChancePct   float64
+	PctPerStack float64
+	MaxStacks   int
+	DurationSec float64
+	SchoolMask  uint32
+}
+
+// CritDebuff is a debuff triggered when a specific spell crits, boosting
+// subsequent damage of its schools for up to Charges hits or DurationSec
+// (Improved Shadow Bolt: +4..20% Shadow damage for 4 charges / 12 s).
+type CritDebuff struct {
+	Pct         float64
+	Charges     int
+	DurationSec float64
+	TriggerBase int    // base id of the spell whose crit triggers it (Shadow Bolt)
+	SchoolMask  uint32 // schools that gain from the debuff
+}
+
+// InstantProc makes a target spell instant-cast (GCD only) when a tick of
+// one of the triggering spells procs (Nightfall: 2/4% on Corruption or
+// Drain Life ticks -> instant Shadow Bolt within 10 s).
+type InstantProc struct {
+	ChancePct   float64
+	DurationSec float64
+	FromBases   map[int]bool // base ids whose ticks can proc it
+	CastBase    int          // base id of the spell made instant
+}
+
 // Mods are the talent effects that the character sheet does NOT already
 // include. Sheet-visible auras (flat stats, flat bonus damage, spell crit,
 // hit) must not land here, or they would count twice: the snapshot has them.
@@ -127,6 +159,9 @@ type Mods struct {
 	DotStacks       []DotStack
 	ChannelHastes   []ChannelHaste
 	KillProcs       []KillProc
+	StackProcs      []StackProc
+	CritDebuffs     []CritDebuff
+	InstantProcs    []InstantProc
 	DotCritSchools  uint32  // school mask whose DoTs may crit (e.g. Pandemic)
 	LifeTapPct      float64 // Improved Life Tap: percent more mana per tap
 	HealingPct      float64 // percent more healing done

@@ -1,7 +1,9 @@
 package run
 
 import (
+	"runtime"
 	"sort"
+	"sync"
 
 	"github.com/kejith/wow-forever-tools/sim/catalog"
 	"github.com/kejith/wow-forever-tools/sim/classes/priest"
@@ -207,9 +209,39 @@ func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool
 			play = &rich
 		}
 		scores := make([]float64, len(rots))
+		workers := runtime.GOMAXPROCS(0)
+		if workers > 1 && len(rots) >= 16 {
+			if workers > len(rots) {
+				workers = len(rots)
+			}
+			var wg sync.WaitGroup
+			wg.Add(workers)
+			chunk := (len(rots) + workers - 1) / workers
+			for w := 0; w < workers; w++ {
+				lo := w * chunk
+				hi := lo + chunk
+				if hi > len(rots) {
+					hi = len(rots)
+				}
+				if lo >= hi {
+					wg.Done()
+					continue
+				}
+				go func(lo, hi int) {
+					defer wg.Done()
+					for i := lo; i < hi; i++ {
+						scores[i] = engine.Play(play, fight, rots[i], "dps").Value
+					}
+				}(lo, hi)
+			}
+			wg.Wait()
+		} else {
+			for i, r := range rots {
+				scores[i] = engine.Play(play, fight, r, "dps").Value
+			}
+		}
 		best := 0
-		for i, r := range rots {
-			scores[i] = engine.Play(play, fight, r, "dps").Value
+		for i := range rots {
 			if scores[i] > scores[best] {
 				best = i
 			}
@@ -253,7 +285,7 @@ func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool
 		// What the rotation leaves out, and what casting it anyway would cost.
 		in := map[int]bool{}
 		for _, a := range rots[best] {
-			if a.Spell != nil {
+			if a.Spell != nil && a.Kind != "proc_cast" {
 				in[a.Spell.ID] = true
 			}
 		}
@@ -261,7 +293,7 @@ func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool
 		kinds := map[int]string{}
 		for i, r := range rots {
 			for _, a := range r {
-				if a.Spell == nil || in[a.Spell.ID] || a.Kind == "mana" || a.Kind == "recover" {
+				if a.Spell == nil || in[a.Spell.ID] || a.Kind == "mana" || a.Kind == "recover" || a.Kind == "proc_cast" {
 					continue
 				}
 				if old, ok := with[a.Spell.ID]; !ok || scores[i] > old {
@@ -357,7 +389,7 @@ func steps(cat *catalog.Catalog, actions []engine.Action, pb engine.Playback, fi
 			}
 		}
 	}
-	byKind("debuff", "dot", "hot", "cooldown", "burn", "filler", "heal")
+	byKind("debuff", "dot", "hot", "cooldown", "burn", "proc_cast", "filler", "heal")
 	add("lifetap", tapSpell, 0)
 	byKind("mana", "recover")
 	add("wand", nil, 0)

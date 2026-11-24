@@ -91,9 +91,17 @@ func runCmd(t *testing.T, name string, args ...string) (string, int) {
 }
 
 // golden compares a command's text with testdata/<file> (Python's text for the same arguments).
+// With UPDATE_GOLDEN=1 it writes the current output to testdata/<file>.
 func golden(t *testing.T, file, got string) {
 	t.Helper()
-	want, err := os.ReadFile(filepath.Join("testdata", file))
+	path := filepath.Join("testdata", file)
+	if os.Getenv("UPDATE_GOLDEN") == "1" {
+		if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	want, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-Ilse, level 28 Priester | combat engine 0.10.0
+Ilse, level 28 Priester | combat engine 0.11.0
 Healing bonus 158, crit 5.0%, mana 1879, spirit 112
 Mana per 5 sec.: 55.6 while casting, 106.3 outside the five-second rule
   Mana per 5 sec. from your gear and buffs counts all the time (5 now). The regeneration from spirit (101 mana per 5 sec.) stops while you cast and for five seconds after a cast that costs mana. Both numbers are those of your character sheet.

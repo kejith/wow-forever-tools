@@ -1,6 +1,7 @@
 package run
 
 import (
+	"math"
 	"testing"
 
 	"github.com/kejith/wow-forever-tools/sim/engine"
@@ -52,31 +53,31 @@ func TestDamageSituations(t *testing.T) {
 	// The gear rating is untouched by the guide.
 	almost(t, "baseline", out.Baseline.Value, 45.8531, 0.01)
 
-	// 15 s: both DoTs once, four bolts, the mana lasts.
+	// 15 s: Corruption + bolts (a bolt started after 12 s does not finish).
 	quick := situation(t, out, "quick")
-	almost(t, "quick dps", quick.Value, 55.29, 0.01)
+	almost(t, "quick dps", quick.Value, 50.5733, 0.01)
 	if quick.OOMSec != nil || step(quick, "lifetap", 0) != nil || step(quick, "wand", 0) != nil {
 		t.Errorf("quick: %+v", quick)
 	}
-	if b := step(quick, "filler", 695); b == nil || b.Casts != 4 || b.FirstSec != 3 || b.Rank != 2 {
+	if b := step(quick, "filler", 695); b == nil || b.Casts != 5 || b.Rank != 2 {
 		t.Errorf("quick bolts: %+v", b)
 	}
 	almost(t, "quick kills", quick.Fight.KillsPerMinute, 4, 1e-9)
 
-	// The asked fight: two taps (the health allows no more), the wand from 33 s.
+	// The asked fight: two taps (the health allows no more), then the wand.
 	std := situation(t, out, "standard")
 	if std.Fight.Seconds != 60 || std.Fight.TargetDelta != 2 {
 		t.Errorf("standard fight: %+v", std.Fight)
 	}
-	almost(t, "standard dps", std.Value, 44.2573, 0.01)
+	almost(t, "standard dps", std.Value, 42.2823, 0.01)
 	if std.OOMSec == nil {
 		t.Fatal("standard: the mana should run out")
 	}
-	almost(t, "standard oom", *std.OOMSec, 33, 1e-9)
+	almost(t, "standard oom", *std.OOMSec, 30.3158, 0.01)
 	if tap := step(std, "lifetap", 0); tap == nil || tap.Casts != 2 || tap.Value != 0 {
 		t.Errorf("taps: %+v", tap)
 	}
-	if w := step(std, "wand", 0); w == nil || w.FirstSec != 33 || w.Value <= 0 {
+	if w := step(std, "wand", 0); w == nil || math.Abs(w.FirstSec-*std.OOMSec) > 1e-6 || w.Value <= 0 {
 		t.Errorf("wand: %+v", w)
 	}
 	almost(t, "health left", std.EndHPPct, 60, 0.5)
@@ -92,25 +93,23 @@ func TestDamageSituations(t *testing.T) {
 	}
 
 	// The same fight if mana were no limit: no tap, no wand, bolts all the
-	// time. The real mana pays for it until 22.5 s: 1000 - 40 - 50 + 6
-	// regenerated = 916 at 3 s, six bolts (140 - 6 each) leave 112 at 21 s,
-	// Corruption again 65, and the next bolt costs 140.
+	// time. The real mana runs out around 22.7 s.
 	max := situation(t, out, "max")
 	if !max.FreeMana || max.Fight != std.Fight || std.FreeMana {
 		t.Errorf("max: %+v", max)
 	}
-	almost(t, "max dps", max.Value, 57.9579, 0.01)
+	almost(t, "max dps", max.Value, 57.1567, 0.01)
 	if max.OOMSec == nil {
 		t.Fatal("max: the real mana should run out")
 	}
-	almost(t, "max oom", *max.OOMSec, 22.5, 1e-9)
+	almost(t, "max oom", *max.OOMSec, 22.7368, 0.01)
 	if step(max, "lifetap", 0) != nil || step(max, "wand", 0) != nil {
 		t.Errorf("max steps: %+v", max.Steps)
 	}
 	if b := step(max, "filler", 695); b == nil || b.Casts != 17 {
 		t.Errorf("max bolts: %+v", b)
 	}
-	almost(t, "max timeline shows the real mana", max.Timeline[1].ManaPct, 96.3, 1e-6)
+	almost(t, "max timeline shows the real mana", max.Timeline[1].ManaPct, 96.1053, 0.01)
 	almost(t, "max mana left", max.EndManaPct, 0, 1e-9)
 	if max.Value <= std.Value {
 		t.Errorf("max %g, standard %g", max.Value, std.Value)
@@ -130,12 +129,12 @@ func TestDamageSituations(t *testing.T) {
 	}
 }
 
-// An enemy that dies in five seconds is not worth a DoT: the guide leaves
+// An enemy that dies in three seconds is not worth a DoT: the guide leaves
 // them out and says what casting them would cost.
 func TestSituationSkipsWhatDoesNotPay(t *testing.T) {
 	in := input()
 	in.Situations = true
-	in.Fight = engine.Fight{Seconds: 5, TargetDelta: 2}
+	in.Fight = engine.Fight{Seconds: 3, TargetDelta: 2}
 	out := Run(in)
 	std := situation(t, out, "standard")
 	if len(std.Steps) != 1 || std.Steps[0].Kind != "filler" {

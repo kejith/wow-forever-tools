@@ -2,29 +2,39 @@
 == Ilse (Stufe 28) ==
 
 [AH-Upgrades] Budget 47g 17s 28c · Kampfmodell: 134,4 HPS jetzt · heile mit Heilen (Rang 1)
-  Bestes Paket fürs Budget  +5,0 HPS für 1g 38s 96c
-    Ring der Machtregulierung  Finger +1,6 · in deinen Taschen  
-    Messerpoliertuch  Handgelenk +1,3 · in deinen Taschen  
-   *Spinnenseidenstiefel  Füße +2,2  1g 38s 96c
+  Bestes Paket fürs Budget  +14,5 HPS für 1g 82s 46c
+    Gewand des Fäulnisheilers  Brust +4,3 · auf deiner Bank  
+   *Nachthauchschärpe  Taille +3,2  13s 90c
+   *Silberfadenmanschetten  Handgelenk +2,8  12s 70c
+   *Azoras Testament  Finger +1,5  16s 90c
+   *Spinnenseidenstiefel  Füße +2,7  1g 38s 96c
   Hals  jetzt: Selbstvertrauen des Wegwächters
-    Halskette der Harmonie  +1,3 · ab Stufe 31  1g 81s 98c
-    Kaleidoskopkette  +1,3 · ab Stufe 30  4g 52s 20c
+    Halskette der Harmonie  +3,2 · ab Stufe 31  1g 81s 98c
+    Kaleidoskopkette  +3,2 · ab Stufe 30  4g 52s 20c
   Schulter  jetzt: Grünzwirnmantel der Eule
-    Steinstoffschulterklappen  +0,9 · ab Stufe 31  24s 99c
+    Steinstoffschulterklappen  +1,9 · ab Stufe 31  24s 99c
   Brust  jetzt: Robe von Arugal
-    Täuscher-Roben  +1,0 · ab Stufe 29  3g 40s 99c
+    Täuscher-Roben  +6,9 · ab Stufe 29  3g 40s 99c
+    Gewand des Fäulnisheilers  +4,3 · auf deiner Bank  
+    Schwarze Samtroben  +2,7  94s
+  Taille  jetzt: Hauerwickelgürtel
+    Nachthauchschärpe  +3,3  13s 90c
+    Schärpe des Fäulnisheilers  +1,8 · auf deiner Bank  
+    Nachtwind-Gürtel  +1,8  19s 99c
   Beine  jetzt: Gazeträumer-Hose
-    Gamaschen des Violetten Zauberers  +3,8 · ab Stufe 29  18g 50s
+    Gamaschen des Violetten Zauberers  +8,9 · ab Stufe 29  18g 50s
   Füße  jetzt: Feuerwandler-Stiefel
-    Spinnenseidenstiefel  +2,2  1g 38s 96c
+    Spinnenseidenstiefel  +2,6  1g 38s 96c
   Handgelenk  jetzt: Tabithas Manschetten
-    Messerpoliertuch  +1,3 · in deinen Taschen  
-    Silberfadenmanschetten  +0,6  12s 70c
-    Steinstoffbindungen  +0,6 · ab Stufe 29  19s 95c
+    Silberfadenmanschetten  +2,9  12s 70c
+    Steinstoffbindungen  +2,9 · ab Stufe 29  19s 95c
+    Messerpoliertuch  +1,6 · in deinen Taschen  
   Finger  jetzt: Schädelring
+    Voodooband  +3,6 · ab Stufe 32  19s
     Ring der Machtregulierung  +1,6 · in deinen Taschen  
-    Voodooband  +1,5 · ab Stufe 32  19s
-    Azoras Testament  +0,6  16s 90c
+    Azoras Testament  +1,5  16s 90c
+  Rücken  jetzt: Widerstandsfähiges Cape
+    Glyphenverzierter Umhang  +0,7 · ab Stufe 32  26s 27c
   Mit Spezialeffekt  die Skala kann sie nicht bewerten
     Spinnengürtel  Taille  35s
 
@@ -137,31 +147,31 @@
    *Elixier der geringen Seelenstärke  +120 Maximale Gesundheit (1 Std.)  7s 47c
     Elixier der schwachen Seelenstärke  +27 Maximale Gesundheit (1 Std.)  3s 26c
 
-  227 Items mit Tooltip-Zeile, 60 Händlerhinweise
+  233 Items mit Tooltip-Zeile, 60 Händlerhinweise
 
 == Brakk (Stufe 53) ==
 
 [AH-Upgrades] Budget 221g 65s 8c · Kampfmodell: 326,4 DPS jetzt
-  Bestes Paket fürs Budget  +31,0 DPS für 94g 31s 94c
-    Schnallengürtel des Kuriers  Hals +5,4 · in deinen Taschen  
-   *Kleiner ewiger Zauberstab  Zauberstab +3,4  1g 32s 99c
-   *Kultistenmanschetten  Handgelenk +3,9  4g 99s 98c
+  Bestes Paket fürs Budget  +31,9 DPS für 94g 31s 94c
+    Schnallengürtel des Kuriers  Hals +5,6 · in deinen Taschen  
+   *Kleiner ewiger Zauberstab  Zauberstab +3,1  1g 32s 99c
+   *Kultistenmanschetten  Handgelenk +3,6  4g 99s 98c
    *Geisterzwirnhose  Beine +3,2  5g 99s 98c
-   *Robe der Winternacht  Brust +12,8  53g 99s 99c
-   *Spitze des Steinformers  Waffenhand +2,4  27g 99s
+   *Robe der Winternacht  Brust +13,1  53g 99s 99c
+   *Spitze des Steinformers  Waffenhand +3,4  27g 99s
   Hals  jetzt: Halsschmuck des Hochschamanen
-    Schnallengürtel des Kuriers  +5,4 · in deinen Taschen  
+    Schnallengürtel des Kuriers  +5,6 · in deinen Taschen  
   Schulter  jetzt: Schattenzwirnschultern
     Teufelsstoffschultern  +5,7 · ab Stufe 57  6g 45s
   Brust  jetzt: Elementargewandung
-    Robe der Winternacht  +12,8  53g 99s 99c
+    Robe der Winternacht  +13,8  53g 99s 99c
   Beine  jetzt: Schattenzwirnhose
     Geisterzwirnhose  +3,2  5g 99s 98c
   Handgelenk  jetzt: Blutbandarmschienen
     Kultistenmanschetten  +3,5  4g 99s 98c
     Gepeinigte Stulpen  +1,5  19g
   Waffenhand  jetzt: Hypnoseklinge
-    Spitze des Steinformers  +2,4  27g 99s
+    Spitze des Steinformers  +3,5  27g 99s
   Zauberstab  jetzt: Zauberstab des Gezeitenlieds
     Kleiner ewiger Zauberstab  +3,4  1g 32s 99c
     Verwirbelter Netherzauberstab  +2,1 · in deinen Taschen  

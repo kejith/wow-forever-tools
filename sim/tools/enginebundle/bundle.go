@@ -2,6 +2,7 @@ package enginebundle
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -139,10 +140,15 @@ type Engine struct {
 	Coverage        *run.Coverage
 	Spells          []run.SpellNumbers // per known spell rank what one cast does, as a tooltip shows it
 	Fight           engine.Fight       // as evaluated: the engine resolves automatic values
+	sess            *run.Session       // cached prepared session when using the default run.Run
 }
 
 // Runner runs one bundle; tests replace it with a stub.
 var Runner = run.Run
+
+func isDefaultRunner() bool {
+	return reflect.ValueOf(Runner).Pointer() == reflect.ValueOf(run.Run).Pointer()
+}
 
 func (e *Engine) exec(in run.Input) (out run.Output, err error) {
 	func() {
@@ -151,6 +157,18 @@ func (e *Engine) exec(in run.Input) (out run.Output, err error) {
 				err = fmt.Errorf("%s", i18n.T("The combat engine failed: {err}", "err", cut(fmt.Sprint(p), 200)))
 			}
 		}()
+		if isDefaultRunner() && !in.Situations && !in.HealTable && !in.DamageTable {
+			if e.sess == nil {
+				var baseOut run.Output
+				e.sess, baseOut = run.Prepare(in)
+				if baseOut.Error != "" {
+					out = baseOut
+					return
+				}
+			}
+			out = e.sess.Eval(in.Evaluations, in.Reoptimize)
+			return
+		}
 		out = Runner(in)
 	}()
 	if err != nil {
@@ -186,6 +204,7 @@ func cut(s string, n int) string {
 type Eval struct {
 	Key   string
 	Delta map[string]float64
+	NoMC  bool
 }
 
 // Batch evaluates deltas and returns the metric gain per key. With reoptimize the engine picks the best
@@ -194,7 +213,7 @@ func (e *Engine) Batch(evals []Eval, reoptimize bool) (map[string]float64, error
 	in := e.Input
 	in.Evaluations = make([]run.Evaluation, len(evals))
 	for i, ev := range evals {
-		in.Evaluations[i] = run.Evaluation{Key: ev.Key, Delta: ev.Delta}
+		in.Evaluations[i] = run.Evaluation{Key: ev.Key, Delta: ev.Delta, NoMC: ev.NoMC}
 	}
 	in.Reoptimize = reoptimize
 	out, err := e.exec(in)
@@ -312,6 +331,7 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 		}
 	}
 	wandDps := NormItem(wand, true, nil, nil)["wandDps"]
+	wandSpeed := parseWandSpeed(wand)
 	talents := map[string]int{}
 	for _, tree := range c.Tab("talents").Tab("class").Tables() {
 		for _, t := range tree.Tab("talents").Tables() {
@@ -349,7 +369,7 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 				ManaPerInt: orNum(st, "manaPerIntellect", 15),
 				HPPerSta:   orNum(st, "hpPerStamina", 10),
 				RangedCrit: num(st, "rangedCrit"),
-				Wand:       engine.Wand{DPS: wandDps, Skill: wandSkill},
+				Wand:       engine.Wand{DPS: wandDps, Speed: wandSpeed, Skill: wandSkill},
 				LifeTap:    lifeTap,
 				HastePct:   sheet.HastePct, SpiritRegen: sheet.SpiritRegen, CastingRegen: sheet.CastingRegen,
 			},
@@ -361,4 +381,24 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 		in.Buffs = opt.Buffs
 	}
 	return &Engine{Input: in, Fight: fight}, nil
+}
+
+var wandSpeedRe = regexp.MustCompile(`(?:Speed|Tempo)\s+([0-9]+[.,][0-9]+)`)
+
+func parseWandSpeed(wand *sv.Table) float64 {
+	if wand == nil {
+		return 0
+	}
+	for _, line := range wand.Tab("tooltip").List() {
+		s, ok := line.(string)
+		if !ok {
+			continue
+		}
+		if m := wandSpeedRe.FindStringSubmatch(s); m != nil {
+			if f, err := strconv.ParseFloat(strings.ReplaceAll(m[1], ",", "."), 64); err == nil && f > 0 {
+				return f
+			}
+		}
+	}
+	return 0
 }

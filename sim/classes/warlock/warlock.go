@@ -59,6 +59,10 @@ const (
 // which the two share in every rank. Checked on the tooltips of ranks 1-3
 // at level 51: 220, 426 and 660 over 8 seconds are four pulses of it.
 func Prepare(cat *catalog.Catalog) {
+	cat.PrepareOnce(prepare)
+}
+
+func prepare(cat *catalog.Catalog) {
 	for _, id := range cat.Chains[Hellfire] {
 		sp := cat.Spells[id]
 		if sp == nil || sp.Periodic == nil || sp.SelfTick != nil {
@@ -204,6 +208,7 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 	// health is too low for Life Tap. Those candidates come last: where the
 	// standby spell adds nothing, the plain rotation stays the best.
 	standby := best(DrainLife)
+	procSB := best(ShadowBolt)
 	var out [][]engine.Action
 	for _, recover := range []*engine.Spell{nil, standby} {
 		for _, filler := range fillers {
@@ -217,6 +222,9 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 				}
 				if recover != nil {
 					actions = append(actions, engine.Action{Kind: "recover", Spell: recover})
+				}
+				if procSB != nil && (filler == nil || filler.ID != procSB.ID) {
+					actions = append(actions, engine.Action{Kind: "proc_cast", Spell: procSB})
 				}
 				out = append(out, append(actions, engine.Action{Kind: "wand"}))
 			}
@@ -236,7 +244,11 @@ func Rotations(cat *catalog.Catalog, known map[int]bool, level int) [][]engine.A
 // for as long as the health pays for it.
 func Choices(cat *catalog.Catalog, known map[int]bool, level, enemies int) engine.Choices {
 	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
-	c := engine.Choices{Tail: []engine.Action{{Kind: "wand"}}, Recover: best(DrainLife)}
+	tail := []engine.Action{{Kind: "wand"}}
+	if sb := best(ShadowBolt); sb != nil {
+		tail = append([]engine.Action{{Kind: "proc_cast", Spell: sb}}, tail...)
+	}
+	c := engine.Choices{Tail: tail, Recover: best(DrainLife)}
 	c.Optional = optional(cat, best, CurseOfAgony, Corruption, SiphonLife, Immolate, DeathCoil, SoulFire)
 	if enemies > 1 {
 		if sp := best(RainOfFire); sp != nil && sp.Area && sp.Periodic != nil {

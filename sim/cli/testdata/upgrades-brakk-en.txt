@@ -43,34 +43,34 @@ Combat model: 326.4 DPS against +2 levels, 60s fight, mana for 62s
    Checked against the spell texts, mana costs and cast times of the game: 47 of 47 spell ranks agree.
 Prices are the lowest buyout at the scan.
 
-== Best package for 221g 65s: +31.0 DPS (+10%) for 94g 31s
-   Neck         +5.4   new      owned            Schnallengürtel des Kuriers (in your bags) [NEW in Forever]  [SP 8, Int 10, Spi 7]  id 279833
-              up to here 0s 00c for +5.4 DPS, replaces Halsschmuck des Hochschamanen
-   Wand         +3.4 +197%     1g 32s     2.5/g  Kleiner ewiger Zauberstab [NEW in Forever]  [SP 8, DPS 45.8]  id 249232
-              up to here 1g 32s for +8.8 DPS, replaces Zauberstab des Gezeitenlieds
-   Wrist        +3.9  +94%     4g 99s     0.8/g  Kultistenmanschetten [NEW in Forever]  [SP 12, Spi 8]  id 284104
-              up to here 6g 32s for +12.7 DPS, replaces Blutbandarmschienen
+== Best package for 221g 65s: +31.9 DPS (+10%) for 94g 31s
+   Neck         +5.6   new      owned            Schnallengürtel des Kuriers (in your bags) [NEW in Forever]  [SP 8, Int 10, Spi 7]  id 279833
+              up to here 0s 00c for +5.6 DPS, replaces Halsschmuck des Hochschamanen
+   Wand         +3.1 +181%     1g 32s     2.3/g  Kleiner ewiger Zauberstab [NEW in Forever]  [SP 8, DPS 45.8]  id 249232
+              up to here 1g 32s for +8.7 DPS, replaces Zauberstab des Gezeitenlieds
+   Wrist        +3.6  +86%     4g 99s     0.7/g  Kultistenmanschetten [NEW in Forever]  [SP 12, Spi 8]  id 284104
+              up to here 6g 32s for +12.3 DPS, replaces Blutbandarmschienen
    Legs         +3.2  +24%     5g 99s     0.5/g  Geisterzwirnhose  [SP 26, Spi 20]  id 14144
-              up to here 12g 32s for +15.9 DPS, replaces Schattenzwirnhose
-   Chest       +12.8  +96%    53g 99s     0.2/g  Robe der Winternacht  [Shadow 40, Int 12]  id 14136
-              up to here 66g 32s for +28.7 DPS, replaces Elementargewandung
-   Main Hand    +2.4   +6%    27g 99s     0.1/g  Spitze des Steinformers [two-handed]  [SP 64, Sta 20, Int 17, DPS 35.7]  id 12532
-              up to here 94g 31s for +31.1 DPS, replaces Hypnoseklinge + Umbralkristall
+              up to here 12g 32s for +15.5 DPS, replaces Schattenzwirnhose
+   Chest       +13.1  +98%    53g 99s     0.2/g  Robe der Winternacht  [Shadow 40, Int 12]  id 14136
+              up to here 66g 32s for +28.6 DPS, replaces Elementargewandung
+   Main Hand    +3.4   +8%    27g 99s     0.1/g  Spitze des Steinformers [two-handed]  [SP 64, Sta 20, Int 17, DPS 35.7]  id 12532
+              up to here 94g 31s for +31.9 DPS, replaces Hypnoseklinge + Umbralkristall
 
 == Neck: now Halsschmuck des Hochschamanen (Int 5, Spi 8)
-     +5.4   new      owned            Schnallengürtel des Kuriers (in your bags) [NEW in Forever]  [SP 8, Int 10, Spi 7]  id 279833
+     +5.6   new      owned            Schnallengürtel des Kuriers (in your bags) [NEW in Forever]  [SP 8, Int 10, Spi 7]  id 279833
             Anlegen: Erhöht den durch magische Zauber und Effekte verursachten Schaden gegen Humanoide um bis zu 10.
 == Shoulder: now Schattenzwirnschultern (Shadow 17, Sta 7)
      +5.7  +53%     6g 45s     0.9/g  Teufelsstoffschultern (from level 57)  [Shadow 26, Spi 5]  id 14112
 == Chest: now Elementargewandung (SP 21)
-    +12.8  +96%    53g 99s     0.2/g  Robe der Winternacht  [Shadow 40, Int 12]  id 14136
+    +13.8 +103%    53g 99s     0.3/g  Robe der Winternacht  [Shadow 40, Int 12]  id 14136
 == Legs: now Schattenzwirnhose (Shadow 21, Sta 6)
      +3.2  +24%     5g 99s     0.5/g  Geisterzwirnhose  [SP 26, Spi 20]  id 14144
 == Wrist: now Blutbandarmschienen (SP 5, Int 9, Spi 3)
      +3.5  +83%     4g 99s     0.7/g  Kultistenmanschetten [NEW in Forever]  [SP 12, Spi 8]  id 284104
      +1.5  +37%    19g 00s     0.1/g  Gepeinigte Stulpen [NEW in Forever]  [SP 9, Sta 13]  id 287028
 == Main Hand: now Hypnoseklinge (SP 44, Int 8, Spi 3, DPS 17.5)
-     +2.4   +6%    27g 99s     0.1/g  Spitze des Steinformers [two-handed]  [SP 64, Sta 20, Int 17, DPS 35.7]  id 12532
+     +3.5   +9%    27g 99s     0.1/g  Spitze des Steinformers [two-handed]  [SP 64, Sta 20, Int 17, DPS 35.7]  id 12532
 == Wand: now Zauberstab des Gezeitenlieds (Sta 3, Int 4, Crit rating 7, DPS 51)
      +3.4 +197%     1g 32s     2.5/g  Kleiner ewiger Zauberstab [NEW in Forever]  [SP 8, DPS 45.8]  id 249232
      +2.1 +123%      owned            Verwirbelter Netherzauberstab (in your bags) [NEW in Forever]  [SP 6, DPS 34]  id 249144
