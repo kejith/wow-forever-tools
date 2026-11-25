@@ -115,7 +115,7 @@ type coverageRow struct {
 }
 
 // coverageOut is upgrades.coverage_out: the engine's coverage report with labels and sentences.
-func coverageOut(cov *run.Coverage, c *sv.Table, unit string, label spellLabeler) any {
+func coverageOut(cov *run.Coverage, c *sv.Table, unit string, label spellLabeler, tracker *SetTracker) any {
 	if cov == nil {
 		return nil
 	}
@@ -127,6 +127,7 @@ func coverageOut(cov *run.Coverage, c *sv.Table, unit string, label spellLabeler
 			}
 		}
 	}
+	setLabels := tracker.SpellSetLabels()
 	entry := func(e run.CoverageEntry, texts map[string]string, label string) coverageRow {
 		text, ok := texts[e.Reason]
 		if !ok || text == "" {
@@ -142,7 +143,7 @@ func coverageOut(cov *run.Coverage, c *sv.Table, unit string, label spellLabeler
 		}
 		return coverageRow{out, e.Status}
 	}
-	var spells, talents []coverageRow
+	var spells, talents, setBonuses []coverageRow
 	for _, e := range cov.Spells {
 		spells = append(spells, entry(e, coverageSpell, label(e.SpellID, e.Name, e.Rank)))
 	}
@@ -161,16 +162,30 @@ func coverageOut(cov *run.Coverage, c *sv.Table, unit string, label spellLabeler
 		}
 		talents = append(talents, entry(e, coverageTalent, name+" ("+rank+")"))
 	}
-	lists := make([][]any, 2)
-	for i, rows := range [][]coverageRow{spells, talents} {
+	for _, e := range cov.SetBonuses {
+		lbl := setLabels[e.SpellID]
+		if lbl == "" {
+			lbl = e.Name
+		}
+		if lbl == "" {
+			lbl = "#" + itoa(int64(e.SpellID))
+		}
+		setBonuses = append(setBonuses, entry(e, coverageTalent, lbl))
+	}
+	lists := make([][]any, 3)
+	for i, rows := range [][]coverageRow{spells, talents, setBonuses} {
 		sort.SliceStable(rows, func(a, b int) bool { return statusIndex(rows[a].status) < statusIndex(rows[b].status) })
 		lists[i] = []any{}
 		for _, r := range rows {
 			lists[i] = append(lists[i], r.obj)
 		}
 	}
-	return pyjson.New("spells", lists[0], "talents", lists[1], "candidates", cov.Candidates,
+	out := pyjson.New("spells", lists[0], "talents", lists[1], "candidates", cov.Candidates,
 		"exactTalents", cov.TalentValues == "tables")
+	if len(lists[2]) > 0 {
+		out.Set("setBonuses", lists[2])
+	}
+	return out
 }
 
 // gText is f"{v:g}".

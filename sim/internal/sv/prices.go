@@ -22,18 +22,37 @@ var ErrNoPrices = errors.New("no price data")
 // item key -> {"a": {day: offers}, "h": {day: highest}, "l": {day: lowest}, "m": minimum price, …}. Every key
 // is a string, as Python's str(key) writes it; CBOR arrays are list tables.
 func Prices(path string) (*Table, error) {
+	_, best, err := PricesWithRealm(path)
+	return best, err
+}
+
+// PricesWithRealm returns the Auctionator realm key (e.g. "PvP Horde") and price database of the realm with
+// the most entries.
+func PricesWithRealm(path string) (string, *Table, error) {
+	all, bestKey, err := AllRealmPrices(path)
+	if err != nil {
+		return "", nil, err
+	}
+	return bestKey, all[bestKey], nil
+}
+
+// AllRealmPrices decodes every realm entry in AUCTIONATOR_PRICE_DATABASE and returns all realm tables plus
+// the key of the largest realm.
+func AllRealmPrices(path string) (map[string]*Table, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	start := indexOf(data, []byte("AUCTIONATOR_PRICE_DATABASE = {"), 0)
 	if start < 0 {
-		return nil, errors.New("subsection not found") // Python's bytes.index
+		return nil, "", errors.New("subsection not found") // Python's bytes.index
 	}
 	end := indexOf(data, []byte("\n}"), start)
 	if end < 0 {
-		return nil, errors.New("subsection not found")
+		return nil, "", errors.New("subsection not found")
 	}
+	all := map[string]*Table{}
+	var bestKey string
 	var best *Table
 	seen := map[string]bool{}
 	for _, m := range realmEntry.FindAllSubmatchIndex(data[start:end], -1) {
@@ -50,22 +69,23 @@ func Prices(path string) (*Table, error) {
 			continue
 		}
 		realm := DecodeReplace(data[start+m[2] : start+m[3]])
+		all[realm] = t
 		if seen[realm] {
 			// The same realm twice: Python keeps the first place and the last value; only the size counts.
 			if best != nil && t.Len() > best.Len() {
-				best = t
+				best, bestKey = t, realm
 			}
 			continue
 		}
 		seen[realm] = true
 		if best == nil || t.Len() > best.Len() {
-			best = t
+			best, bestKey = t, realm
 		}
 	}
 	if best == nil {
-		return nil, fmt.Errorf("%w: %s", ErrNoPrices, i18n.T("No price data found in Auctionator.lua."))
+		return nil, "", fmt.Errorf("%w: %s", ErrNoPrices, i18n.T("No price data found in Auctionator.lua."))
 	}
-	return best, nil
+	return all, bestKey, nil
 }
 
 func indexOf(data, sub []byte, from int) int {

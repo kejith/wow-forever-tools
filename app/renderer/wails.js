@@ -25,6 +25,10 @@
     installUpdate: () => call('InstallUpdate'),
     openReleaseNotes: () => call('OpenReleaseNotes'),
     onUpdate: on('app-update'),
+    // Community AH price history sync: opt-in realm+faction sync with ah.sane.run.
+    marketSyncState: () => call('MarketSyncState'),
+    syncMarketNow: () => call('SyncMarketNow'),
+    onMarketSync: on('market-sync'),
     icons: (itemIds) => call('Icons', Array.isArray(itemIds) ? itemIds : []),
     wowRunning: () => call('WowRunning'),
     openPath: (p) => call('OpenPath', String(p ?? '')),

@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -41,6 +42,7 @@ type App struct {
 	settings map[string]any
 
 	updater  *updater
+	syncer   *marketSyncer
 	quitting atomic.Bool
 	game     gameSync
 	icons    iconCache
@@ -235,6 +237,7 @@ func (a *App) startup(ctx context.Context) {
 	a.startWatcher()
 	a.syncGameData(a.sendsToGame())
 	a.startUpdater()
+	a.startMarketSync()
 }
 
 func (a *App) domReady(ctx context.Context) {
@@ -361,6 +364,23 @@ func (a *App) UpdateState() updateState    { return a.updater.state() }
 func (a *App) CheckUpdate() updateState    { return a.updater.check(true) }
 func (a *App) DownloadUpdate() updateState { return a.updater.download() }
 
+// MarketSyncState returns the current community AH price sync state.
+func (a *App) MarketSyncState() marketSyncState {
+	if a.syncer == nil {
+		a.startMarketSync()
+	}
+	return a.syncer.getState()
+}
+
+// SyncMarketNow triggers an immediate upload+download cycle and returns the resulting state.
+func (a *App) SyncMarketNow() marketSyncState {
+	if a.syncer == nil {
+		a.startMarketSync()
+	}
+	a.syncer.syncAll(true)
+	return a.syncer.getState()
+}
+
 // InstallUpdate: the installer waits for the app to exit, replaces it and starts it again.
 func (a *App) InstallUpdate() installResult {
 	r := a.updater.install(true)
@@ -401,6 +421,7 @@ func (a *App) SetSettings(patch map[string]any) map[string]any {
 		delete(patch, k)
 	}
 	before := a.wowDir() + "|" + boolString(a.sendsToGame())
+	beforeSync := boolString(a.marketSyncEnabled()) + "|" + boolString(a.marketSyncInGame()) + "|" + strconv.Itoa(a.marketSyncInGameDays())
 	autoUpdate := a.autoUpdate()
 	a.mu.Lock()
 	for k, v := range patch {
@@ -414,6 +435,12 @@ func (a *App) SetSettings(patch map[string]any) map[string]any {
 	a.mu.Unlock()
 	a.startWatcher()
 	if before != a.wowDir()+"|"+boolString(a.sendsToGame()) {
+		a.syncGameData(a.sendsToGame())
+	}
+	if beforeSync != boolString(a.marketSyncEnabled())+"|"+boolString(a.marketSyncInGame())+"|"+strconv.Itoa(a.marketSyncInGameDays()) {
+		if a.syncer != nil {
+			a.syncer.restartLoop()
+		}
 		a.syncGameData(a.sendsToGame())
 	}
 	if autoUpdate != a.autoUpdate() && a.updater != nil {

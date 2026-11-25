@@ -33,10 +33,13 @@ func character(a *Args) (*pyjson.Obj, error) {
 		return nil, err
 	}
 	skills, talents := c.Tab("skills"), c.Tab("talents")
-	// Points per item: what the set loses without it, on the same scale as the AH upgrades.
+	// Points per item: what the set loses without it (including any broken item set bonus), on the same scale as the AH upgrades.
 	eq, totals := upgrades.EquippedStats(c, nil)
-	scale := upgrades.BuildScale(c, "", totals["hit"], totals["crit"])
-	full := upgrades.SetValue(totals, scale)
+	tracker := upgrades.NewSetTracker(c, upgrades.LoadSetCatalog(c, ""))
+	totalsWithSets := totals.Copy()
+	totalsWithSets.Add(tracker.BaseScale, 1)
+	scale := upgrades.BuildScale(c, "", totalsWithSets["hit"], totalsWithSets["crit"])
+	full := upgrades.SetValue(totalsWithSets, scale)
 	type item struct {
 		slot float64
 		obj  *pyjson.Obj
@@ -44,10 +47,13 @@ func character(a *Args) (*pyjson.Obj, error) {
 	var equipment []item
 	classFile := c.Tab("character").Str("classFile")
 	for _, e := range c.Tab("equipment").Tables() {
-		rest := totals.Copy()
+		rest := totalsWithSets.Copy()
 		slotV := e.Get("slot")
 		slot, _ := slotV.(int64)
 		rest.Add(eq[slot], -1)
+		if sd := tracker.ScaleDelta([]int64{slot}, nil); len(sd) > 0 {
+			rest.Add(sd, 1)
+		}
 		var label *string
 		if _, ok := upgrades.SlotName[slot]; ok && slotV != nil {
 			l := upgrades.SlotLabelFor(slot, classFile)
@@ -70,7 +76,7 @@ func character(a *Args) (*pyjson.Obj, error) {
 		list[i] = e.obj
 	}
 	spec := enginebundle.SpecOf(c)
-	return pyjson.New(
+	out := pyjson.New(
 		"key", game.CharKey(files[0]), "updated", c.Get("updated"), "character", orEmpty(c.Get("character")),
 		"equipment", list, "weights", scale.Text, "profileLabel", scale.Label, "setValue", pyfmt.Round(full, 1),
 		"professions", orList(skills.Get("professions")), "talents", orList(talents.Get("class")),
@@ -79,5 +85,9 @@ func character(a *Args) (*pyjson.Obj, error) {
 		// Whether the window should ask for the heal table (command "healing") and for the damage analysis
 		// (command "damage"), and which of the two is the spec's own.
 		"heals", enginebundle.HasMetric(classFile, "hps"), "deals", enginebundle.HasMetric(classFile, "dps"),
-		"metric", enginebundle.DefaultMetric(classFile, spec)), nil
+		"metric", enginebundle.DefaultMetric(classFile, spec))
+	if sets := upgrades.SummariesJSON(tracker.ActiveSummaries()); len(sets) > 0 {
+		out.Set("sets", sets)
+	}
+	return out, nil
 }

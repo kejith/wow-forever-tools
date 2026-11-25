@@ -117,6 +117,14 @@ export async function renderCharacter() {
   const buffs = (c.buffs || []).filter((b) => b?.name);
   const buffsBox = buffs.length ? `<div class="pd-stats"><h4>${esc(t('Active buffs'))}</h4>
     <div class="pd-buffs">${buffs.map((b) => `<span class="pd-buff">${esc(b.name)}</span>`).join('')}</div></div>` : '';
+  const sets = d.sets || [];
+  const setsBox = sets.length ? `<div class="pd-stats"><h4>${esc(t('Item sets'))}</h4>
+    <div class="pd-buffs">${sets.map((s) => {
+      const active = (s.bonuses || []).filter((b) => b.active).map((b) => `${b.threshold}`);
+      const detail = active.length ? ` · ${active.join(', ')}` : (s.skillMet === false ? ` · ${t('skill requirement not met')}` : '');
+      const tip = (s.bonuses || []).map((b) => `(${b.threshold}) ${b.name || ''}${b.active ? ' ✓' : ''}`).join('\n');
+      return `<span class="pd-buff"${tip ? hintAttr(tip) : ''}>${esc(s.name)} (${s.equipped}/${s.total}${esc(detail)})</span>`;
+    }).join('')}</div></div>` : '';
   const role = d.role || 'caster';
   const combatBox = role === 'melee' || role === 'tank'
     ? statBox(t('Melee'), [
@@ -163,7 +171,7 @@ export async function renderCharacter() {
         esc(t('pts = points: what the gear would lack without the item, on the scale “{scale}” of the AH upgrades ({weights}). {total} in total.',
           { scale: d.profileLabel, weights: d.weights, total: num(d.setValue) })))}
       </div>
-      ${buffsBox ? `<div class="pd-extra">${buffsBox}</div>` : ''}</div>`;
+      ${(buffsBox || setsBox) ? `<div class="pd-extra">${setsBox}${buffsBox}</div>` : ''}</div>`;
 
   const profs = d.professions.map((p) => `<div style="margin-bottom:8px">
       <div class="row small"><span>${esc(p.name)}</span><span class="spacer"></span><span class="muted">${p.rank}/${p.max}</span></div>

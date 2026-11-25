@@ -181,7 +181,11 @@ func (a *App) runBridge(command string, opts map[string]any) any {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe, bridgeArgs(command, opts, a.wowDir(), language(), a.capture)...)
 	cmd.Dir = a.root
-	cmd.Env = append(os.Environ(), "WOW_TOOLS_CACHE="+a.cacheDir())
+	env := append(os.Environ(), "WOW_TOOLS_CACHE="+a.cacheDir())
+	if a.marketSyncEnabled() && !a.capture {
+		env = append(env, "WOW_TOOLS_SYNC_DIR="+a.marketSyncDir())
+	}
+	cmd.Env = env
 	cmd.SysProcAttr = hiddenProcess()
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

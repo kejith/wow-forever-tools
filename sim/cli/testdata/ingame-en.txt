@@ -2,11 +2,12 @@
 == Ilse (Level 28) ==
 
 [AH-Upgrades] Budget 47g 17s 28c · Kampfmodell: 134,4 HPS jetzt · heile mit Heilen (Rang 1)
-  Bestes Paket fürs Budget  +14,5 HPS für 1g 82s 46c
+  Bestes Paket fürs Budget  +17,5 HPS für 1g 68s 56c
     Gewand des Fäulnisheilers  Brust +4,3 · auf deiner Bank  
-   *Nachthauchschärpe  Taille +3,2  13s 90c
-   *Silberfadenmanschetten  Handgelenk +2,8  12s 70c
-   *Azoras Testament  Finger +1,5  16s 90c
+    Schärpe des Fäulnisheilers  Taille +1,8 · auf deiner Bank  
+    Handschuhe des Fäulnisheilers  Hände +4,6 · auf deiner Bank  
+   *Silberfadenmanschetten  Handgelenk +2,7  12s 70c
+   *Azoras Testament  Finger +1,4  16s 90c
    *Spinnenseidenstiefel  Füße +2,7  1g 38s 96c
   Hals  jetzt: Selbstvertrauen des Wegwächters
     Halskette der Harmonie  +3,2 · ab Stufe 31  1g 81s 98c

@@ -87,11 +87,17 @@ export async function renderUpgrades() {
   // Gear the account already has: where it is instead of a price.
   const price = (c) => (c.price ? money(c.price) : `<span class="badge ok">${esc(c.where || t('owned'))}</span>`);
   const perGold = (c) => (c.price ? num(c.perGold, 1) : '–');
+  const setBadges = (c) => (c.setChanges || []).map((sc) => {
+    const label = sc.kind === 'gain' ? t('+{set} ({n})', { set: sc.set, n: sc.threshold }) : t('−{set} ({n})', { set: sc.set, n: sc.threshold });
+    const tip = sc.bonus ? (sc.kind === 'gain' ? t('Activates set bonus: {bonus}', { bonus: sc.bonus }) : t('Breaks set bonus: {bonus}', { bonus: sc.bonus })) : '';
+    return `<span class="badge ${sc.kind === 'gain' ? 'ok' : 'warn'}"${tip ? hintAttr(tip) : ''}>${esc(label)}</span>`;
+  }).join(' ');
   const itemCell = (c, compare) => `<div class="item-cell">${itemIcon(c.id, c.quality)}<div class="item-body">
           <div class="item-head"><span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span>
             ${c.isNew ? `<span class="badge forever">${esc(t('NEW in Forever'))}</span>` : ''}
             ${c.soon ? `<span class="badge warn">${esc(t('from level {n}', { n: c.reqLevel }))}</span>` : ''}
-            ${c.twoHand ? `<span class="badge">${esc(t('Two-hand, also replaces the off hand'))}</span>` : ''}</div>
+            ${c.twoHand ? `<span class="badge">${esc(t('Two-hand, also replaces the off hand'))}</span>` : ''}
+            ${setBadges(c)}</div>
           <div class="small muted">${esc(c.stats)}</div>
           ${c.effects.map((text) => `<div class="effects">${esc(text)}</div>`).join('')}</div></div>`;
   const activeSlot = d.slots.some((s) => s.slotName === o.slot) ? o.slot : '';
@@ -169,11 +175,11 @@ export async function renderUpgrades() {
       <p class="small ${check.off.length ? '' : 'muted'}">${esc(check.text)}</p>
       ${check.off.length ? `<table><tbody>${check.off.map((o) => `<tr><td><span class="badge warn">${esc(t('differs'))}</span></td>
         <td>${esc(o.label)}</td><td class="small muted">${esc(o.model)}</td><td class="small">${esc(o.text)}</td></tr>`).join('')}</tbody></table>` : ''}` : '';
-  const covCount = (status) => (cov ? [...cov.spells, ...cov.talents].filter((e) => e.status === status).length : 0);
+  const covCount = (status) => (cov ? [...cov.spells, ...cov.talents, ...(cov.setBonuses || [])].filter((e) => e.status === status).length : 0);
   const coverage = cov ? `<details class="scale coverage"><summary>${esc(t('What the model does with your spells and talents: {used} used, {open} not modeled, {n} rotations compared',
     { used: covCount('used'), open: covCount('unmodeled'), n: cov.candidates }))}</summary>
       ${cov.exactTalents ? '' : `<div class="notice" style="margin-top:8px">${esc(t('The talent tables of the game could not be loaded: talent values are estimates.'))}</div>`}
-      <h3>${esc(t('Spells'))}</h3>${covRows(cov.spells)}<h3>${esc(t('Talents'))}</h3>${covRows(cov.talents)}${tipCheck}</details>` : '';
+      <h3>${esc(t('Spells'))}</h3>${covRows(cov.spells)}<h3>${esc(t('Talents'))}</h3>${covRows(cov.talents)}${cov.setBonuses?.length ? `<h3>${esc(t('Set bonuses'))}</h3>${covRows(cov.setBonuses)}` : ''}${tipCheck}</details>` : '';
   // Owned gear an older addon exported by name only cannot be rated.
   const unknown = d.owned?.unknown || [];
   const unknownNote = unknown.length ? `<div class="notice" style="margin-top:10px"${hintAttr(unknown.map((u) => `${u.name} (${u.where})`).join(', '))}>${esc(t('{n} items you own are only known by name and cannot be rated: open the bank once with WoW Tools Forever 1.12 or newer, then /reload.', { n: unknown.length }))}</div>` : '';

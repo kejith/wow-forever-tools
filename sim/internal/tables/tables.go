@@ -14,7 +14,7 @@ import (
 )
 
 // Localized are the tables with text: cached per client locale (icons.LOCALIZED).
-var Localized = map[string]bool{"ItemSparse": true, "SpellName": true}
+var Localized = map[string]bool{"ItemSparse": true, "SpellName": true, "ItemSet": true}
 
 // DefaultLocale is the locale of a localized table when none is given (icons.DEFAULT_LOCALE).
 const DefaultLocale = "enUS"

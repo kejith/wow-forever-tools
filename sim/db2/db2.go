@@ -23,7 +23,7 @@ type Table struct {
 }
 
 // Localized tables are cached per client locale (same list as icons.py).
-var localized = map[string]bool{"ItemSparse": true, "SpellName": true}
+var localized = map[string]bool{"ItemSparse": true, "SpellName": true, "ItemSet": true}
 
 // Path returns the cache file for a table, build and locale. The build is
 // the full client version string, e.g. "1.60.1.70959" (the same naming

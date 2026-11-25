@@ -592,6 +592,7 @@
     "Fights (--fight N shows one cast by cast):": "Kämpfe (--fight N zeigt einen Zauber für Zauber):",
     "{n:3d}  {start}  {time:>8}  enemies {enemies}  {damage:>7,} damage  {dps:7.1f} DPS": "{n:3d}  {start}  {time:>8}  Gegner {enemies}  {damage:>7,} Schaden  {dps:7.1f} DPS",
     "  mana {a}% > {b}%": "  Mana {a} % > {b} %",
-    "  level {delta:+d}": "  Stufe {delta:+d}"
+    "  level {delta:+d}": "  Stufe {delta:+d}",
+    "Set bonuses": "Set-Boni"
   }
 }

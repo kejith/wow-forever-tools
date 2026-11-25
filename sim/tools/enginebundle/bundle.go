@@ -13,15 +13,17 @@ import (
 	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 	"github.com/kejith/wow-tools-forever/sim/internal/tables"
+	"github.com/kejith/wow-tools-forever/sim/itemsets"
 	"github.com/kejith/wow-tools-forever/sim/run"
 )
 
-// Tables are the DB2 tables the engine reads from the shared cache (sim/catalog). The three trait tables
-// hold the exact value of every talent rank; without them the engine falls back to the single value in
-// SpellEffect.
+// Tables are the DB2 tables the engine reads from the shared cache (sim/catalog and sim/itemsets).
+// The three trait tables hold the exact value of every talent rank; without them the engine falls
+// back to the single value in SpellEffect.
 var Tables = []string{"SpellClassOptions", "SpellMisc", "SpellEffect", "SpellCastTimes", "SpellDuration",
 	"SpellPower", "SpellLevels", "SpellCooldowns", "SkillLineAbility", "SpellName",
-	"TraitDefinition", "TraitDefinitionEffectPoints", "CurvePoint"}
+	"TraitDefinition", "TraitDefinitionEffectPoints", "CurvePoint",
+	"ItemSet", "ItemSetSpell"}
 
 // ReferenceLocale is sim/catalog.ReferenceLocale: the rank chains are grouped by the English spell names.
 const ReferenceLocale = "enUS"
@@ -211,9 +213,11 @@ func cut(s string, n int) string {
 
 // Eval is one stat delta to rate under a key.
 type Eval struct {
-	Key   string
-	Delta map[string]float64
-	NoMC  bool
+	Key            string
+	Delta          map[string]float64
+	NoMC           bool
+	HasSetChange   bool
+	SetBonusSpells []int
 }
 
 // Batch evaluates deltas and returns the metric gain per key. With reoptimize the engine picks the best
@@ -222,7 +226,10 @@ func (e *Engine) Batch(evals []Eval, reoptimize bool) (map[string]float64, error
 	in := e.Input
 	in.Evaluations = make([]run.Evaluation, len(evals))
 	for i, ev := range evals {
-		in.Evaluations[i] = run.Evaluation{Key: ev.Key, Delta: ev.Delta, NoMC: ev.NoMC}
+		in.Evaluations[i] = run.Evaluation{
+			Key: ev.Key, Delta: ev.Delta, NoMC: ev.NoMC,
+			HasSetChange: ev.HasSetChange, SetBonusSpells: ev.SetBonusSpells,
+		}
 	}
 	in.Reoptimize = reoptimize
 	out, err := e.exec(in)
@@ -326,17 +333,38 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 	if cfi, ok := st.Num("critFromIntellect"); intellect != 0 && ok {
 		critPerInt = cfi / intellect
 	}
+	skillRanks := map[int]int{}
 	wandSkill := 0.0
 	for _, s := range c.Tab("skills").Tab("skills").Tables() {
-		if id, _ := s.Num("skillID"); id == WandsSkillID && s.Has("skillID") {
-			wandSkill = num(s, "rank") + num(s, "modifier")
+		if id, ok := s.Num("skillID"); ok && s.Has("skillID") {
+			skillRanks[int(id)] = int(num(s, "rank"))
+			if id == WandsSkillID {
+				wandSkill = num(s, "rank") + num(s, "modifier")
+			}
 		}
 	}
 	var wand *sv.Table
+	var equippedIDs []int64
 	for _, e := range c.Tab("equipment").Tables() {
 		if slot, _ := e.Num("slot"); slot == 18 {
 			wand = e
-			break
+		}
+		if id, ok := e.Num("id"); ok && id > 0 {
+			equippedIDs = append(equippedIDs, int64(id))
+		}
+	}
+	setCat := itemsets.Load(cache, build, locale)
+	activeBonuses := setCat.ActiveBonuses(equippedIDs, skillRanks)
+	setBonusSpells := itemsets.AllSpellIDs(activeBonuses)
+	sheet := Sheet(st)
+	for _, b := range activeBonuses {
+		if v := b.Stats["hp5"]; v != 0 {
+			gearHp5 += v
+		}
+		if !sheet.HasCasting() {
+			if v := b.Stats["mp5"]; v != 0 {
+				gearMp5 += v
+			}
 		}
 	}
 	wandDps := NormItem(wand, true, nil, nil)["wandDps"]
@@ -357,7 +385,6 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 	}
 	sort.Ints(spellbook)
 
-	sheet := Sheet(st)
 	level := int(num(ch, "level"))
 	if level == 0 {
 		level = 60
@@ -402,7 +429,7 @@ func Start(c *sv.Table, gearMp5, gearHp5 float64, fight engine.Fight, metric str
 				LifeTap:           lifeTap,
 				HastePct:          sheet.HastePct, SpiritRegen: sheet.SpiritRegen, CastingRegen: sheet.CastingRegen,
 			},
-			Talents: talents, Spellbook: spellbook,
+			Talents: talents, Spellbook: spellbook, SetBonusSpells: setBonusSpells,
 		},
 		Fight: fight, Metric: metric, Method: opt.Method, Iterations: opt.Iterations,
 	}

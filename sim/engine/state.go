@@ -272,6 +272,10 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 		case "hit":
 			s.Hit += v
 			s.MeleeHit += v
+		case "spellHit":
+			s.Hit += v
+		case "meleeHit":
+			s.MeleeHit += v
 		case "crit":
 			for _, sc := range magicSchools {
 				s.Crit[sc] += v
@@ -280,6 +284,22 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 			if s.ClassFile == "HUNTER" {
 				s.RangedCrit += v
 			}
+		case "spellCrit":
+			for _, sc := range magicSchools {
+				s.Crit[sc] += v
+			}
+		case "spellCritHoly":
+			s.Crit[Holy] += v
+		case "spellCritFire":
+			s.Crit[Fire] += v
+		case "spellCritNature":
+			s.Crit[Nature] += v
+		case "spellCritFrost":
+			s.Crit[Frost] += v
+		case "spellCritShadow":
+			s.Crit[Shadow] += v
+		case "spellCritArcane":
+			s.Crit[Arcane] += v
 		case "str":
 			s.Strength += v
 			apPer := s.APPerStr
@@ -313,6 +333,8 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 		case "ap":
 			s.AttackPower += v
 			s.RangedAttackPower += v
+		case "meleeAp":
+			s.AttackPower += v
 		case "rap":
 			s.RangedAttackPower += v
 		case "feralAp":

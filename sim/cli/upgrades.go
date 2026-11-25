@@ -136,8 +136,20 @@ func upgradeLine(c any) string {
 	if w := pdGet(c, "where"); pdTruthy(w) {
 		where = " (" + pdStr(w) + ")"
 	}
+	setNote := ""
+	if scs := pdList(pdGet(c, "setChanges")); len(scs) > 0 {
+		parts := make([]string, 0, len(scs))
+		for _, sc := range scs {
+			sign := "+"
+			if pdStr(pdGet(sc, "kind")) == "loss" {
+				sign = "-"
+			}
+			parts = append(parts, fmt.Sprintf("%s%s (%v)", sign, pdStr(pdGet(sc, "set")), pdGet(sc, "threshold")))
+		}
+		setNote = " [" + strings.Join(parts, ", ") + "]"
+	}
 	return pdSpec(pdGet(c, "gain"), "+6.1f") + " " + pct + "  " + cost + "  " + pdStr(pdGet(c, "name")) + where +
-		flag + soon + both + "  [" + pdStr(pdGet(c, "stats")) + "]  id " + pdStr(pdGet(c, "id"))
+		flag + soon + both + setNote + "  [" + pdStr(pdGet(c, "stats")) + "]  id " + pdStr(pdGet(c, "id"))
 }
 
 func printUpgrades(w *strings.Builder, r any) {
@@ -181,10 +193,17 @@ func printUpgrades(w *strings.Builder, r any) {
 		if !pdTruthy(pdGet(cov, "exactTalents")) {
 			p("   " + i18n.T("The talent tables of the game are not in the cache: talent values are estimates."))
 		}
-		for _, part := range []struct {
+		parts := []struct {
 			title string
 			rows  []any
-		}{{i18n.T("Spells"), pdList(pdGet(cov, "spells"))}, {i18n.T("Talents"), pdList(pdGet(cov, "talents"))}} {
+		}{{i18n.T("Spells"), pdList(pdGet(cov, "spells"))}, {i18n.T("Talents"), pdList(pdGet(cov, "talents"))}}
+		if sb := pdList(pdGet(cov, "setBonuses")); len(sb) > 0 {
+			parts = append(parts, struct {
+				title string
+				rows  []any
+			}{i18n.T("Set bonuses"), sb})
+		}
+		for _, part := range parts {
 			p("   " + part.title)
 			var quiet []any
 			for _, e := range part.rows {

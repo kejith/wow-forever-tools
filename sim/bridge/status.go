@@ -1,11 +1,11 @@
 package bridge
 
 import (
-	"errors"
 	"os"
 
 	"github.com/kejith/wow-tools-forever/sim/internal/game"
 	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/tools/marketsync"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
 	"github.com/kejith/wow-tools-forever/sim/tools/upgrades"
@@ -40,22 +40,27 @@ func status(a *Args) (*pyjson.Obj, error) {
 		return out, nil
 	}
 
-	if path := game.FindAuctionator(wow); path == "" {
-		out.Set("auctionator", pyjson.New("error", i18n.T("Auctionator.lua not found under {wow}", "wow", wow)))
-	} else if prices, err := sv.Prices(path); err != nil {
-		msg := err.Error()
-		if errors.Is(err, sv.ErrNoPrices) {
-			msg = i18n.T("No price data found in Auctionator.lua.")
-		}
-		out.Set("auctionator", pyjson.New("error", msg))
+	if prices, srcInfo, err := marketsync.LoadPrices(wow); err != nil {
+		out.Set("auctionator", pyjson.New("error", err.Error()))
 	} else {
-		modified, _ := game.Mtime(path)
+		var modified any
+		if srcInfo.LocalMtime > 0 {
+			modified = srcInfo.LocalMtime
+		} else if srcInfo.SyncUpdatedAt > 0 {
+			modified = float64(srcInfo.SyncUpdatedAt)
+		}
 		var scan any
 		if day, ok := sv.ScanDate(prices); ok {
 			scan = day.Format("2006-01-02")
 		}
-		out.Set("auctionator", pyjson.New("file", path, "modified", modified, "items", prices.Len(),
-			"scanDate", scan))
+		au := pyjson.New("file", srcInfo.LocalPath, "modified", modified, "items", prices.Len(),
+			"scanDate", scan)
+		if srcInfo.Synced {
+			au.Set("synced", true)
+			au.Set("market", srcInfo.Market.Display())
+			au.Set("syncUpdatedAt", srcInfo.SyncUpdatedAt)
+		}
+		out.Set("auctionator", au)
 	}
 
 	var chars []any

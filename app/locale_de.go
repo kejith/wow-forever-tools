@@ -48,4 +48,11 @@ var catalogDE = map[string]string{
 	"The download of the update stopped ({reason})":         "Der Download des Updates ist abgebrochen ({reason})",
 	"The downloaded installer does not match its checksum.": "Der heruntergeladene Installer passt nicht zu seiner Prüfsumme.",
 	"The installer could not be started ({reason})":         "Der Installer ließ sich nicht starten ({reason})",
+
+	// marketsync.go
+	"No Auctionator realm detected yet. Run an Auctionator scan in the game first.": "Noch kein Auctionator-Realm erkannt. Führe zuerst einen Auctionator-Scan im Spiel aus.",
+	"Sync server cannot be reached ({reason})":                                      "Sync-Server nicht erreichbar ({reason})",
+	"Sync upload failed with HTTP {status}":                                         "Sync-Upload fehlgeschlagen (HTTP {status})",
+	"Sync server answered with HTTP {status}":                                       "Sync-Server antwortet mit HTTP {status}",
+	"Downloaded sync file does not match its checksum.":                             "Heruntergeladene Sync-Datei passt nicht zu ihrer Prüfsumme.",
 }

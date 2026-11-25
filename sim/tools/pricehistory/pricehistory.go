@@ -18,6 +18,7 @@ import (
 
 	"github.com/kejith/wow-tools-forever/sim/internal/game"
 	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/tools/marketsync"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
@@ -281,19 +282,17 @@ func finalSigma(rs []rune, i int) bool {
 // (items without one last). Without prices it reads Auctionator.lua of the game folder.
 func Compute(wow string, prices *sv.Table) (*pyjson.Obj, error) {
 	var modified any
+	var srcInfo *marketsync.SourceInfo
 	if prices == nil {
-		path := game.FindAuctionator(wow)
-		if path == "" {
-			return nil, errors.New(i18n.T("Auctionator.lua not found under {wow}", "wow", wow))
-		}
 		var err error
-		if prices, err = sv.Prices(path); err != nil {
-			if errors.Is(err, sv.ErrNoPrices) {
-				return nil, errors.New(i18n.T("No price data found in Auctionator.lua."))
-			}
+		if prices, srcInfo, err = marketsync.LoadPrices(wow); err != nil {
 			return nil, err
 		}
-		modified, _ = game.Mtime(path)
+		if srcInfo != nil && srcInfo.LocalMtime > 0 {
+			modified = srcInfo.LocalMtime
+		} else if srcInfo != nil && srcInfo.SyncUpdatedAt > 0 {
+			modified = float64(srcInfo.SyncUpdatedAt)
+		}
 	}
 	locale := i18n.ClientLocale(wow)
 	if locale == "" {
@@ -416,7 +415,13 @@ func Compute(wow string, prices *sv.Table) (*pyjson.Obj, error) {
 		}
 		list[i] = pyjson.New("id", it.id, "name", it.name, "q", it.q, "cls", it.cls, "m", it.m, "days", days)
 	}
-	return pyjson.New("day0", Day0.Format("2006-01-02"), "lastDay", lastDay, "lastDate", DayDate(lastDay),
+	out := pyjson.New("day0", Day0.Format("2006-01-02"), "lastDay", lastDay, "lastDate", DayDate(lastDay),
 		"firstDay", firstDay, "lastScanDay", lastScan, "lastScanDate", DayDate(lastScan), "items", list,
-		"count", len(items), "unnamed", unnamed, "locale", locale, "modified", modified), nil
+		"count", len(items), "unnamed", unnamed, "locale", locale, "modified", modified)
+	if srcInfo != nil && srcInfo.Synced {
+		out.Set("synced", true)
+		out.Set("market", srcInfo.Market.Display())
+		out.Set("syncUpdatedAt", srcInfo.SyncUpdatedAt)
+	}
+	return out, nil
 }

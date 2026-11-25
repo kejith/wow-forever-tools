@@ -23,9 +23,12 @@ const requestFile = "AppRequest.lua"
 
 // dataFile is what the bridge writes for the addon to show in the game (sim/tools/ingame). Like a request, it
 // belongs to the app and not to the addon's release: an update keeps it and it never counts as changed.
-const dataFile = "AppData.lua"
+const (
+	dataFile        = "AppData.lua"
+	syncHistoryFile = "SyncHistory.lua"
+)
 
-func isAppFile(f string) bool { return f == requestFile || f == dataFile }
+func isAppFile(f string) bool { return f == requestFile || f == dataFile || f == syncHistoryFile }
 
 // addonSpec is an addon the app can install. Each one ships an AppRequest.lua stub that the app later
 // overwrites with a request; global is the variable the addon reads from it. env names a local checkout that

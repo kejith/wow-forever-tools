@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16.15-bookworm
+    container_name: wow-ah-sync-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ahsync
+      POSTGRES_DB: ahsync
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ${DATA_DIR:-/opt/wow-ah-sync}/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ahsync -d ahsync"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: wow-ah-sync-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ahsync:${POSTGRES_PASSWORD}@db:5432/ahsync?sslmode=disable
+      LISTEN_ADDR: 0.0.0.0:8090
+      BLOB_DIR: /var/lib/wow-ah-sync/blobs
+      UPLOAD_COOLDOWN_SEC: "600"
+      IP_HOURLY_LIMIT: "20"
+      PUBLISH_INTERVAL_SEC: "300"
+      OBSERVATION_RETENTION_DAYS: "30"
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ${DATA_DIR:-/opt/wow-ah-sync}/blobs:/var/lib/wow-ah-sync/blobs

@@ -6,13 +6,13 @@
 package writs
 
 import (
-	"errors"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/kejith/wow-tools-forever/sim/internal/game"
 	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/tools/marketsync"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
@@ -139,16 +139,9 @@ func Compute(wow, char string, top int, ownedAtAHPrice bool, prices *sv.Table) (
 	return r.Obj(), nil
 }
 
-// LoadPrices is load_prices(find_auctionator(wow)) with Python's errors.
+// LoadPrices is load_prices(find_auctionator(wow)) with Python's errors, merged with community sync when active.
 func LoadPrices(wow string) (*sv.Table, error) {
-	path := game.FindAuctionator(wow)
-	if path == "" {
-		return nil, errors.New(i18n.T("Auctionator.lua not found under {wow}", "wow", wow))
-	}
-	prices, err := sv.Prices(path)
-	if errors.Is(err, sv.ErrNoPrices) {
-		return nil, errors.New(i18n.T("No price data found in Auctionator.lua."))
-	}
+	prices, _, err := marketsync.LoadPrices(wow)
 	return prices, err
 }
 

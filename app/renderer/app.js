@@ -2,7 +2,7 @@
 // selection and the language; core.js holds what the pages share, pages/*.js one page each.
 import { $, api, clearTabs, content, errorBox, esc, hydrateIcons, hydrateNavIcons, loadStatus, loading, pages, resetTips, restoreView, saveView, showUnit, state, updateLiveState } from './core.js';
 import { mark, setLanguage, t } from './i18n.js';
-import { renderConnection, showUpdate } from './pages/connection.js';
+import { renderConnection, showMarketSync, showUpdate } from './pages/connection.js';
 import { renderCharacter } from './pages/character.js';
 import { renderWrits } from './pages/writs.js';
 import { renderUpgrades } from './pages/upgrades.js';
@@ -111,6 +111,10 @@ api.onUpdate((update) => {
   state.update = update;
   showUpdate();
 });
+api.onMarketSync((sync) => {
+  state.marketSync = sync;
+  showMarketSync();
+});
 // The note in the sidebar: a downloaded update is installed from here, anything else is on the Connection page.
 $('#update-pill').addEventListener('click', () => {
   if (state.update?.phase === 'ready' && state.update.canInstall) api.installUpdate();
@@ -137,6 +141,10 @@ else api.gameData().then((result) => { state.ingame ||= result; });
 api.updateState().then((update) => {
   state.update ||= update;
   showUpdate();
+});
+api.marketSyncState().then((sync) => {
+  state.marketSync ||= sync;
+  showMarketSync();
 });
 showPage(pages[state.page] ? state.page : 'connection');
 // Game process and snapshot ages change without file writes; refresh the light status every 30 s.

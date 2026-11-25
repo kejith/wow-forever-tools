@@ -1,7 +1,7 @@
 // Page "Connection": is the game running, the two addons the app installs, the Auctionator scan, the item
 // export, the lists the app sends into the game, the character snapshots and requests to the WoW Tools Forever addon.
-import { $, ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, percent, rerender, selectChar, state, th, when } from '../core.js';
-import { t } from '../i18n.js';
+import { $, ago, api, content, daysOld, errorBox, esc, help, hintAttr, loadStatus, loading, money, num, percent, rerender, selectChar, selectOption, state, th, when } from '../core.js';
+import { mark, t } from '../i18n.js';
 
 // Where an install takes its files from: the latest GitHub release, or a local checkout from the settings.
 function addonSource(a) {
@@ -137,6 +137,61 @@ function updateAction(action) {
   else if (action === 'update-download') api.downloadUpdate();
   else if (action === 'update-install') api.installUpdate();
   else if (action === 'update-notes') api.openReleaseNotes();
+}
+
+// ---------- Community price sync ----------
+
+const SYNC_BADGE = {
+  off: () => ['', t('off')],
+  idle: () => ['', t('waiting')],
+  syncing: () => ['warn', t('syncing …')],
+  synced: () => ['ok', t('synced')],
+  error: () => ['warn', t('not possible right now')],
+};
+
+const INGAME_DAYS = [
+  [60, mark('60 days')],
+  [180, mark('180 days')],
+  [365, mark('365 days')],
+  [0, mark('all days')],
+];
+
+function marketSyncCard() {
+  const m = state.marketSync;
+  const title = `<h2>${esc(t('Community price sync'))} ${help(esc(t('Shares anonymous daily auction house prices (item ID, lowest/highest buyout and offers) for your realm and faction with other players on ah.sane.run, and downloads the combined history beyond Auctionator’s 21-day limit. No account or character names are sent, and Auctionator.lua is never modified.')))}</h2>`;
+  const wide = 'class="card" id="card-marketsync" style="grid-column: 1 / -1"';
+  if (!m) return `<div ${wide}>${title}${loading(t('Loading sync status …'))}</div>`;
+  const [cls, label] = (SYNC_BADGE[m.phase] || SYNC_BADGE.off)();
+  const busy = m.phase === 'syncing';
+  const days = m.inGameDays ?? 180;
+  const historySummary = m.totalItems
+    ? esc(t('{items} items · {days} days', { items: num(m.totalItems), days: num(m.daysCount || 0) }))
+    : '–';
+  return `<div ${wide}>${title}
+    <h3><span class="badge ${cls}">${esc(label)}</span>${m.market ? ` <span class="small muted" style="font-weight:400">${esc(m.market)}</span>` : ''}</h3>
+    ${m.enabled ? `<dl class="kv small">
+      <dt>${esc(t('Realm market'))}</dt><dd>${esc(m.market || '–')}</dd>
+      <dt>${esc(t('Synced history'))}</dt><dd>${historySummary}</dd>
+      <dt>${esc(t('Last synced'))}</dt><dd>${m.lastSyncAt ? `${when(m.lastSyncAt)} (${esc(ago(m.lastSyncAt))})` : '–'}</dd>
+      <dt>${esc(t('Last upload'))}</dt><dd>${m.lastUploadAt ? `${when(m.lastUploadAt)} (${esc(t('{n} entries', { n: num(m.lastUploadItems || 0) }))})` : '–'}</dd>
+      ${m.inGame ? `<dt>${esc(t('In-game history'))}</dt><dd>${m.inGameWritten ? esc(t('{n} items in SyncHistory.lua', { n: num(m.inGameItems || 0) })) : '–'}</dd>` : ''}
+    </dl>` : `<p class="small muted">${esc(t('Opt in to combine Auctionator scans with other players on your realm and keep unlimited price history.'))}</p>`}
+    ${m.error ? `<div class="notice small" style="margin:10px 0 0"><span class="badge warn">${esc(t('not possible right now'))}</span> ${esc(m.error)}</div>` : ''}
+    <div class="row" style="margin-top:10px; flex-wrap:wrap; gap:12px">
+      <label class="check"><input type="checkbox" id="ms-enable" ${m.enabled ? 'checked' : ''}> ${esc(t('share and sync AH price history for my realm'))}</label>
+      ${m.enabled ? `<button class="ghost" data-action="sync-market" ${busy ? 'disabled' : ''}>${esc(t('Sync now'))}</button>` : ''}
+    </div>
+    ${m.enabled ? `<div class="row" style="margin-top:8px; flex-wrap:wrap; gap:12px">
+      <label class="check"><input type="checkbox" id="ms-ingame" ${m.inGame ? 'checked' : ''}> ${esc(t('write SyncHistory.lua for in-game /wtf price'))}</label>
+      ${m.inGame ? `<label class="small muted">${esc(t('In-game window'))} <select id="ms-days">${INGAME_DAYS.map(([v, lbl]) => selectOption(v, t(lbl), days)).join('')}</select></label>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+
+export function showMarketSync() {
+  const card = $('#card-marketsync');
+  if (!card || state.page !== 'connection') return;
+  card.outerHTML = marketSyncCard();
 }
 
 function gameCard() {
@@ -347,7 +402,7 @@ export async function renderConnection() {
   content.innerHTML = `${readyCheck()}${hint}
     <div class="conn-strip">${gameCard()}${auctionatorCard()}${itemExportCard()}</div>
     <div class="conn-addons">${addonCard(a)}${addonCard(state.gphAddon, gphAbout())}${appCard()}</div>
-    <div class="grid">${listsCard()}${requestCard()}</div>
+    <div class="grid">${listsCard()}${marketSyncCard()}${requestCard()}</div>
     <div class="section"><h2>${esc(t('Characters'))}</h2>${charactersTable()}</div>`;
 }
 
@@ -374,6 +429,12 @@ content.addEventListener('click', async (e) => {
   const action = button.dataset.action;
   if (action.startsWith('gph-')) return; // pages/goldperhour.js
   if (action.startsWith('update-')) { updateAction(action); return; }
+  if (action === 'sync-market') {
+    button.disabled = true;
+    state.marketSync = await api.syncMarketNow();
+    showMarketSync();
+    return;
+  }
   const key = button.dataset.addon === 'goldperhour' ? 'goldperhour' : 'wowtoolsforever';
   const slot = key === 'goldperhour' ? 'gphAddon' : 'addon';
   button.disabled = true;
@@ -401,6 +462,19 @@ content.addEventListener('click', async (e) => {
 content.addEventListener('change', async (e) => {
   // The switch of the app's card: the main process answers through onUpdate.
   if (e.target.id === 'u-auto') { await api.setSettings({ autoUpdate: e.target.checked }); return; }
+  if (e.target.id === 'ms-enable') {
+    await api.setSettings({ marketSyncEnabled: e.target.checked });
+    state.cache.clear();
+    return;
+  }
+  if (e.target.id === 'ms-ingame') {
+    await api.setSettings({ marketSyncInGame: e.target.checked });
+    return;
+  }
+  if (e.target.id === 'ms-days') {
+    await api.setSettings({ marketSyncInGameDays: Number(e.target.value) });
+    return;
+  }
   if (e.target.id !== 'g-auto') return;
   if (state.ingame) state.ingame.automatic = e.target.checked;
   await api.setSettings({ sendToGame: e.target.checked });

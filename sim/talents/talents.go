@@ -30,25 +30,40 @@ const (
 	auraModDamageDone      = 13
 	auraModResistance      = 22
 	auraModStat            = 29
+	auraModSkill           = 30
+	auraModMoveSpeed       = 31
 	auraModHealth          = 34
 	auraModPower           = 35
 	auraProcTriggerSpell   = 42
+	auraModParry           = 47
+	auraModDodge           = 49
+	auraModBlock           = 51
 	auraModCrit            = 52
 	auraModSpellHit        = 54
 	auraModHit             = 55
 	auraModSpellCrit       = 57
+	auraModCastSpeed       = 65
 	auraModSpellCritSchool = 71
 	auraModCostSchoolPct   = 72
 	auraModDamagePctDone   = 79
 	auraModPowerRegen      = 85
 	auraModDamagePctTaken  = 87
+	auraModAttackPower     = 99
 	auraAddFlatModifier    = 107
 	auraAddPctModifier     = 108
+	auraModSpellPen        = 123
+	auraModRangedAP        = 124
 	auraModManaRegenCast   = 134
 	auraModHealingDone     = 135
 	auraModTotalStatPct    = 137
+	auraModHealthRegen     = 161
 	auraSpellDamageOfStat  = 174
 	auraSpellHealingOfStat = 175
+	auraModRating          = 189
+	auraModBlockValue      = 274
+	auraModCritAll         = 290
+	auraModMeleeRangedHste = 342
+	auraModBonusArmor      = 674
 )
 
 // What the model does with a talent or a spell.
@@ -229,15 +244,65 @@ func decodeAura(mods *engine.Mods, info *Info, a catalog.Aura, v float64) {
 		}
 		info.set(StatusSheet, "sheet")
 	case auraModDamageDone, auraModStat, auraModHealth, auraModPower, auraModCrit, auraModSpellHit, auraModHit,
-		auraModSpellCrit, auraModSpellCritSchool, auraModPowerRegen, auraModHealingDone:
+		auraModSpellCrit, auraModSpellCritSchool, auraModPowerRegen, auraModHealingDone,
+		auraModAttackPower, auraModRangedAP, auraModCastSpeed, auraModMeleeRangedHste, auraModCritAll,
+		auraModHealthRegen, auraModBonusArmor, auraModParry, auraModDodge, auraModBlock, auraModBlockValue:
 		info.set(StatusSheet, "sheet")
-	case auraModThreat, auraModResistance, auraModDamagePctTaken:
+	case auraModSkill:
+		if a.Misc0 == 95 { // Defense skill
+			info.set(StatusSheet, "sheet")
+		} else {
+			info.set(StatusUnmodeled, "unknown")
+		}
+	case auraModRating:
+		if a.Misc0&(0xE0|0x700) != 0 { // Hit / Crit ratings
+			info.set(StatusSheet, "sheet")
+		} else {
+			info.set(StatusUnmodeled, "unknown")
+		}
+	case auraModThreat, auraModResistance, auraModDamagePctTaken, auraModMoveSpeed, auraModSpellPen:
 		info.set(StatusNone, "utility")
 	case auraProcTriggerSpell:
 		info.set(StatusUnmodeled, "situational")
 	default:
 		info.set(StatusUnmodeled, "unknown")
 	}
+}
+
+// DecodeSetBonuses applies the non-sheet aura effects of active item set bonus
+// spells onto mods and returns per-spell coverage info (ordered by spell id).
+// Sheet-visible auras (flat stats, SP, AP, hit, crit, etc.) are already in the
+// character sheet for baseline gear and are reported as StatusSheet; swaps apply
+// their stat delta separately.
+func DecodeSetBonuses(cat *catalog.Catalog, spellIDs []int, mods *engine.Mods) []Info {
+	if len(spellIDs) == 0 {
+		return nil
+	}
+	ids := make([]int, 0, len(spellIDs))
+	seen := make(map[int]bool, len(spellIDs))
+	for _, id := range spellIDs {
+		if id > 0 && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	sort.Ints(ids)
+	infos := make([]Info, 0, len(ids))
+	for _, id := range ids {
+		info := Info{SpellID: id, Rank: 1, Exact: true}
+		matchesClass := cat.MatchesClassSet(id)
+		for _, a := range cat.Auras[id] {
+			if (a.Aura == auraAddFlatModifier || a.Aura == auraAddPctModifier) && !matchesClass {
+				continue
+			}
+			decodeAura(mods, &info, a, a.BP)
+		}
+		if info.Status == "" && len(info.Mods) == 0 && len(info.Bases) == 0 {
+			info.set(StatusUnmodeled, "unknown")
+		}
+		infos = append(infos, info)
+	}
+	return infos
 }
 
 // applyRule applies a hand-written rule from overrides.json.

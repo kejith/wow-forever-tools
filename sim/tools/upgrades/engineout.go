@@ -36,7 +36,7 @@ func zeroNil(x float64) any {
 
 // engineSection is the part of upgrades.compute that describes the combat model: the header text, the
 // breakdown rows in place of the scale, and the "engine" object.
-func engineSection(eng *enginebundle.Engine, c *sv.Table, classFile string, o Options) (string, []any, *pyjson.Obj) {
+func engineSection(eng *enginebundle.Engine, c *sv.Table, classFile string, o Options, tracker *SetTracker) (string, []any, *pyjson.Obj) {
 	b := eng.Baseline
 	if b == nil {
 		b = &engine.Metrics{}
@@ -120,7 +120,7 @@ func engineSection(eng *enginebundle.Engine, c *sv.Table, classFile string, o Op
 		"manaSpentPs", b.ManaSpentPS, "manaBudgetPs", b.ManaBudgetPS, "fight", FightObj(fight),
 		"metrics", metrics, "spec", enginebundle.SpecOf(c), "mc", mc, "selfHealPs", zeroNil(b.SelfHealPS),
 		// a talent that needs killing blows: the window then offers "kills per minute"
-		"killBuff", killBuff, "coverage", coverageOut(eng.Coverage, c, unit, label))
+		"killBuff", killBuff, "coverage", coverageOut(eng.Coverage, c, unit, label, tracker))
 	if d := eng.Downrank; d != nil {
 		spell := label(d.SpellID, d.Name, d.Rank)
 		instead := label(d.InsteadID, d.InsteadName, d.InsteadRank)

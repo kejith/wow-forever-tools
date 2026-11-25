@@ -17,7 +17,9 @@ import (
 	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/itemsets"
 	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
+	"github.com/kejith/wow-tools-forever/sim/tools/marketsync"
 )
 
 // NewID: item IDs above this exist only in Forever.
@@ -49,6 +51,8 @@ type Options struct {
 	// Consumables). An error falls back to the weight scale with engine "auto", as Python's LookupError does,
 	// unless it is a *Fatal.
 	FightBuffs FightBuffsFunc
+	// SetCatalog optionally supplies a preloaded item set catalog (for tests); when nil, LoadSetCatalog is used.
+	SetCatalog *itemsets.Catalog
 }
 
 // FightBuffsFunc is consumables.fight_buffs for one character: the best set of consumables for a metric ("" =
@@ -71,16 +75,9 @@ type Consumed struct {
 	Text  string
 }
 
-// LoadPrices is writs.load_prices(writs.find_auctionator(wow)) with Python's errors.
+// LoadPrices is writs.load_prices(writs.find_auctionator(wow)) with Python's errors, merged with community sync when active.
 func LoadPrices(wow string) (*sv.Table, error) {
-	path := game.FindAuctionator(wow)
-	if path == "" {
-		return nil, errors.New(i18n.T("Auctionator.lua not found under {wow}", "wow", wow))
-	}
-	p, err := sv.Prices(path)
-	if errors.Is(err, sv.ErrNoPrices) {
-		return nil, errors.New(i18n.T("No price data found in Auctionator.lua."))
-	}
+	p, _, err := marketsync.LoadPrices(wow)
 	return p, err
 }
 
@@ -121,10 +118,11 @@ type cand struct {
 }
 
 type eval struct {
-	key  string
-	adds []Stats
-	rm   []int64
-	noMC bool
+	key    string
+	adds   []Stats
+	addIDs []int64
+	rm     []int64
+	noMC   bool
 }
 
 type pick struct {
@@ -356,8 +354,15 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	}
 	ratings := LearnRatings(itemList)
 	eq, totals := EquippedStats(c, ratings)
-	scale := BuildScale(c, o.Profile, totals["hit"], totals["crit"])
-	base := SetValue(totals, scale)
+	setCat := o.SetCatalog
+	if setCat == nil {
+		setCat = LoadSetCatalog(c, "")
+	}
+	tracker := NewSetTracker(c, setCat)
+	totalsWithSets := totals.Copy()
+	totalsWithSets.Add(tracker.BaseScale, 1)
+	scale := BuildScale(c, o.Profile, totalsWithSets["hit"], totalsWithSets["crit"])
+	base := SetValue(totalsWithSets, scale)
 	twoHanded := equipped[16].Str("equipLoc") == "INVTYPE_2HWEAPON"
 	// The class line of a tooltip names the classes in the client's language, like the character's class.
 	classNames := warlockNames
@@ -402,13 +407,16 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		}
 	}
 
-	swap := func(remove []int64, adds []Stats) float64 {
-		t := totals.Copy()
+	swap := func(remove []int64, adds []Stats, addIDs []int64) float64 {
+		t := totalsWithSets.Copy()
 		for _, s := range remove {
 			t.Add(eq[s], -1)
 		}
 		for _, n := range adds {
 			t.Add(n, 1)
+		}
+		if sd := tracker.ScaleDelta(remove, addIDs); len(sd) > 0 {
+			t.Add(sd, 1)
 		}
 		return SetValue(t, scale) - base
 	}
@@ -424,13 +432,29 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 				for j, s := range ev.rm {
 					removes[j] = eqValue[s]
 				}
-				list[i] = enginebundle.Eval{Key: ev.key, Delta: enginebundle.Delta(adds, removes), NoMC: ev.noMC}
+				delta := enginebundle.Delta(adds, removes)
+				setDelta, setSpells, hasSetChange := tracker.EngineChange(ev.rm, ev.addIDs)
+				if len(setDelta) > 0 {
+					if delta == nil {
+						delta = map[string]float64{}
+					}
+					for k, v := range setDelta {
+						delta[k] += v
+						if delta[k] == 0 {
+							delete(delta, k)
+						}
+					}
+				}
+				list[i] = enginebundle.Eval{
+					Key: ev.key, Delta: delta, NoMC: ev.noMC,
+					HasSetChange: hasSetChange, SetBonusSpells: setSpells,
+				}
 			}
 			return eng.Batch(list, reoptimize)
 		}
 		out := map[string]float64{}
 		for _, ev := range evals {
-			out[ev.key] = swap(ev.rm, ev.adds)
+			out[ev.key] = swap(ev.rm, ev.adds, ev.addIDs)
 		}
 		return out, nil
 	}
@@ -562,13 +586,13 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	var evals []eval
 	for i, x := range pool {
 		if isComboSlot(x) {
-			evals = append(evals, eval{fmt.Sprintf("pt:%d", i), []Stats{x.norm}, nil, true})
+			evals = append(evals, eval{key: fmt.Sprintf("pt:%d", i), adds: []Stats{x.norm}, noMC: true})
 		}
 	}
 	for i, x := range pool {
 		for j, rm := range x.variants {
 			// When the engine runs, Phase 2 refines the top swaps (with reoptimize & MC).
-			evals = append(evals, eval{fmt.Sprintf("sw:%d:%d", i, j), []Stats{x.norm}, rm, eng != nil})
+			evals = append(evals, eval{key: fmt.Sprintf("sw:%d:%d", i, j), adds: []Stats{x.norm}, addIDs: []int64{x.id}, rm: rm, noMC: eng != nil})
 		}
 	}
 	removes := map[string][]int64{}
@@ -586,7 +610,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	}
 	sort.Slice(rmList, func(a, b int) bool { return lessSlots(rmList[a], rmList[b]) })
 	for _, rm := range rmList {
-		evals = append(evals, eval{"rm:" + joinSlots(rm), nil, rm, true})
+		evals = append(evals, eval{key: "rm:" + joinSlots(rm), rm: rm, noMC: true})
 	}
 	values, err := valueBatch(evals, false)
 	if err != nil {
@@ -594,9 +618,10 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	}
 
 	// Phase 2 (engine only): re-evaluate the top candidates per slot (plus all
-	// owned items) with rotation re-optimization (and Monte-Carlo when active),
-	// so threshold upgrades (new heal rank, rotation shift) are scored accurately
-	// and MCTop goes strictly to real upgrades.
+	// owned items and any swap that activates or breaks a set bonus) with rotation
+	// re-optimization (and Monte-Carlo when active), so threshold upgrades (new
+	// heal rank, rotation shift, set bonuses) are scored accurately and MCTop goes
+	// strictly to real upgrades.
 	if eng != nil && len(pool) > 0 {
 		bySlot := map[int64][]int{}
 		for i, x := range pool {
@@ -624,11 +649,20 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 			})
 			for k, idx := range idxs {
 				x := pool[idx]
-				if k < 12 || x.source != "ah" {
+				setAffected := false
+				if tracker.HasSetData() {
+					for _, rm := range x.variants {
+						if len(tracker.Changes(rm, []int64{x.id})) > 0 {
+							setAffected = true
+							break
+						}
+					}
+				}
+				if k < 12 || x.source != "ah" || setAffected {
 					if !picked[idx] {
 						picked[idx] = true
 						for j, rm := range x.variants {
-							refine = append(refine, eval{fmt.Sprintf("sw:%d:%d", idx, j), []Stats{x.norm}, rm, false})
+							refine = append(refine, eval{key: fmt.Sprintf("sw:%d:%d", idx, j), adds: []Stats{x.norm}, addIDs: []int64{x.id}, rm: rm})
 						}
 					}
 				}
@@ -646,7 +680,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	}
 	oldOf := func(remove []int64) float64 { return -values["rm:"+joinSlots(remove)] }
 
-	itemOut := func(x *cand, gain float64, remove []int64) *pyjson.Obj {
+	itemOut := func(x *cand, gain float64, remove []int64, setChanges []SetChange) *pyjson.Obj {
 		it := x.it
 		old := oldOf(remove)
 		var gainPct, perGold any
@@ -660,11 +694,15 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		for i, e := range x.extra {
 			effects[i] = e
 		}
-		return pyjson.New("id", x.id, "name", it.Get("name"), "quality", it.Get("quality"),
+		obj := pyjson.New("id", x.id, "name", it.Get("name"), "quality", it.Get("quality"),
 			"reqLevel", orZero(it, "reqLevel"), "price", x.price, "gain", pyfmt.Round(gain, 1), "gainPct", gainPct,
 			"perGold", perGold, "source", x.source, "owner", strOrNil(x.owner), "where", WhereText(x.source, x.owner),
 			"stats", Short(it.Tab("stats")), "isNew", x.id >= newID, "soon", x.soon, "effects", effects,
 			"twoHand", len(remove) == 2, "tip", Tooltip(it, nil))
+		if len(setChanges) > 0 {
+			obj.Set("setChanges", SetChangesJSON(setChanges))
+		}
+		return obj
 	}
 
 	type reviewRow struct {
@@ -686,7 +724,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		req, _ := x.it.Num("reqLevel")
 		if len(x.extra) > 0 && x.gain < 5 && req >= level-15 {
 			row := pyjson.New("slot", SlotLabelFor(x.slot, classFile))
-			out := itemOut(x, x.gain, x.remove)
+			out := itemOut(x, x.gain, x.remove, tracker.Changes(x.remove, []int64{x.id}))
 			for _, k := range out.Keys() {
 				row.Set(k, out.Get(k))
 			}
@@ -738,7 +776,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		best = sliceTop(best, o.Top)
 		cands := make([]any, len(best))
 		for i, x := range best {
-			cands[i] = itemOut(x, x.gain, x.remove)
+			cands[i] = itemOut(x, x.gain, x.remove, tracker.Changes(x.remove, []int64{x.id}))
 		}
 		var current any
 		if cur := equipped[slot]; sv.Truthy(cur) {
@@ -816,7 +854,12 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	}
 	cevals := make([]eval, len(combos))
 	for i, cb := range combos {
-		cevals[i] = eval{fmt.Sprintf("cb:%d", i), []Stats{cb.x.norm, cb.y.norm}, append(append([]int64(nil), cb.ra...), cb.rb...), false}
+		cevals[i] = eval{
+			key:    fmt.Sprintf("cb:%d", i),
+			adds:   []Stats{cb.x.norm, cb.y.norm},
+			addIDs: []int64{cb.x.id, cb.y.id},
+			rm:     append(append([]int64(nil), cb.ra...), cb.rb...),
+		}
 	}
 	cvals, err := valueBatch(cevals, eng != nil)
 	if err != nil {
@@ -833,11 +876,13 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	picks := bestPackage(groupList, budget).picks
 
 	// Drop units that add nothing on top of the rest (e.g. redundant hit past
-	// cap) and, in engine mode, run up to 2 rounds of exact 1-opt local search
-	// across slot groups so freed budget or non-additive interactions (hit cap,
-	// mana thresholds) can pick a better alternative or fill an empty slot.
-	evalSet := func(ps []pick) ([]Stats, []int64) {
+	// cap) and run up to 2 rounds of exact 1-opt + multi-piece set-bundle local
+	// search so freed budget, non-additive interactions (hit cap, mana
+	// thresholds) and set-bonus synergies (e.g. Devilsaur 2pc, Bloodvine 3pc)
+	// are scored accurately as a complete gear set.
+	evalSet := func(ps []pick) ([]Stats, []int64, []int64) {
 		var adds []Stats
+		var addIDs []int64
 		var emptied []int64
 		for _, p := range ps {
 			for _, s := range p.remove {
@@ -851,11 +896,13 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 				}
 			}
 			adds = append(adds, p.x.norm)
+			addIDs = append(addIDs, p.x.id)
 		}
-		return adds, emptied
+		return adds, addIDs, emptied
 	}
 	for range 4 {
 		var prefixAdds []Stats
+		var prefixIDs []int64
 		var emptied []int64
 		var prefixEvals []eval
 		for i, p := range picks {
@@ -865,8 +912,14 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 				}
 			}
 			prefixAdds = append(prefixAdds, p.x.norm)
-			prefixEvals = append(prefixEvals, eval{fmt.Sprintf("px:%d", i),
-				append([]Stats(nil), prefixAdds...), append([]int64(nil), emptied...), true})
+			prefixIDs = append(prefixIDs, p.x.id)
+			prefixEvals = append(prefixEvals, eval{
+				key:    fmt.Sprintf("px:%d", i),
+				adds:   append([]Stats(nil), prefixAdds...),
+				addIDs: append([]int64(nil), prefixIDs...),
+				rm:     append([]int64(nil), emptied...),
+				noMC:   true,
+			})
 		}
 		pvals, err := valueBatch(prefixEvals, eng != nil)
 		if err != nil {
@@ -891,7 +944,8 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		}
 		picks = keep
 	}
-	if eng != nil && len(groupKeys) > 0 {
+	bundles := setBundles(usable, tracker, budget)
+	if (eng != nil && len(groupKeys) > 0) || (tracker.HasSetData() && (len(groupKeys) > 0 || len(bundles) > 0)) {
 		// Pre-sort top affordable options per group for 1-opt swaps.
 		topOpts := map[string][]state{}
 		for _, k := range groupKeys {
@@ -915,14 +969,14 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 				g := groupOf(p.x.slot)
 				byGrp[g] = append(byGrp[g], p)
 			}
-			baseAdds, baseRm := evalSet(picks)
+			baseAdds, baseIDs, baseRm := evalSet(picks)
 			type move struct {
 				key   string
 				picks []pick
 				cost  int64
 			}
 			moves := []move{{key: "opt:cur", picks: picks, cost: curCost}}
-			optEvals := []eval{{key: "opt:cur", adds: baseAdds, rm: baseRm, noMC: true}}
+			optEvals := []eval{{key: "opt:cur", adds: baseAdds, addIDs: baseIDs, rm: baseRm, noMC: true}}
 			for _, g := range groupKeys {
 				grpCost := int64(0)
 				for _, p := range byGrp[g] {
@@ -934,22 +988,54 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 						rest = append(rest, p)
 					}
 				}
+				// Consider dropping the current group if removing it saves cost or avoids breaking a set.
+				if len(byGrp[g]) > 0 {
+					adds, addIDs, rm := evalSet(rest)
+					mk := fmt.Sprintf("opt:%s:drop", g)
+					moves = append(moves, move{key: mk, picks: rest, cost: curCost - grpCost})
+					optEvals = append(optEvals, eval{key: mk, adds: adds, addIDs: addIDs, rm: rm, noMC: true})
+				}
 				remBudget := budget - (curCost - grpCost)
 				for oi, opt := range topOpts[g] {
 					if opt.cost > remBudget {
 						continue
 					}
 					candPicks := append(append([]pick(nil), rest...), opt.picks...)
-					adds, rm := evalSet(candPicks)
+					adds, addIDs, rm := evalSet(candPicks)
 					mk := fmt.Sprintf("opt:%s:%d", g, oi)
 					moves = append(moves, move{key: mk, picks: candPicks, cost: curCost - grpCost + opt.cost})
-					optEvals = append(optEvals, eval{key: mk, adds: adds, rm: rm, noMC: true})
+					optEvals = append(optEvals, eval{key: mk, adds: adds, addIDs: addIDs, rm: rm, noMC: true})
 				}
+			}
+			// Consider multi-piece set-bundle moves (e.g. equipping 2pc Devilsaur or 3pc Bloodvine together).
+			for bi, bnd := range bundles {
+				bGrps := make(map[string]bool, len(bnd))
+				bCost := int64(0)
+				for _, p := range bnd {
+					bGrps[groupOf(p.x.slot)] = true
+					bCost += p.x.price
+				}
+				var rest []pick
+				restCost := int64(0)
+				for _, p := range picks {
+					if !bGrps[groupOf(p.x.slot)] {
+						rest = append(rest, p)
+						restCost += p.x.price
+					}
+				}
+				if restCost+bCost > budget {
+					continue
+				}
+				candPicks := append(append([]pick(nil), rest...), bnd...)
+				adds, addIDs, rm := evalSet(candPicks)
+				mk := fmt.Sprintf("opt:set:%d", bi)
+				moves = append(moves, move{key: mk, picks: candPicks, cost: restCost + bCost})
+				optEvals = append(optEvals, eval{key: mk, adds: adds, addIDs: addIDs, rm: rm, noMC: true})
 			}
 			if len(optEvals) <= 1 {
 				break
 			}
-			mvals, err := valueBatch(optEvals, true)
+			mvals, err := valueBatch(optEvals, eng != nil)
 			if err != nil {
 				return nil, err
 			}
@@ -991,10 +1077,13 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	})
 
 	var pvals map[string]float64
+	stepSetChanges := make([][]SetChange, len(picks))
 	if len(picks) > 0 {
 		var prefixAdds []Stats
+		var prefixIDs []int64
 		var emptied []int64
 		var prefixEvals []eval
+		prevActive := tracker.BaseBonuses
 		for i, p := range picks {
 			for _, s := range p.remove {
 				if _, ok := eq[s]; ok && !containsSlot(emptied, s) {
@@ -1007,8 +1096,17 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 				}
 			}
 			prefixAdds = append(prefixAdds, p.x.norm)
-			prefixEvals = append(prefixEvals, eval{fmt.Sprintf("px:%d", i),
-				append([]Stats(nil), prefixAdds...), append([]int64(nil), emptied...), false})
+			prefixIDs = append(prefixIDs, p.x.id)
+			nextActive, _, _ := tracker.After(emptied, prefixIDs)
+			gained, lost := itemsets.DiffBonuses(prevActive, nextActive)
+			stepSetChanges[i] = changesFromDiff(gained, lost)
+			prevActive = nextActive
+			prefixEvals = append(prefixEvals, eval{
+				key:    fmt.Sprintf("px:%d", i),
+				adds:   append([]Stats(nil), prefixAdds...),
+				addIDs: append([]int64(nil), prefixIDs...),
+				rm:     append([]int64(nil), emptied...),
+			})
 		}
 		pvals, err = valueBatch(prefixEvals, eng != nil)
 		if err != nil {
@@ -1047,7 +1145,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 			compare = Tooltip(old, &label)
 		}
 		row := pyjson.New("slot", p.x.slot, "slotName", SlotLabelFor(p.x.slot, classFile), "replaces", replaced, "compareTip", compare)
-		out := itemOut(p.x, step, p.remove)
+		out := itemOut(p.x, step, p.remove, stepSetChanges[i])
 		for _, k := range out.Keys() {
 			row.Set(k, out.Get(k))
 		}
@@ -1076,7 +1174,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	}
 	var engineOut any
 	if eng != nil {
-		weightsText, scaleRows, engineOut = engineSection(eng, c, classFile, o)
+		weightsText, scaleRows, engineOut = engineSection(eng, c, classFile, o, tracker)
 	}
 
 	sort.SliceStable(review, func(a, b int) bool { return review[a].price < review[b].price })
@@ -1093,14 +1191,18 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 			"where", WhereText(ow.Source, ow.Owner))
 	}
 	scan := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, int(last))
-	return pyjson.New(
+	res := pyjson.New(
 		"scanDate", scan.Format("2006-01-02"),
 		"exportUpdated", info.Get("updated"), "exportCount", len(items), "exportMissing", info.Tab("missing").Len(),
 		"level", levelOut, "budget", budget, "character", filepath.Base(filepath.Dir(filepath.Dir(files[0]))),
 		"weights", weightsText, "profile", scale.Profile, "profileLabel", scale.Label, "scale", scaleRows,
 		"setValue", pyfmt.Round(baseValue, 1), "sort", o.Sort, "engine", engineOut, "package", pkgOut,
 		"slots", slotsOut, "review", reviewList,
-		"owned", pyjson.New("count", len(have), "unknown", unknown)), nil
+		"owned", pyjson.New("count", len(have), "unknown", unknown))
+	if activeSets := SummariesJSON(tracker.ActiveSummaries()); len(activeSets) > 0 {
+		res.Set("activeSets", activeSets)
+	}
+	return res, nil
 }
 
 func bestSwapVal(values map[string]float64, idx int, x *cand) float64 {

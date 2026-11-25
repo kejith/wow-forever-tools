@@ -189,6 +189,37 @@ type Mods struct {
 	StaminaPct   float64
 }
 
+// Clone returns a copy of Mods with independent slices so per-evaluation set
+// bonus changes can mutate Mods safely across concurrent workers.
+func (m Mods) Clone() Mods {
+	out := m
+	if len(m.SpellMods) > 0 {
+		out.SpellMods = append([]SpellMod(nil), m.SpellMods...)
+	}
+	if len(m.DotStacks) > 0 {
+		out.DotStacks = append([]DotStack(nil), m.DotStacks...)
+	}
+	if len(m.ChannelHastes) > 0 {
+		out.ChannelHastes = append([]ChannelHaste(nil), m.ChannelHastes...)
+	}
+	if len(m.KillProcs) > 0 {
+		out.KillProcs = append([]KillProc(nil), m.KillProcs...)
+	}
+	if len(m.StackProcs) > 0 {
+		out.StackProcs = append([]StackProc(nil), m.StackProcs...)
+	}
+	if len(m.CritDebuffs) > 0 {
+		out.CritDebuffs = append([]CritDebuff(nil), m.CritDebuffs...)
+	}
+	if len(m.InstantProcs) > 0 {
+		out.InstantProcs = append([]InstantProc(nil), m.InstantProcs...)
+	}
+	if len(m.CritManaRefunds) > 0 {
+		out.CritManaRefunds = append([]CritManaRefund(nil), m.CritManaRefunds...)
+	}
+	return out
+}
+
 // flat sums the flat modifiers of an op for a spell.
 func (m *Mods) flat(op SpellModOp, sp *Spell) float64 {
 	var v float64

@@ -19,6 +19,7 @@ import (
 
 	"github.com/kejith/wow-tools-forever/sim/internal/game"
 	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
+	"github.com/kejith/wow-tools-forever/sim/tools/marketsync"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
@@ -547,14 +548,7 @@ func Compute(wow, char, profession string, top int, prices *sv.Table) (*pyjson.O
 		return nil, err
 	}
 	if prices == nil {
-		path := game.FindAuctionator(wow)
-		if path == "" {
-			return nil, errors.New(i18n.T("Auctionator.lua not found under {wow}", "wow", wow))
-		}
-		if prices, err = sv.Prices(path); err != nil {
-			if errors.Is(err, sv.ErrNoPrices) {
-				return nil, errors.New(i18n.T("No price data found in Auctionator.lua."))
-			}
+		if prices, _, err = marketsync.LoadPrices(wow); err != nil {
 			return nil, err
 		}
 	}

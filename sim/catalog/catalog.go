@@ -53,6 +53,9 @@ type Catalog struct {
 	// the class's: several talents (Meditation, Wand Specialization) are not
 	// in the class's spell family.
 	Auras map[int][]Aura
+	// SpellClassSet maps SpellID -> SpellClassOptions.SpellClassSet for every spell,
+	// so set bonus spell modifiers can be filtered to the character's class family.
+	SpellClassSet map[int]int
 	// RawEffects holds the aura effects of the class's spells the catalog
 	// does not decode into damage or healing, by spell and effect index
 	// (with base points, per-level scaling and period): a class module reads
@@ -106,6 +109,13 @@ var (
 // Name is a spell's name in the client's language ("" without the table),
 // also for spells outside the class's family (some talents).
 func (c *Catalog) Name(spellID int) string { return c.names[spellID] }
+
+// MatchesClassSet reports whether a spell belongs to this catalog's class spell family
+// (or has no specific class family set).
+func (c *Catalog) MatchesClassSet(spellID int) bool {
+	s := c.SpellClassSet[spellID]
+	return s == 0 || s == classSet[c.ClassID]
+}
 
 // ReferenceLocale is the locale whose spell names group the rank chains
 // (scripts/simengine.py downloads that SpellName table next to the client's).
@@ -305,28 +315,33 @@ func Build(cacheDir, build, locale, classFile string) (*Catalog, error) {
 
 	// The class's spells by SpellClassOptions.
 	cat := &Catalog{
-		ClassID:      classID,
-		Spells:       map[int]*engine.Spell{},
-		Auras:        map[int][]Aura{},
-		RawEffects:   map[int]map[int]*engine.Effect{},
-		DurationMs:   map[int]int{},
-		TalentPoints: map[int]map[int]map[int]float64{},
-		BaseOf:       map[int]int{},
-		Chains:       map[int][]int{},
-		skillSpells:  map[int]int{},
-		granted:      map[int]bool{},
-		rankOf:       map[int]int{},
-		names:        nameOf,
+		ClassID:       classID,
+		Spells:        map[int]*engine.Spell{},
+		Auras:         map[int][]Aura{},
+		SpellClassSet: map[int]int{},
+		RawEffects:    map[int]map[int]*engine.Effect{},
+		DurationMs:    map[int]int{},
+		TalentPoints:  map[int]map[int]map[int]float64{},
+		BaseOf:        map[int]int{},
+		Chains:        map[int][]int{},
+		skillSpells:   map[int]int{},
+		granted:       map[int]bool{},
+		rankOf:        map[int]int{},
+		names:         nameOf,
 	}
 	cOptSet, cOptSpell := classOpt.Col("SpellClassSet"), classOpt.Col("SpellID")
 	cOptM0, cOptM1, cOptM2, cOptM3 := classOpt.Col("SpellClassMask_0"), classOpt.Col("SpellClassMask_1"),
 		classOpt.Col("SpellClassMask_2"), classOpt.Col("SpellClassMask_3")
 	for i := 0; i < classOpt.Len(); i++ {
 		r := classOpt.Row(i)
-		if r.IntAt(cOptSet) != set {
+		cs := r.IntAt(cOptSet)
+		id := r.IntAt(cOptSpell)
+		if cs != 0 {
+			cat.SpellClassSet[id] = cs
+		}
+		if cs != set {
 			continue
 		}
-		id := r.IntAt(cOptSpell)
 		cat.Spells[id] = &engine.Spell{
 			ID:     id,
 			BaseID: id,

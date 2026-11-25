@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +82,9 @@ func (a *App) startWatcher() {
 			}
 			file, _ := filepath.Rel(dir, changed)
 			changed = ""
+			if strings.EqualFold(filepath.Base(file), "Auctionator.lua") && a.syncer != nil {
+				a.syncer.onAuctionatorChanged()
+			}
 			a.syncGameData(a.sendsToGame()) // new scan or snapshot: new lists for the game
 			if a.ctx != nil {
 				runtime.EventsEmit(a.ctx, "data-changed", map[string]string{"file": file})

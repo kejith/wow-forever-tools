@@ -66,12 +66,13 @@ type Input struct {
 
 // Character is the snapshot-derived character.
 type Character struct {
-	ClassFile    string         `json:"classFile"`
-	Level        int            `json:"level"`
-	SpecOverride string         `json:"specOverride"`
-	Stats        Stats          `json:"stats"`
-	Talents      map[string]int `json:"talents"`   // rank-spell id -> points
-	Spellbook    []int          `json:"spellbook"` // known spell ids; empty = assume all trainer ranks
+	ClassFile      string         `json:"classFile"`
+	Level          int            `json:"level"`
+	SpecOverride   string         `json:"specOverride"`
+	Stats          Stats          `json:"stats"`
+	Talents        map[string]int `json:"talents"`                  // rank-spell id -> points
+	Spellbook      []int          `json:"spellbook"`                // known spell ids; empty = assume all trainer ranks
+	SetBonusSpells []int          `json:"setBonusSpells,omitempty"` // active item set bonus spell ids on equipped gear
 }
 
 // Stats are the sheet totals the engine starts from.
@@ -117,9 +118,11 @@ type Stats struct {
 
 // Evaluation is one stat delta to rate (an item swap, or a package prefix).
 type Evaluation struct {
-	Key   string             `json:"key"`
-	Delta map[string]float64 `json:"delta"`
-	NoMC  bool               `json:"noMc,omitempty"` // skip Monte-Carlo refinement (helper evaluations like rm:/pt:)
+	Key            string             `json:"key"`
+	Delta          map[string]float64 `json:"delta"`
+	NoMC           bool               `json:"noMc,omitempty"`           // skip Monte-Carlo refinement (helper evaluations like rm:/pt:)
+	HasSetChange   bool               `json:"hasSetChange,omitempty"`   // true when active non-sheet set bonus spells differ from baseline
+	SetBonusSpells []int              `json:"setBonusSpells,omitempty"` // replacement active set bonus spell ids when HasSetChange is true
 }
 
 // Result is the metric change of one evaluation. MC marks gains that were
@@ -177,8 +180,9 @@ type CoverageEntry struct {
 // Coverage lists every known spell and every talent with what the model does
 // with it, so that nothing is left out silently.
 type Coverage struct {
-	Spells  []CoverageEntry `json:"spells"`
-	Talents []CoverageEntry `json:"talents"`
+	Spells     []CoverageEntry `json:"spells"`
+	Talents    []CoverageEntry `json:"talents"`
+	SetBonuses []CoverageEntry `json:"setBonuses,omitempty"`
 	// TalentValues is "tables" when the per-rank values came from the trait
 	// tables, "basepoints" when only SpellEffect was in the cache (one rank's
 	// value for every rank).
@@ -417,6 +421,7 @@ type Session struct {
 	in          Input
 	cat         *catalog.Catalog
 	st          *engine.State
+	talentMods  engine.Mods // talent + class self-buff mods without item set bonuses
 	fight       engine.Fight
 	metric      string
 	scoreMetric string
@@ -455,11 +460,13 @@ func Prepare(in Input) (*Session, Output) {
 			ranks[n] = rank
 		}
 	}
-	mods, talentInfos, err := talents.Decode(cat, ranks)
+	talentMods, talentInfos, err := talents.Decode(cat, ranks)
 	if err != nil {
 		out.Error = err.Error()
 		return nil, out
 	}
+	mods := talentMods.Clone()
+	setInfos := talents.DecodeSetBonuses(cat, in.Character.SetBonusSpells, &mods)
 
 	st := buildState(in.Character, mods)
 
@@ -518,6 +525,7 @@ func Prepare(in Input) (*Session, Output) {
 		regenPct, armor := mage.ArmorRegen(cat, known, in.Character.Level)
 		if armor != nil && regenPct > 0 {
 			st.Mods.CastingRegenPct += regenPct
+			talentMods.CastingRegenPct += regenPct
 			support[armor.ID] = "buff"
 		}
 	case "ROGUE":
@@ -695,7 +703,7 @@ func Prepare(in Input) (*Session, Output) {
 		}
 	}
 	out.Coverage = coverage(cat, known, in.Character.Level, metric, actions, tried, support, unused, ranks, talentInfos,
-		baseline.KillBuffPct)
+		setInfos, baseline.KillBuffPct)
 	out.Coverage.Candidates = len(all)
 
 	for i := range baseline.Breakdown { // rank numbers for the labels ("Heal (Rank 2)")
@@ -712,7 +720,7 @@ func Prepare(in Input) (*Session, Output) {
 		}
 	}
 	sess := &Session{
-		in: in, cat: cat, st: st, fight: fight, metric: metric, scoreMetric: scoreMetric,
+		in: in, cat: cat, st: st, talentMods: talentMods, fight: fight, metric: metric, scoreMetric: scoreMetric,
 		rots: rots, actions: actions, baseline: baseline, baseOut: out,
 	}
 	if in.Method == "montecarlo" {
@@ -730,32 +738,57 @@ func Prepare(in Input) (*Session, Output) {
 	return sess, sess.baseOut
 }
 
-// deltaSignature returns a canonical string key for a stat delta so identical
-// deltas in one batch are evaluated only once.
-func deltaSignature(d map[string]float64) string {
-	if len(d) == 0 {
-		return ""
-	}
-	keys := make([]string, 0, len(d))
-	for k, v := range d {
-		if v != 0 {
-			keys = append(keys, k)
-		}
-	}
-	if len(keys) == 0 {
-		return ""
-	}
-	sort.Strings(keys)
+// evalSignature returns a canonical string key for an evaluation (stat delta +
+// any active set bonus spell changes) so identical evaluations in one batch are
+// evaluated only once.
+func evalSignature(d map[string]float64, hasSetChange bool, setSpells []int) string {
 	var b []byte
-	for i, k := range keys {
-		if i > 0 {
-			b = append(b, ';')
+	if len(d) > 0 {
+		keys := make([]string, 0, len(d))
+		for k, v := range d {
+			if v != 0 {
+				keys = append(keys, k)
+			}
 		}
-		b = append(b, k...)
-		b = append(b, '=')
-		b = fmt.Appendf(b, "%.12g", d[k])
+		sort.Strings(keys)
+		for i, k := range keys {
+			if i > 0 {
+				b = append(b, ';')
+			}
+			b = append(b, k...)
+			b = append(b, '=')
+			b = fmt.Appendf(b, "%.12g", d[k])
+		}
+	}
+	if hasSetChange {
+		b = append(b, '|')
+		if len(setSpells) > 0 {
+			ids := append([]int(nil), setSpells...)
+			sort.Ints(ids)
+			for i, id := range ids {
+				if i > 0 {
+					b = append(b, ',')
+				}
+				b = fmt.Appendf(b, "%d", id)
+			}
+		}
 	}
 	return string(b)
+}
+
+func (s *Session) stateFor(delta map[string]float64, hasSetChange bool, setSpells []int) *engine.State {
+	st := s.st
+	if hasSetChange {
+		cp := *st
+		m := s.talentMods.Clone()
+		talents.DecodeSetBonuses(s.cat, setSpells, &m)
+		cp.Mods = m
+		st = &cp
+	}
+	if len(delta) > 0 {
+		st = st.ApplyDelta(delta)
+	}
+	return st
 }
 
 // Eval evaluates one batch of deltas against the prepared session. Identical
@@ -769,18 +802,20 @@ func (s *Session) Eval(evals []Evaluation, reoptimize bool) Output {
 		return out
 	}
 
-	// Deduplicate identical stat deltas so items with identical (or empty)
-	// relevant stats are evaluated once.
+	// Deduplicate identical stat deltas + set bonus changes so items with
+	// identical relevant stats are evaluated once.
 	type uniqueEval struct {
-		delta map[string]float64
-		res   Result
-		best  []engine.Action
+		delta        map[string]float64
+		hasSetChange bool
+		setSpells    []int
+		res          Result
+		best         []engine.Action
 	}
 	sigIdx := make(map[string]int, len(evals))
 	uniques := make([]uniqueEval, 0, len(evals))
 	evToUniq := make([]int, len(evals))
 	for i, ev := range evals {
-		sig := deltaSignature(ev.Delta)
+		sig := evalSignature(ev.Delta, ev.HasSetChange, ev.SetBonusSpells)
 		if idx, ok := sigIdx[sig]; ok {
 			evToUniq[i] = idx
 			continue
@@ -788,7 +823,9 @@ func (s *Session) Eval(evals []Evaluation, reoptimize bool) Output {
 		idx := len(uniques)
 		sigIdx[sig] = idx
 		evToUniq[i] = idx
-		uniques = append(uniques, uniqueEval{delta: ev.Delta})
+		uniques = append(uniques, uniqueEval{
+			delta: ev.Delta, hasSetChange: ev.HasSetChange, setSpells: ev.SetBonusSpells,
+		})
 	}
 
 	baseDetVal := s.baseline.Value
@@ -799,12 +836,12 @@ func (s *Session) Eval(evals []Evaluation, reoptimize bool) Output {
 
 	evalOne := func(i int) {
 		u := &uniques[i]
-		if len(u.delta) == 0 {
+		if len(u.delta) == 0 && !u.hasSetChange {
 			u.res = Result{Value: baseDetVal}
 			u.best = s.actions
 			return
 		}
-		st := s.st.ApplyDelta(u.delta)
+		st := s.stateFor(u.delta, u.hasSetChange, u.setSpells)
 		with := s.actions
 		if reoptimize {
 			top := math.Inf(-1)
@@ -896,13 +933,13 @@ func (s *Session) Eval(evals []Evaluation, reoptimize bool) Output {
 				continue
 			}
 			u := &uniques[c.uniq]
-			if len(u.delta) == 0 {
+			if len(u.delta) == 0 && !u.hasSetChange {
 				r := Result{Value: s.mcBase.Mean, MC: true}
 				mcCache[c.uniq] = r
 				out.Results[c.key] = r
 				continue
 			}
-			m := engine.RunMC(s.st.ApplyDelta(u.delta), s.fight, u.best, s.metric, s.in.Iterations, seed)
+			m := engine.RunMC(s.stateFor(u.delta, u.hasSetChange, u.setSpells), s.fight, u.best, s.metric, s.in.Iterations, seed)
 			r := Result{Value: m.Mean, Gain: m.Mean - s.mcBase.Mean, MC: true}
 			if s.mcBase.Mean != 0 {
 				r.GainPct = r.Gain / s.mcBase.Mean * 100
@@ -1021,7 +1058,7 @@ func relevant(sp *engine.Spell, metric string) (bool, string) {
 // talent: cast in the chosen rotation, tried in a weaker candidate, not
 // modeled, or without influence on the metric.
 func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string, actions []engine.Action,
-	tried map[int]float64, support, unused map[int]string, ranks map[int]int, infos []talents.Info,
+	tried map[int]float64, support, unused map[int]string, ranks map[int]int, infos, setInfos []talents.Info,
 	killBuffPct float64) *Coverage {
 	cov := &Coverage{TalentValues: "basepoints"}
 	if cat.HasTraits {
@@ -1120,7 +1157,7 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 		}
 		return false
 	}
-	for _, info := range infos {
+	classifyInfo := func(info talents.Info) CoverageEntry {
 		name := cat.Name(info.SpellID)
 		e := CoverageEntry{SpellID: info.SpellID, Name: name, Rank: info.Rank,
 			Status: info.Status, Reason: info.Reason, Unverified: info.Unverified, Note: info.Note}
@@ -1172,7 +1209,13 @@ func coverage(cat *catalog.Catalog, known map[int]bool, level int, metric string
 		if e.Status != talents.StatusUsed && e.Status != talents.StatusIdle {
 			e.Unverified = false // an assumption only matters where it is applied
 		}
-		cov.Talents = append(cov.Talents, e)
+		return e
+	}
+	for _, info := range infos {
+		cov.Talents = append(cov.Talents, classifyInfo(info))
+	}
+	for _, info := range setInfos {
+		cov.SetBonuses = append(cov.SetBonuses, classifyInfo(info))
 	}
 	return cov
 }

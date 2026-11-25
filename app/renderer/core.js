@@ -13,6 +13,7 @@ export const state = {
   game: null,
   ingame: null, // last sync of the lists the addon shows in the game (api.gameData())
   update: null, // the app's own update as the main process knows it (api.updateState(), api.onUpdate)
+  marketSync: null, // community AH price sync state (api.marketSyncState(), api.onMarketSync)
   cache: new Map(),
   lastLoad: null,
   writs: { top: 3, ownedAtAhPrice: false, tab: 'writs' },
@@ -20,7 +21,7 @@ export const state = {
   recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false, query: '', tab: 'learned' },
   consumables: { top: 5, onlyAvailable: false, allBuffs: false, fight: 60, target: '', set: 'best', budget: '', tab: 'fight' },
   rotations: { fight: 60, target: '', consumables: false },
-  prices: { query: '', item: null, cls: -1, sort: 'offers', recent: false },
+  prices: { query: '', item: null, cls: -1, sort: 'offers', recent: false, range: 0 },
   character: { tab: 'gear' },
   gph: { open: null, notice: null, more: {} },
 };
