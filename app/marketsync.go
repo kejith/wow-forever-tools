@@ -415,11 +415,9 @@ func (s *marketSyncer) syncAll(push bool) bool {
 	s.mu.Unlock()
 	s.emit(st)
 
-	if changed {
+	if changed && s.app.ctx != nil {
 		s.app.syncGameData(s.app.sendsToGame())
-		if s.app.ctx != nil {
-			wails.EventsEmit(s.app.ctx, "data-changed", map[string]string{"file": "market-sync"})
-		}
+		wails.EventsEmit(s.app.ctx, "data-changed", map[string]string{"file": "market-sync"})
 	}
 	return uploaded
 }
