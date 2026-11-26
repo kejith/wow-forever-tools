@@ -170,3 +170,55 @@ func TestBestForLevel(t *testing.T) {
 		t.Errorf("mana: the potion of level 22 is next")
 	}
 }
+
+func TestActiveWeaponEnchantMarksOilActive(t *testing.T) {
+	i18n.SetLanguage("en", "")
+	cat := world(t, "fight")
+	prices := sv.NewTable()
+	for _, id := range []string{"60", "69"} {
+		e := sv.NewTable()
+		e.Set("m", int64(5000))
+		a := sv.NewTable()
+		a.Set("10", int64(3))
+		e.Set("a", a)
+		prices.Set(id, e)
+	}
+	ch := sv.NewTable()
+	ch.Set("name", "Test")
+	ch.Set("level", int64(55))
+	ch.Set("classFile", "WARLOCK")
+	we := sv.NewTable()
+	mh := sv.NewTable()
+	mh.Set("id", int64(2629)) // Wizard Oil in the "fight" world
+	mh.Set("remainingSec", int64(1500))
+	we.Set("mainHand", mh)
+	ch.Set("weaponEnchants", we)
+	c := sv.NewTable()
+	c.Set("character", ch)
+
+	x := &ctx{
+		classFile: "WARLOCK",
+		market:    recipes.NewMarket(prices, sv.NewTable(), nil),
+		vendor:    sv.NewTable(),
+		owned:     map[int64]int64{},
+		skills:    map[int64]any{},
+		learned:   map[int64]bool{},
+		madeBy:    map[int64]int64{},
+		profNames: map[int64]any{},
+	}
+	rows := fightCandidates(c, cat, x, 60)
+	var oil *Row
+	for _, r := range rows {
+		if r.ID == 69 {
+			oil = r
+			break
+		}
+	}
+	if oil == nil {
+		t.Fatalf("Wizard Oil (69) missing from fight candidates")
+	}
+	if !oil.Active || oil.OnYou == "" || oil.Delta.Len() != 0 {
+		t.Fatalf("Wizard Oil should be marked active with empty delta, got active=%v onYou=%q deltaLen=%d",
+			oil.Active, oil.OnYou, oil.Delta.Len())
+	}
+}

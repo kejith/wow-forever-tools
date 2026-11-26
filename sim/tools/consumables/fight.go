@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/kejith/wow-tools-forever/sim/enchants"
 	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyfmt"
 	"github.com/kejith/wow-tools-forever/sim/internal/pyjson"
@@ -320,6 +321,30 @@ func fightCandidates(c *sv.Table, cat *Catalog, x *ctx, seconds float64) []*Row 
 			}
 		}
 	}
+	// Active temporary weapon enchant from GetWeaponEnchantInfo (mainHand / offHand).
+	var activeWepID int64
+	var activeWepName string
+	var activeWepStats map[string]float64
+	if we := ch.Tab("weaponEnchants"); we != nil {
+		for _, hand := range []string{"mainHand", "offHand"} {
+			if h := we.Tab(hand); h != nil {
+				if id, ok := lineKey(h.Get("id")); ok && id > 0 {
+					activeWepID = id
+					break
+				}
+			}
+		}
+		if activeWepID > 0 {
+			build, _ := cat.Build.(string)
+			locale, _ := cat.Locale.(string)
+			if eCat := enchants.Load("", build, locale); eCat != nil {
+				if e := eCat.ByID[int(activeWepID)]; e != nil {
+					activeWepName = e.Name
+					activeWepStats = e.Stats
+				}
+			}
+		}
+	}
 	role := enginebundle.RoleForChar(c)
 	physical := role == "melee" || role == "ranged" || role == "tank"
 	rows := []*Row{}
@@ -340,7 +365,19 @@ func fightCandidates(c *sv.Table, cat *Catalog, x *ctx, seconds float64) []*Row 
 		for _, a := range mine {
 			active = active || givers[a] == 1
 		}
-		if len(mine) == 0 && !x.usable(it, level) {
+		wepOnYou := ""
+		if kind == "weapon" && activeWepID > 0 {
+			wepOnYou = activeWepName
+			if wepOnYou == "" {
+				wepOnYou = it.Name
+			}
+			if (it.EnchantID > 0 && it.EnchantID == activeWepID) ||
+				(it.EnchantID == 0 && weaponEnchantMatchesBuffs(activeWepStats, it.Buffs)) {
+				active = true
+				wepOnYou = it.Name
+			}
+		}
+		if len(mine) == 0 && wepOnYou == "" && !x.usable(it, level) {
 			continue
 		}
 		var effect string
@@ -376,6 +413,8 @@ func fightCandidates(c *sv.Table, cat *Catalog, x *ctx, seconds float64) []*Row 
 			if row.OnYou == "" {
 				row.OnYou = row.Name
 			}
+		} else if wepOnYou != "" {
+			row.OnYou, row.onYouAt = wepOnYou, 1
 		}
 		row.Kind, row.Slots, row.Active = kind, fightSlots(iid, it, kind), active
 		row.Delta = newDelta()
@@ -406,6 +445,38 @@ func joinComma(parts []string) string {
 		out += p
 	}
 	return out
+}
+
+// weaponEnchantMatchesBuffs checks whether a decoded temporary weapon enchant's stats match a
+// cached consumable's buffs (used when loading v2 cached catalogs that predate Item.EnchantID).
+func weaponEnchantMatchesBuffs(stats map[string]float64, buffs []Buff) bool {
+	if len(stats) == 0 || len(buffs) == 0 {
+		return false
+	}
+	for _, b := range buffs {
+		keys := engineKeys[b.Stat]
+		if len(keys) == 0 {
+			keys = physicalEngineKeys[b.Stat]
+		}
+		if len(keys) == 0 {
+			return false
+		}
+		matched := false
+		for _, k := range keys {
+			if math.Abs(stats[k]-float64(b.Amount)) < 1e-6 {
+				matched = true
+				break
+			}
+			if k == "crit" && math.Abs(stats["spellCrit"]-float64(b.Amount)) < 1e-6 {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 // batchFunc is Engine.Batch: the metric gain per key for a list of stat deltas.

@@ -358,6 +358,7 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 	if setCat == nil {
 		setCat = LoadSetCatalog(c, "")
 	}
+	enchCat := LoadEnchantCatalog(c, "")
 	tracker := NewSetTracker(c, setCat)
 	totalsWithSets := totals.Copy()
 	totalsWithSets.Add(tracker.BaseScale, 1)
@@ -702,6 +703,15 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		if len(setChanges) > 0 {
 			obj.Set("setChanges", SetChangesJSON(setChanges))
 		}
+		var lostEnchants []any
+		for _, s := range remove {
+			if ench := EquippedEnchantJSON(equipped[s], enchCat); ench != nil {
+				lostEnchants = append(lostEnchants, ench)
+			}
+		}
+		if len(lostEnchants) > 0 {
+			obj.Set("replacesEnchants", lostEnchants)
+		}
 		return obj
 	}
 
@@ -781,8 +791,12 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 		var current any
 		if cur := equipped[slot]; sv.Truthy(cur) {
 			label := SlotLabelFor(slot, classFile)
-			current = pyjson.New("name", cur.Get("name"), "id", cur.Get("id"), "quality", cur.Get("quality"),
+			curObj := pyjson.New("name", cur.Get("name"), "id", cur.Get("id"), "quality", cur.Get("quality"),
 				"stats", Short(cur.Tab("stats")), "tip", Tooltip(cur, &label))
+			if ench := EquippedEnchantJSON(cur, enchCat); ench != nil {
+				curObj.Set("enchant", ench)
+			}
+			current = curObj
 		}
 		slotsOut = append(slotsOut, pyjson.New("slot", slot, "slotName", SlotLabelFor(slot, classFile), "current", current,
 			"candidates", cands))

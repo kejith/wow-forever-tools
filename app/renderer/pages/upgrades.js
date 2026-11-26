@@ -92,12 +92,15 @@ export async function renderUpgrades() {
     const tip = sc.bonus ? (sc.kind === 'gain' ? t('Activates set bonus: {bonus}', { bonus: sc.bonus }) : t('Breaks set bonus: {bonus}', { bonus: sc.bonus })) : '';
     return `<span class="badge ${sc.kind === 'gain' ? 'ok' : 'warn'}"${tip ? hintAttr(tip) : ''}>${esc(label)}</span>`;
   }).join(' ');
+  const enchBadge = (c) => (c.replacesEnchants?.length
+    ? `<span class="badge warn"${hintAttr(t('Replaces enchanted item ({enchants}). Comparison is base stats vs. base stats — remember to enchant the new item.', { enchants: c.replacesEnchants.map((e) => e.name).join(', ') }))}>${esc(t('re-enchant'))}</span>`
+    : '');
   const itemCell = (c, compare) => `<div class="item-cell">${itemIcon(c.id, c.quality)}<div class="item-body">
           <div class="item-head"><span class="${quality(c.quality)}"${tipAttr(c.tip, compare)}>${esc(c.name)}</span>
             ${c.isNew ? `<span class="badge forever">${esc(t('NEW in Forever'))}</span>` : ''}
             ${c.soon ? `<span class="badge warn">${esc(t('from level {n}', { n: c.reqLevel }))}</span>` : ''}
             ${c.twoHand ? `<span class="badge">${esc(t('Two-hand, also replaces the off hand'))}</span>` : ''}
-            ${setBadges(c)}</div>
+            ${setBadges(c)}${enchBadge(c)}</div>
           <div class="small muted">${esc(c.stats)}</div>
           ${c.effects.map((text) => `<div class="effects">${esc(text)}</div>`).join('')}</div></div>`;
   const activeSlot = d.slots.some((s) => s.slotName === o.slot) ? o.slot : '';
@@ -120,6 +123,7 @@ export async function renderUpgrades() {
           <div class="small muted">${esc(t('Equipped'))}</div>
           <div class="small" style="margin-top:3px"><span class="item">${itemIcon(cur?.id, cur?.quality)}<span class="${quality(cur?.quality)}"${tipAttr(cur?.tip)}>${esc(cur?.name || '–')}</span></span></div>
           <div class="small muted" style="margin-top:2px">${esc(cur?.stats || '')}</div>
+          ${cur?.enchant ? `<div class="small good" style="margin-top:2px">${esc(cur.enchant.name)}</div>` : ''}
         </div></div>
       <table><thead><tr>${th([t('Gain')], [t('vs. item'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')])}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');

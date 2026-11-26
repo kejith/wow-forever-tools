@@ -570,6 +570,7 @@ h2 .help, h3 .help { margin-left: 4px; }
 }
 .pd-slot.empty .pd-name { color: #6b6156; font-weight: 500; }
 .pd-meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-ench { font-size: 11px; color: var(--good); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pd-label { color: #8a7d6d; }
 .dur-low { color: var(--bad); font-weight: 600; }
 .pd-weapons {

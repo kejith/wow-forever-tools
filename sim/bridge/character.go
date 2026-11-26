@@ -36,6 +36,7 @@ func character(a *Args) (*pyjson.Obj, error) {
 	// Points per item: what the set loses without it (including any broken item set bonus), on the same scale as the AH upgrades.
 	eq, totals := upgrades.EquippedStats(c, nil)
 	tracker := upgrades.NewSetTracker(c, upgrades.LoadSetCatalog(c, ""))
+	enchCat := upgrades.LoadEnchantCatalog(c, "")
 	totalsWithSets := totals.Copy()
 	totalsWithSets.Add(tracker.BaseScale, 1)
 	scale := upgrades.BuildScale(c, "", totalsWithSets["hit"], totalsWithSets["crit"])
@@ -64,11 +65,15 @@ func character(a *Args) (*pyjson.Obj, error) {
 			slotName = *label
 		}
 		order, _ := sv.Num(slotV)
-		equipment = append(equipment, item{order, pyjson.New(
+		itemObj := pyjson.New(
 			"slot", slotV, "slotName", slotName, "id", e.Get("id"), "name", e.Get("name"),
 			"quality", e.Get("quality"), "ilvl", e.Get("ilvl"), "stats", upgrades.Short(e.Tab("stats")),
 			"durability", e.Get("durability"), "score", pyfmt.Round(full-upgrades.SetValue(rest, scale), 1),
-			"tip", upgrades.Tooltip(e, label))})
+			"tip", upgrades.Tooltip(e, label))
+		if ench := upgrades.EquippedEnchantJSON(e, enchCat); ench != nil {
+			itemObj.Set("enchant", ench)
+		}
+		equipment = append(equipment, item{order, itemObj})
 	}
 	sort.SliceStable(equipment, func(i, j int) bool { return equipment[i].slot < equipment[j].slot })
 	list := make([]any, len(equipment))
@@ -88,6 +93,9 @@ func character(a *Args) (*pyjson.Obj, error) {
 		"metric", enginebundle.DefaultMetric(classFile, spec))
 	if sets := upgrades.SummariesJSON(tracker.ActiveSummaries()); len(sets) > 0 {
 		out.Set("sets", sets)
+	}
+	if we := upgrades.WeaponEnchantsJSON(c, enchCat); len(we) > 0 {
+		out.Set("weaponEnchants", we)
 	}
 	return out, nil
 }

@@ -82,6 +82,7 @@ type Item struct {
 	Oil          bool      `json:"oil"`
 	WellFed      bool      `json:"wellFed"`
 	Auras        []int64   `json:"auras"` // the spells whose aura is the buff
+	EnchantID    int64     `json:"-"`     // SpellItemEnchantment ID for temporary weapon enchants (effect 54)
 	HealthCost   int64     `json:"healthCost"`
 	Cat          int64     `json:"cat"` // the cooldown category
 }
@@ -243,6 +244,7 @@ type decoded struct {
 	duration     *int64
 	oil, wellFed bool
 	auras        []int64
+	enchantID    int64
 	healthCost   int64
 	buffDuration *int64 // d.get("buffDuration"): nil when not set or set to None
 }
@@ -351,7 +353,7 @@ func decode(sid int64, s *spellData, subclass int64, depth int, eating bool) dec
 			}
 			if len(out.buffs) > 0 {
 				d := ench.duration
-				out.oil, out.duration = true, &d
+				out.oil, out.duration, out.enchantID = true, &d, misc
 			}
 		case kind == 6: // APPLY_AURA
 			seconds := int64(0)
@@ -551,6 +553,9 @@ func buildCatalog(read reader, build, locale string) (*Catalog, error) {
 			it.Buffs = append(it.Buffs, d.buffs...)
 			it.Duration = or(or(it.Duration, d.buffDuration), d.duration)
 			it.Oil = it.Oil || d.oil
+			if d.enchantID != 0 {
+				it.EnchantID = d.enchantID
+			}
 			it.WellFed = it.WellFed || d.wellFed
 			it.Auras = sortedUnion(it.Auras, d.auras)
 			it.HealthCost += d.healthCost

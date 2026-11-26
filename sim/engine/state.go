@@ -276,6 +276,10 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 			s.Hit += v
 		case "meleeHit":
 			s.MeleeHit += v
+		case "rangedHit":
+			if s.ClassFile == "HUNTER" {
+				s.MeleeHit += v
+			}
 		case "crit":
 			for _, sc := range magicSchools {
 				s.Crit[sc] += v
@@ -347,12 +351,26 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 			if s.ClassFile == "HUNTER" {
 				s.RangedCrit += v
 			}
+		case "rangedCrit":
+			s.RangedCrit += v
 		case "weaponDps":
 			if s.MainHand.Speed > 0 {
 				s.MainHand.DPS += v
 				deltaHit := v * s.MainHand.Speed
 				s.MainHand.Min += deltaHit
 				s.MainHand.Max += deltaHit
+			}
+		case "weaponDmg":
+			if s.MainHand.Speed > 0 {
+				s.MainHand.Min += v
+				s.MainHand.Max += v
+				s.MainHand.DPS += v / s.MainHand.Speed
+			}
+		case "offhandDmg":
+			if s.OffHand.Speed > 0 {
+				s.OffHand.Min += v
+				s.OffHand.Max += v
+				s.OffHand.DPS += v / s.OffHand.Speed
 			}
 		case "rangedDps":
 			if s.Ranged.Speed > 0 {
@@ -361,6 +379,16 @@ func (st *State) ApplyDelta(delta map[string]float64) *State {
 				s.Ranged.Min += deltaHit
 				s.Ranged.Max += deltaHit
 			}
+		case "rangedDmg":
+			if s.Ranged.Speed > 0 {
+				s.Ranged.Min += v
+				s.Ranged.Max += v
+				s.Ranged.DPS += v / s.Ranged.Speed
+			}
+		case "health":
+			s.HealthMax += v
+		case "mana":
+			s.ManaMax += v
 		case "int":
 			v *= 1 + s.Mods.IntellectPct/100
 			s.Intellect += v

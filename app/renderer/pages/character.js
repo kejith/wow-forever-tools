@@ -4,6 +4,7 @@ import { $, DASH, ago, api, cached, content, errorBox, esc, help, hintAttr, item
 import { mark, t } from '../i18n.js';
 import { consumablesSection, loadConsumables } from './consumables.js';
 import { damageSection } from './damage.js';
+import { enchantsSection, loadEnchants } from './enchants.js';
 import { healingSection } from './healing.js';
 
 // Slot IDs and order of the in-game character window (Classic layout).
@@ -100,7 +101,8 @@ export async function renderCharacter() {
     ].filter(Boolean).join(' · ');
     return `<div class="pd-slot ${side}"${tipAttr(e.tip)}>${itemIcon(e.id, e.quality, 'lg')}
       <div class="pd-text"><div class="pd-name ${quality(e.quality)}">${esc(e.name)}</div>
-        <div class="pd-meta"><span class="pd-label">${esc(t(label))}</span> · ${meta}</div></div></div>`;
+        <div class="pd-meta"><span class="pd-label">${esc(t(label))}</span> · ${meta}</div>
+        ${e.enchant ? `<div class="pd-ench">${esc(e.enchant.name)}</div>` : ''}</div></div>`;
   };
   const column = (slots, side) => slots.map((s) => slot(s, side)).join('');
 
@@ -115,8 +117,10 @@ export async function renderCharacter() {
   const school = topSpellSchool(st);
   const talents = [...(d.talents || []), ...(d.legacy || [])].map(talentLine).filter(Boolean).join('<br>');
   const buffs = (c.buffs || []).filter((b) => b?.name);
-  const buffsBox = buffs.length ? `<div class="pd-stats"><h4>${esc(t('Active buffs'))}</h4>
-    <div class="pd-buffs">${buffs.map((b) => `<span class="pd-buff">${esc(b.name)}</span>`).join('')}</div></div>` : '';
+  const weBuffs = (d.weaponEnchants || []).map((w) => ({ name: w.name }));
+  const allBuffs = [...weBuffs, ...buffs];
+  const buffsBox = allBuffs.length ? `<div class="pd-stats"><h4>${esc(t('Active buffs'))}</h4>
+    <div class="pd-buffs">${allBuffs.map((b) => `<span class="pd-buff">${esc(b.name)}</span>`).join('')}</div></div>` : '';
   const sets = d.sets || [];
   const setsBox = sets.length ? `<div class="pd-stats"><h4>${esc(t('Item sets'))}</h4>
     <div class="pd-buffs">${sets.map((s) => {
@@ -183,6 +187,7 @@ export async function renderCharacter() {
   const tabDefs = [{ key: 'gear', label: t('Gear') },
     ...(d.metric === 'dps' ? [[d.deals, 'dmg', t('Damage')], [d.heals, 'heal', t('Healing')]]
       : [[d.heals, 'heal', t('Healing')], [d.deals, 'dmg', t('Damage')]]).filter(([on]) => on).map(([, key, label]) => ({ key, label })),
+    { key: 'ench', label: t('Enchants') },
     { key: 'cons', label: t('Consumables') }];
   const activeTab = tabDefs.some((x) => x.key === state.character.tab) ? state.character.tab : 'gear';
   state.character.tab = activeTab;
@@ -210,8 +215,9 @@ export async function renderCharacter() {
         <div class="card"><h2>${esc(t('Talents'))}</h2>${talents || DASH}</div></div>
     </div>
     ${(d.metric === 'dps' ? [dmg, heal] : [heal, dmg]).join('')}
+    <div class="tab-panel" data-char-panel="ench" id="c-ench"${activeTab === 'ench' ? '' : ' hidden'}>${loading(t('Rating permanent enchants per slot …'))}</div>
     <div class="tab-panel" data-char-panel="cons" id="c-cons"${activeTab === 'cons' ? '' : ' hidden'}>${loading(t('Rating the consumables for a fight …'))}</div>`;
-  // The heal table, the damage analysis and the consumables take a few engine runs each: the page stands,
+  // The heal table, the damage analysis, the enchants and the consumables take a few engine runs each: the page stands,
   // the sections follow.
   const char = state.char;
   const fill = async (selector, load, html) => {
@@ -222,6 +228,7 @@ export async function renderCharacter() {
   await Promise.all([
     d.heals ? fill('#c-heal', () => cached(`healing:${char}`, () => api.bridge('healing', { char })), healingSection) : null,
     d.deals ? fill('#c-dmg', () => cached(`damage:${char}`, () => api.bridge('damage', { char })), damageSection) : null,
+    fill('#c-ench', () => loadEnchants(char), enchantsSection),
     fill('#c-cons', () => loadConsumables(char), consumablesSection),
   ]);
 }
