@@ -16,7 +16,7 @@ Object.assign(pages, {
   connection: { title: mark('Connection'), render: renderConnection, accountWide: true },
   character: { title: mark('Character'), render: renderCharacter },
   writs: { title: mark('Writs and crates'), render: renderWrits },
-  upgrades: { title: mark('AH upgrades'), render: renderUpgrades },
+  upgrades: { title: mark('Upgrades'), render: renderUpgrades },
   rotations: { title: mark('Rotations'), render: renderRotations },
   recipes: { title: mark('Professions'), render: renderRecipes },
   consumables: { title: mark('Consumables'), render: renderConsumables },

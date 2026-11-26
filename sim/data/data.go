@@ -13,3 +13,6 @@ var Targets []byte
 
 //go:embed threat.json
 var Threat []byte
+
+//go:embed bis_sources.json.gz
+var BiSSources []byte

@@ -368,4 +368,18 @@ func (a *App) captureUpgradeDetails(shot func(string)) {
 		shot("tooltip")
 		a.runJS(`document.querySelector("#wtip").classList.remove("show")`)
 	}
+	// BiS list tab (wait until the bridge call finishes and renders the slot cards).
+	if a.clickTab(`#page-tabs [data-tab="bis"]`) {
+		deadline := time.Now().Add(20 * time.Second)
+		for time.Now().Before(deadline) {
+			if a.evalBool(`!!document.querySelector("#b-body .slot-card, #b-body .error, #b-body .notice")`) {
+				break
+			}
+			wait(150)
+		}
+		wait(300)
+		shot("upgrades-bis")
+		a.captureScrolled(shot, "#b-body .slot-card", "upgrades-bis-slots")
+		a.clickTab(`#page-tabs [data-tab="ah"]`)
+	}
 }

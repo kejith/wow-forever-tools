@@ -14,9 +14,12 @@ type Args struct {
 	Wow            string
 	Char           string
 	Top            int
+	TopSet         bool
 	OwnedAtAHPrice bool
 	MaxPrice       float64
 	Preview        int
+	LevelMode      string // bis: "current" or "60"
+	Sources        string // bis: comma-separated source categories
 	Profile        string
 	Sort           string
 	Engine         string
@@ -43,8 +46,9 @@ var choices = map[string][]string{
 	"engine":  {"auto", "on", "off"},
 	"metric":  {"", "dps", "hps", "ttoom"},
 	"method":  {"", "expectation", "montecarlo"},
-	"lang":    {"auto", "en", "de"},
-	"set":     {"best", "value"},
+	"lang":       {"auto", "en", "de"},
+	"set":        {"best", "value"},
+	"level-mode": {"current", "60"},
 }
 
 // ParseArgs reads the options after the command. An unknown option or value is an error, as argparse
@@ -59,6 +63,8 @@ func ParseArgs(argv []string) (*Args, error) {
 	fs.BoolVar(&a.OwnedAtAHPrice, "owned-at-ah-price", false, "")
 	fs.Float64Var(&a.MaxPrice, "max-price", 0, "")
 	fs.IntVar(&a.Preview, "preview", 4, "")
+	fs.StringVar(&a.LevelMode, "level-mode", "current", "")
+	fs.StringVar(&a.Sources, "sources", "", "")
 	fs.StringVar(&a.Profile, "profile", "", "")
 	fs.StringVar(&a.Sort, "sort", "gain", "")
 	fs.StringVar(&a.Engine, "engine", "auto", "")
@@ -79,11 +85,16 @@ func ParseArgs(argv []string) (*Args, error) {
 	if err := fs.Parse(argv); err != nil {
 		return nil, err
 	}
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "top" {
+			a.TopSet = true
+		}
+	})
 	if fs.NArg() > 0 {
 		return nil, fmt.Errorf("unrecognized arguments: %s", strings.Join(fs.Args(), " "))
 	}
 	values := map[string]string{"profile": a.Profile, "sort": a.Sort, "engine": a.Engine, "metric": a.Metric,
-		"method": a.Method, "lang": a.Lang, "set": a.Set}
+		"method": a.Method, "lang": a.Lang, "set": a.Set, "level-mode": a.LevelMode}
 	for name, v := range values {
 		ok := false
 		for _, c := range choices[name] {

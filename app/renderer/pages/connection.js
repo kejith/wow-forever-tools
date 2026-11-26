@@ -234,7 +234,7 @@ function itemExportCard() {
         <dt>${esc(t('Automatic'))}</dt><dd>${esc(auto)}</dd>
       </dl>`
     : `<div class="big muted">${esc(t('none yet'))}</div>`;
-  return `<div class="card" id="card-export"><h2>${esc(t('Item export'))} ${help(esc(t('Stats and tooltips of the gear in the auction house, read by the WoW Tools Forever addon in the game. The page “AH upgrades” compares these items with your gear.')))}</h2>${body}</div>`;
+  return `<div class="card" id="card-export"><h2>${esc(t('Item export'))} ${help(esc(t('Stats and tooltips of the gear in the auction house, read by the WoW Tools Forever addon in the game. The page “Upgrades” compares these items with your gear.')))}</h2>${body}</div>`;
 }
 
 function requestCard() {

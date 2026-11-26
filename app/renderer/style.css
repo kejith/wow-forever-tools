@@ -346,6 +346,29 @@ th:hover .help, th .help:focus-visible { opacity: 1; }
 .gain { display: flex; align-items: center; gap: 8px; min-width: 120px; }
 .gain .bar { flex: 1; }
 .gain b { color: var(--good); width: 46px; text-align: right; }
+.gain b.neg { color: #d67a63; }
+.gain b.zero { color: var(--muted); }
+
+/* BiS list: source filter bar, ranks and source category badges. */
+.bis-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin-bottom: 10px; }
+.bis-filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.bis-presets { display: flex; flex-wrap: wrap; gap: 5px; }
+.preset-btn { font-size: 11px; padding: 3px 8px; color: var(--muted); }
+.rank-num { width: 32px; color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+.rank-num.rank-1 { color: var(--gold); }
+.bis-row-eq { background: rgba(74, 178, 96, .08); }
+.bis-src-line { display: flex; align-items: baseline; gap: 5px; line-height: 1.35; }
+.bis-src-line + .bis-src-line { margin-top: 2px; }
+.bis-specials { margin-top: 10px; }
+.src-badge { font-size: 10.5px; padding: 1px 5px; }
+.src-badge.src-quest { color: #ffd966; border-color: #6b5620; background: rgba(255, 209, 0, .12); }
+.src-badge.src-dungeon { color: #7ac4ff; border-color: #2c5478; background: rgba(64, 156, 255, .14); }
+.src-badge.src-raid { color: #d796ff; border-color: #5f347d; background: rgba(163, 53, 238, .16); }
+.src-badge.src-crafted { color: #ffb36b; border-color: #6e4520; background: rgba(255, 140, 40, .14); }
+.src-badge.src-vendor { color: #9ee09e; border-color: #2f5c35; background: rgba(74, 178, 96, .12); }
+.src-badge.src-reputation { color: #7ce6d2; border-color: #286358; background: rgba(64, 210, 185, .12); }
+.src-badge.src-pvp { color: #ff8e8e; border-color: #702c2c; background: rgba(220, 60, 60, .14); }
+.src-badge.src-world { color: #cfc6b8; border-color: #4a4136; background: rgba(180, 165, 145, .10); }
 
 .slot-card { display: grid; grid-template-columns: 215px 1fr; gap: 16px; }
 .slot-card .slot-name { font: 16px/1.3 var(--display); color: var(--gold); }

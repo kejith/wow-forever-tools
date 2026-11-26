@@ -172,7 +172,7 @@ export async function renderCharacter() {
         ${statBox(t('Gear'), [[t('Gear value'), value(d.setValue, 1)], [t('Avg. iLvl'), ilvls.length ? value(ilvls.reduce((a, b) => a + b, 0) / ilvls.length, 1) : '–'],
           [t('Lowest durability'), lowest === null ? '–' : `<span class="${lowest < 0.3 ? 'dur-low' : ''}">${percent(Math.round(lowest * 100))}</span>`],
           [t('Scale'), esc(d.profileLabel)]],
-        esc(t('pts = points: what the gear would lack without the item, on the scale “{scale}” of the AH upgrades ({weights}). {total} in total.',
+        esc(t('pts = points: what the gear would lack without the item, on the scale “{scale}” of the Upgrades page ({weights}). {total} in total.',
           { scale: d.profileLabel, weights: d.weights, total: num(d.setValue) })))}
       </div>
       ${(buffsBox || setsBox) ? `<div class="pd-extra">${setsBox}${buffsBox}</div>` : ''}</div>`;

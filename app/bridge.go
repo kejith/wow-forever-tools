@@ -112,6 +112,12 @@ func bridgeArgs(command string, opts map[string]any, wowDir, lang string, captur
 	if v, ok := opts["preview"]; ok {
 		args = append(args, "--preview", jsString(v))
 	}
+	if oneOf(opts["levelMode"], "current", "60") {
+		args = append(args, "--level-mode", opts["levelMode"].(string))
+	}
+	if s, ok := opts["sources"].(string); ok && s != "" {
+		args = append(args, "--sources", s)
+	}
 	if truthy(opts["ownedAtAhPrice"]) {
 		args = append(args, "--owned-at-ah-price")
 	}

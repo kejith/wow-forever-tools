@@ -17,7 +17,12 @@ export const state = {
   cache: new Map(),
   lastLoad: null,
   writs: { top: 3, ownedAtAhPrice: false, tab: 'writs' },
-  upgrades: { maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain', engine: 'auto', fight: 60, target: '', metric: '', kills: '', consumables: false, slot: '' },
+  upgrades: {
+    tab: 'ah',
+    maxPrice: '', preview: 4, top: 3, profile: '', sort: 'gain', engine: 'auto',
+    fight: 60, target: '', metric: '', kills: '', consumables: false, slot: '',
+    bisLevel: 'current', bisTop: 10, bisSources: 'quest,dungeon,raid,crafted', bisSlot: '',
+  },
   recipes: { skillLine: null, minListed: 3, onlyProfit: true, onlyLearnable: false, query: '', tab: 'learned' },
   consumables: { top: 5, onlyAvailable: false, allBuffs: false, fight: 60, target: '', set: 'best', budget: '', tab: 'fight' },
   rotations: { fight: 60, target: '', consumables: false },
