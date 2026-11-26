@@ -188,3 +188,11 @@ Releases are automatic. Raise the version in `app/VERSION` and push to `main`:
 A tag pushed by hand (`git tag v<version> && git push origin v<version>`) starts the same release workflow. The tag must match the version in `app/VERSION`.
 
 The addons are released the same way from their own repositories, and from there also to CurseForge and Wago Addons once the project ids and API tokens are set (see the README of each addon). CurseForge and Wago host addons only, so the desktop app is published here on GitHub.
+
+## Code Signing
+
+Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). See [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md) for details on signed artifacts, build provenance, roles, and privacy.
+
+## License
+
+Licensed under the [GNU General Public License v3.0](LICENSE).
