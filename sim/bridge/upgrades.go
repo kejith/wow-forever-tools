@@ -13,7 +13,7 @@ func upgradesCmd(a *Args) (*pyjson.Obj, error) {
 	o := upgrades.Options{Preview: int64(a.Preview), MaxPrice: a.MaxPrice,
 		Top: a.Top, Profile: a.Profile, Sort: a.Sort, Engine: a.Engine, FightSeconds: a.FightSeconds,
 		TargetDelta: a.TargetDelta, KillsPerMinute: a.KillsPerMinute, Metric: a.Metric, Method: a.Method,
-		Iterations: a.Iterations}
+		Iterations: a.Iterations, Filter: a.ItemFilter()}
 	if a.Consumables {
 		o.FightBuffs = fightBuffs(a)
 	}

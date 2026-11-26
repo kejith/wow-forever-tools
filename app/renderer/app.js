@@ -43,6 +43,7 @@ function applyLanguage(settings) {
 $('#lang-select').addEventListener('change', async (e) => {
   applyLanguage(await api.setSettings({ language: e.target.value }));
   state.cache.clear();
+  state.itemFilters = null;
   content.innerHTML = loading(t('Reloading data …'));
   await loadStatus();
   showPage(state.page);
@@ -85,6 +86,7 @@ $('#char-select').addEventListener('change', (e) => {
 document.addEventListener('change', saveView);
 $('#refresh').addEventListener('click', async () => {
   state.cache.clear();
+  state.itemFilters = null;
   content.innerHTML = loading(t('Reloading data …'));
   await loadStatus();
   showPage(state.page);
@@ -95,6 +97,7 @@ api.onDataChanged(async () => {
   // language may have changed too.
   applyLanguage(await api.getSettings());
   state.cache.clear();
+  state.itemFilters = null;
   state.gph.notice = null;
   await loadStatus();
   showPage(state.page);

@@ -35,11 +35,19 @@ const (
 	defaultLoc = "enUS"
 )
 
+// Options configures ingame payload generation.
+type Options struct {
+	Filter *upgrades.Filter
+}
+
 // The four calculations, as ingame.py calls them; the tests replace them with hand-made results.
 var (
 	computeUpgrades = func(wow, folder string, prices *sv.Table) (any, error) {
+		return computeUpgradesFiltered(wow, folder, prices, nil)
+	}
+	computeUpgradesFiltered = func(wow, folder string, prices *sv.Table, filter *upgrades.Filter) (any, error) {
 		return upgrades.Compute(wow, folder, prices, upgrades.Options{Preview: 4, Top: 3, Sort: "gain",
-			Engine: "auto", FightSeconds: 60, TargetDelta: -1, KillsPerMinute: -1})
+			Engine: "auto", FightSeconds: 60, TargetDelta: -1, KillsPerMinute: -1, Filter: filter})
 	}
 	computeWrits = func(wow, folder string, prices *sv.Table) (any, error) {
 		return writs.Compute(wow, folder, 3, false, prices)
@@ -123,7 +131,7 @@ func (p *Payload) Obj() *pyjson.Obj {
 }
 
 // characterData is (first name, data) for one character export; "" when the export cannot be read.
-func characterData(wow, path string, prices *sv.Table) (name string, data *Char) {
+func characterData(wow, path string, prices *sv.Table, o Options) (name string, data *Char) {
 	defer func() {
 		if recover() != nil { // a half-written file while WoW is saving
 			name, data = "", nil
@@ -152,7 +160,15 @@ func characterData(wow, path string, prices *sv.Table) (name string, data *Char)
 	classFile, _ := get(who, "classFile").(string)
 	if enginebundle.Supported(classFile) {
 		part("upgrades", func() ([]*pyjson.Obj, error) {
-			r, err := computeUpgrades(wow, folder, prices)
+			var (
+				r   any
+				err error
+			)
+			if o.Filter != nil && !o.Filter.Empty() {
+				r, err = computeUpgradesFiltered(wow, folder, prices, o.Filter)
+			} else {
+				r, err = computeUpgrades(wow, folder, prices)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -191,6 +207,11 @@ func characterData(wow, path string, prices *sv.Table) (name string, data *Char)
 // contains char). The texts are in the client's language, whatever the caller's is: they are read in the
 // game.
 func Compute(wow, char string) *Payload {
+	return ComputeWithOptions(wow, char, Options{})
+}
+
+// ComputeWithOptions computes the in-game payload with optional item/category filters applied to upgrades.
+func ComputeWithOptions(wow, char string, o Options) *Payload {
 	locale := i18n.ClientLocale(wow)
 	previous := i18n.Language()
 	i18n.SetLanguage(i18n.LanguageOf(locale), "")
@@ -209,7 +230,7 @@ func Compute(wow, char string) *Payload {
 		}
 	}
 	for _, path := range game.FindChars(wow, char) {
-		name, data := characterData(wow, path, prices)
+		name, data := characterData(wow, path, prices, o)
 		// The newest export wins when two folders hold the same first name.
 		if _, seen := p.Chars[name]; name != "" && !seen {
 			p.Names = append(p.Names, name)
@@ -660,7 +681,12 @@ func Summary(p *Payload) *pyjson.Obj {
 // Sync is ingame.sync: computes the payload and, with write, sends it to the game. The answer is the summary
 // for the app.
 func Sync(wow, char string, write bool) (*pyjson.Obj, error) {
-	p := Compute(wow, char)
+	return SyncWithOptions(wow, char, write, Options{})
+}
+
+// SyncWithOptions computes the payload with optional filters and, with write, sends it to the game.
+func SyncWithOptions(wow, char string, write bool, o Options) (*pyjson.Obj, error) {
+	p := ComputeWithOptions(wow, char, o)
 	out := Summary(p)
 	out.Set("addon", AddonState(wow))
 	var result any

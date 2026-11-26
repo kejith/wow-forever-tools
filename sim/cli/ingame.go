@@ -23,11 +23,19 @@ func init() {
 			f := NewFlags("ingame")
 			char := f.String("char", "", "only characters whose folder name contains this")
 			write := f.Bool("write", false, "write "+ingame.DataFile+" into the installed addon")
+			var excludeItems int64ListFlag
+			var excludeCats stringListFlag
+			f.Var(&excludeItems, "exclude-item", "item ID to exclude from upgrades (repeatable)")
+			f.Var(&excludeCats, "exclude-category", "item category to exclude from upgrades, e.g. pvp (repeatable)")
 			asJSON := f.Bool("json", false, "print the payload as JSON")
 			if err := f.Parse(args); err != nil {
 				return err
 			}
-			p := ingame.Compute(f.Wow, *char)
+			filter, err := buildItemFilter("ingame", excludeItems, excludeCats)
+			if err != nil {
+				return err
+			}
+			p := ingame.ComputeWithOptions(f.Wow, *char, ingame.Options{Filter: filter})
 			var result *pyjson.Obj
 			if *write {
 				var err error

@@ -53,6 +53,10 @@ type Options struct {
 	FightBuffs FightBuffsFunc
 	// SetCatalog optionally supplies a preloaded item set catalog (for tests); when nil, LoadSetCatalog is used.
 	SetCatalog *itemsets.Catalog
+	// Filter optionally excludes specific item IDs and/or item categories (e.g. "pvp") before ranking and optimization.
+	Filter *Filter
+	// PvPClassifier optionally supplies a preloaded PvP classifier (for tests); loaded lazily when Filter excludes "pvp".
+	PvPClassifier *PvPClassifier
 }
 
 // FightBuffsFunc is consumables.fight_buffs for one character: the best set of consumables for a metric ("" =
@@ -462,8 +466,18 @@ func Compute(wow, char string, prices *sv.Table, o Options) (*pyjson.Obj, error)
 
 	usableWep := usableWeaponsFor(classFile)
 	usableArm := usableArmorFor(classFile, level)
+	var pvpCls *PvPClassifier
+	if o.Filter != nil && o.Filter.ExcludesCategory(CategoryPvP) {
+		pvpCls = o.PvPClassifier
+		if pvpCls == nil {
+			pvpCls = LoadPvPClassifier(wow, c.Tab("client").Str("build"), c.Tab("client").Str("locale"))
+		}
+	}
 	var pool []*cand
 	consider := func(iid int64, it *sv.Table, price int64, source, owner string) bool {
+		if o.Filter != nil && o.Filter.Excludes(iid, it, pvpCls) {
+			return false
+		}
 		slots := SlotOf[it.Str("equipLoc")]
 		req, _ := it.Num("reqLevel")
 		if len(slots) == 0 || req > level+float64(o.Preview) {

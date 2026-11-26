@@ -59,6 +59,10 @@ type BiSOptions struct {
 	SetCatalog     *itemsets.Catalog
 	// Catalog optionally supplies a preloaded BiSCatalog (for tests).
 	Catalog *BiSCatalog
+	// Filter optionally excludes specific item IDs and/or item categories (e.g. "pvp") before ranking and optimization.
+	Filter *Filter
+	// PvPClassifier optionally supplies a preloaded PvP classifier (for tests).
+	PvPClassifier *PvPClassifier
 }
 
 // ParseSources splits a comma-separated source filter list into valid category keys.
@@ -400,6 +404,13 @@ func ComputeBiS(wow, char string, prices *sv.Table, o BiSOptions) (*pyjson.Obj, 
 
 	usableWep := usableWeaponsFor(classFile)
 	usableArm := usableArmorFor(classFile, profLevel)
+	var pvpCls *PvPClassifier
+	if o.Filter != nil && o.Filter.ExcludesCategory(CategoryPvP) {
+		pvpCls = o.PvPClassifier
+		if pvpCls == nil {
+			pvpCls = LoadPvPClassifier(wow, c.Tab("client").Str("build"), c.Tab("client").Str("locale"))
+		}
+	}
 
 	// Sort item IDs for deterministic ordering.
 	allIDs := make([]int64, 0, len(cat.Items))
@@ -418,6 +429,14 @@ func ComputeBiS(wow, char string, prices *sv.Table, o BiSOptions) (*pyjson.Obj, 
 		it := cat.Items[id]
 		if it == nil || it.Quality < 2 {
 			continue
+		}
+		if o.Filter != nil {
+			if o.Filter.IsExcludedID(id) {
+				continue
+			}
+			if o.Filter.ExcludesCategory(CategoryPvP) && IsPvPBiSItem(it, exportedItems[id], pvpCls) {
+				continue
+			}
 		}
 		if it.ReqLvl > int64(targetLevel) {
 			continue

@@ -7,5 +7,7 @@ import (
 
 // ingame is app_bridge's ingame: what the addon shows in the game, and with --write the file it loads.
 func init() {
-	register("ingame", func(a *Args) (*pyjson.Obj, error) { return ingame.Sync(a.Wow, a.Char, a.Write) })
+	register("ingame", func(a *Args) (*pyjson.Obj, error) {
+		return ingame.SyncWithOptions(a.Wow, a.Char, a.Write, ingame.Options{Filter: a.ItemFilter()})
+	})
 }

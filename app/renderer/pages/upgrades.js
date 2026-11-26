@@ -38,6 +38,35 @@ const pctOf = (c) => (c.gainPct === null || c.gainPct === undefined ? esc(t('new
 const priceCell = (c) => (c.price ? money(c.price) : `<span class="badge ok">${esc(c.where || t('owned'))}</span>`);
 const perGoldCell = (c) => (c.price ? num(c.perGold, 1) : '–');
 
+const emptyFilters = () => ({ excludedItemIds: [], excludedItems: [], excludedCategories: [] });
+const filterKeyOf = (f) => `${(f?.excludedCategories || []).join(',')}|${(f?.excludedItemIds || []).join(',')}`;
+const excludeBtn = (c) => `<button type="button" class="exclude-btn" data-exclude-item="${c.id}" aria-label="${esc(t('Exclude item'))}"${hintAttr(t('Exclude “{name}” from upgrade suggestions', { name: c.name }))}>×</button>`;
+
+function renderExcludedPanel(filters) {
+  const items = filters?.excludedItems || [];
+  if (!items.length) return '';
+  return `<details class="card section excluded-panel"${state.excludedPanelOpen ? ' open' : ''}>
+    <summary class="excluded-summary">
+      <span class="excluded-title">${esc(t('Excluded ({n})', { n: items.length }))}</span>
+      <button type="button" class="ghost excluded-reset" data-reset-excluded>${esc(t('Include all'))}</button>
+    </summary>
+    <div class="excluded-list">
+      ${items.map((it) => `<div class="excluded-row">
+        <span class="item">${itemIcon(it.id, it.quality, 'sm')}<span class="${quality(it.quality)}">${esc(it.name)}</span></span>
+        <span class="small muted">#${esc(it.id)}</span>
+        <span class="spacer"></span>
+        <button type="button" class="ghost excluded-include" data-include-item="${it.id}">${esc(t('Include'))}</button>
+      </div>`).join('')}
+    </div>
+  </details>`;
+}
+
+function bindExcludedToggle(root) {
+  root?.querySelector('.excluded-panel')?.addEventListener('toggle', (e) => {
+    state.excludedPanelOpen = e.currentTarget.open;
+  });
+}
+
 function setBadges(c) {
   return (c.setChanges || []).map((sc) => {
     const label = sc.kind === 'gain' ? t('+{set} ({n})', { set: sc.set, n: sc.threshold }) : t('−{set} ({n})', { set: sc.set, n: sc.threshold });
@@ -124,6 +153,13 @@ function populateDynamicEngineControls(eng, o, prefix, rerenderFn) {
 
 export async function renderUpgrades() {
   if (!state.status) await loadStatus();
+  if (!state.itemFilters) {
+    try {
+      state.itemFilters = (await api.getItemFilters()) || emptyFilters();
+    } catch {
+      state.itemFilters = emptyFilters();
+    }
+  }
   const o = state.upgrades;
   const activeTab = o.tab === 'bis' ? 'bis' : 'ah';
   setTabs([
@@ -142,6 +178,8 @@ export async function renderUpgrades() {
 }
 
 async function renderAHTab(o) {
+  const filters = state.itemFilters || emptyFilters();
+  const pvpExcluded = (filters.excludedCategories || []).includes('pvp');
   const fightControls = buildFightControls(o, 'u');
   content.innerHTML = `<div class="controls">
       <label>${esc(t('Budget (gold)'))}<input type="number" id="u-max" class="wide" min="0" step="0.5" value="${esc(o.maxPrice)}" placeholder="${esc(t('your own gold'))}"></label>
@@ -151,6 +189,7 @@ async function renderAHTab(o) {
       <label><span class="label">${esc(t('Preview (levels)'))} ${help(esc(t('Also lists items you can only equip within this many levels. They are marked “from level …” and never part of the shopping list.')))}</span>
         <input type="number" id="u-pre" min="0" max="10" value="${o.preview}"></label>
       <label>${esc(t('Suggestions per slot'))}<input type="number" id="u-top" min="1" max="10" value="${o.top}"></label>
+      <label class="check"><input type="checkbox" id="u-no-pvp" ${pvpExcluded ? 'checked' : ''}> <span class="label">${esc(t('Exclude PvP / Honor'))} ${help(esc(t('Hides PvP rank, honor, and battleground reputation items from upgrade suggestions and in-game lists.')))}</span></label>
     </div><div id="u-body">${loading(t('Comparing AH items with your gear …'))}</div>`;
   const bind = (id, field, parse) => { const el = $(id); if (el) el.addEventListener('change', (e) => { o[field] = parse(e.target.value); renderUpgrades(); }); };
   bind('#u-max', 'maxPrice', (v) => v);
@@ -162,8 +201,13 @@ async function renderAHTab(o) {
   bind('#u-pre', 'preview', (v) => Number(v) || 0);
   bind('#u-top', 'top', (v) => Number(v) || 3);
   $('#u-cons')?.addEventListener('change', (e) => { o.consumables = e.target.checked; renderUpgrades(); });
+  $('#u-no-pvp')?.addEventListener('change', async (e) => {
+    state.itemFilters = (await api.setCategoryExcluded('pvp', e.target.checked)) || emptyFilters();
+    renderUpgrades();
+  });
   const withConsumables = o.consumables && o.engine !== 'off';
-  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}:${o.kills}:${withConsumables}`;
+  const fKey = filterKeyOf(filters);
+  const key = `upgrades:${state.char}:${o.maxPrice}:${o.preview}:${o.top}:${o.profile}:${o.sort}:${o.engine}:${o.fight}:${o.target}:${o.metric}:${o.kills}:${withConsumables}:${fKey}`;
   const d = await cached(key, () => api.bridge('upgrades', {
     char: state.char, maxPrice: o.maxPrice ? Number(o.maxPrice) : 0, preview: o.preview, top: o.top,
     profile: o.profile, sort: o.sort, engine: o.engine === 'mc' ? 'auto' : o.engine,
@@ -204,7 +248,8 @@ async function renderAHTab(o) {
         <td class="num muted">${pctOf(c)}</td>
         <td class="num">${priceCell(c)}</td>
         <td class="num muted">${perGoldCell(c)}</td>
-        <td>${itemCell(c, cur?.tip)}</td></tr>`).join('');
+        <td>${itemCell(c, cur?.tip)}</td>
+        <td class="act-col">${excludeBtn(c)}</td></tr>`).join('');
     return `<div class="card section slot-card">
       <div><div class="slot-name">${esc(s.slotName)}</div>
         <div class="slot-current">
@@ -213,7 +258,7 @@ async function renderAHTab(o) {
           <div class="small muted" style="margin-top:2px">${esc(cur?.stats || '')}</div>
           ${cur?.enchant ? `<div class="small good" style="margin-top:2px">${esc(cur.enchant.name)}</div>` : ''}
         </div></div>
-      <table><thead><tr>${th([t('Gain')], [t('vs. item'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')])}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      <table><thead><tr>${th([t('Gain')], [t('vs. item'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')], ['', 'act-col'])}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
   const pk = d.package;
   const packageHtml = pk.items.length ? `<div class="section"><h2 class="heading">${t('Shopping list: best package for {money}', { money: money(d.budget) })}
@@ -225,18 +270,20 @@ async function renderAHTab(o) {
         <div><h2>${esc(t('Purchases'))}</h2><div class="big">${pk.items.filter((c) => c.price).length}</div></div>
         ${pk.items.some((c) => !c.price) ? `<div><h2>${esc(t('Already yours'))}</h2><div class="big">${pk.items.filter((c) => !c.price).length}</div></div>` : ''}<span class="spacer"></span></div>
       <table><thead><tr>${th([t('Slot')], [t('Gain'), 'num'], [t('Price'), 'num'], [perGoldLabel, 'num'], [t('Item')], [t('replaces')],
-        [t('up to here'), 'num', esc(t('Cost and gain in total if you buy from the top down to this row.'))])}</tr></thead><tbody>
+        [t('up to here'), 'num', esc(t('Cost and gain in total if you buy from the top down to this row.'))], ['', 'act-col'])}</tr></thead><tbody>
       ${pk.items.map((c) => `<tr><td class="muted">${esc(c.slotName)}</td>
         <td class="num"><b class="${c.gain < 0 ? 'warn-text' : 'good'}">${signed(c.gain)}</b>${c.gain < 0 ? `<div class="small muted"${hintAttr(t('Only pays together with its paired main hand or ring further down in the list (replaces a two-hander on its own).'))}>${esc(t('paired swap'))}</div>` : ''}</td>
         <td class="num">${priceCell(c)}</td><td class="num muted">${perGoldCell(c)}</td>
         <td>${itemCell(c, c.compareTip)}</td><td class="small muted">${esc(c.replaces.join(' + ') || '–')}</td>
-        <td class="num small">${money(c.cumCost)}<div class="muted">${signed(c.cumGain)}</div></td></tr>`).join('')}</tbody></table>
+        <td class="num small">${money(c.cumCost)}<div class="muted">${signed(c.cumGain)}</div></td>
+        <td class="act-col">${excludeBtn(c)}</td></tr>`).join('')}</tbody></table>
       </div></div>` : '';
   const review = d.review.length ? `<div class="section"><h2>${esc(t('With a special effect – judge for yourself'))}</h2><div class="card"><table>
-      <thead><tr>${th([t('Slot')], [t('Price'), 'num'], [t('Item')], [t('Effect')])}</tr></thead><tbody>
+      <thead><tr>${th([t('Slot')], [t('Price'), 'num'], [t('Item')], [t('Effect')], ['', 'act-col'])}</tr></thead><tbody>
       ${d.review.map((r) => `<tr><td class="muted">${esc(r.slot)}</td><td class="num">${priceCell(r)}</td>
         <td><span class="item">${itemIcon(r.id, r.quality)}<span class="${quality(r.quality)}"${tipAttr(r.tip)}>${esc(r.name)}</span></span> ${r.isNew ? `<span class="badge new">${esc(t('NEW'))}</span>` : ''}</td>
-        <td class="small">${esc(r.effects.join(' / '))}</td></tr>`).join('')}</tbody></table></div></div>` : '';
+        <td class="small">${esc(r.effects.join(' / '))}</td>
+        <td class="act-col">${excludeBtn(r)}</td></tr>`).join('')}</tbody></table></div></div>` : '';
   const unknown = d.owned?.unknown || [];
   const unknownNote = unknown.length ? `<div class="notice" style="margin-top:10px"${hintAttr(unknown.map((u) => `${u.name} (${u.where})`).join(', '))}>${esc(t('{n} items you own are only known by name and cannot be rated: open the bank once with WoW Tools Forever 1.12 or newer, then /reload.', { n: unknown.length }))}</div>` : '';
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
@@ -251,8 +298,10 @@ async function renderAHTab(o) {
         <div class="big">${num(d.exportCount)}</div><div class="small muted">${esc(ago(d.exportUpdated))}</div></div>
       <span class="spacer"></span></div>
       ${unknownNote}${renderModelDetails(d, eng)}</div>
+    ${renderExcludedPanel(filters)}
     ${packageHtml}
     ${slots ? `<h2 class="section heading">${esc(t('All slots'))} ${help(slotTerms(eng, unit))}</h2>${slotPills}${slots}` : `<div class="notice section">${esc(t('No upgrades within this budget.'))}</div>`}${review}`;
+  bindExcludedToggle(body);
 }
 
 async function renderBiSTab(o) {
@@ -282,8 +331,10 @@ async function renderBiSTab(o) {
   bind('#b-top', 'bisTop', (v) => Math.min(25, Math.max(1, Number(v) || 10)));
   $('#b-cons')?.addEventListener('change', (e) => { o.consumables = e.target.checked; saveView(); renderUpgrades(); });
 
+  const filters = state.itemFilters || emptyFilters();
   const withConsumables = o.consumables && o.engine !== 'off';
-  const key = `bis:${state.char}:${lvlMode}:${o.preview}:${topN}:${sourcesStr}:${o.profile}:${o.engine}:${o.fight}:${o.target}:${o.metric}:${o.kills}:${withConsumables}`;
+  const fKey = filterKeyOf(filters);
+  const key = `bis:${state.char}:${lvlMode}:${o.preview}:${topN}:${sourcesStr}:${o.profile}:${o.engine}:${o.fight}:${o.target}:${o.metric}:${o.kills}:${withConsumables}:${fKey}`;
   const d = await cached(key, () => api.bridge('bis', {
     char: state.char,
     levelMode: lvlMode,
@@ -389,13 +440,15 @@ async function renderBiSTab(o) {
         <td>${gainCell(c)}</td>
         <td class="num muted">${pctOf(c)}</td>
         <td>${bisItemCell(c, cur?.tip)}</td>
-        <td>${sourceCell(c)}</td></tr>`).join('');
+        <td>${sourceCell(c)}</td>
+        <td class="act-col">${c.equipped ? '' : excludeBtn(c)}</td></tr>`).join('');
     const specialsHtml = s.specials?.length ? `<details class="scale bis-specials"><summary>${esc(t('Special effects / procs not in Top {n} ({count})', { n: d.top, count: s.specials.length }))}</summary>
-        <table><thead><tr>${th([t('Gain')], [t('Item')], [t('Source')])}</tr></thead><tbody>
+        <table><thead><tr>${th([t('Gain')], [t('Item')], [t('Source')], ['', 'act-col'])}</tr></thead><tbody>
         ${s.specials.map((sp) => `<tr>
           <td class="num muted">${signed(sp.gain)}</td>
           <td>${bisItemCell(sp, cur?.tip)}</td>
-          <td>${sourceCell(sp)}</td></tr>`).join('')}</tbody></table></details>` : '';
+          <td>${sourceCell(sp)}</td>
+          <td class="act-col">${sp.equipped ? '' : excludeBtn(sp)}</td></tr>`).join('')}</tbody></table></details>` : '';
     return `<div class="card section slot-card">
       <div><div class="slot-name">${esc(s.slotName)}</div>
         ${cur ? renderEquippedBox(cur, cur2 ? t('Equipped (1)') : t('Equipped')) : `<div class="slot-current"><div class="small muted">${esc(t('Equipped'))}</div><div class="small muted" style="margin-top:3px">–</div></div>`}
@@ -403,7 +456,7 @@ async function renderBiSTab(o) {
         <div class="small muted" style="margin-top:6px">${esc(t('{shown} of {total} items', { shown: s.candidates.length, total: s.totalCandidates }))}</div>
       </div>
       <div>
-        <table><thead><tr>${th([t('#'), 'num'], [t('Gain')], [t('vs. item'), 'num'], [t('Item')], [t('Source')])}</tr></thead><tbody>${rows}</tbody></table>
+        <table><thead><tr>${th([t('#'), 'num'], [t('Gain')], [t('vs. item'), 'num'], [t('Item')], [t('Source')], ['', 'act-col'])}</tr></thead><tbody>${rows}</tbody></table>
         ${specialsHtml}
       </div></div>`;
   }).join('');
@@ -425,13 +478,14 @@ async function renderBiSTab(o) {
         <div><h2>${esc(t('Upgrades'))}</h2><div class="big">${pk.items.length}</div></div>
         ${pk.ownedCount ? `<div><h2>${esc(t('Already yours'))}</h2><div class="big">${pk.ownedCount}</div></div>` : ''}<span class="spacer"></span></div>
       <table><thead><tr>${th([t('Slot')], [t('Gain'), 'num'], [t('Item')], [t('Source')], [t('replaces')],
-        [t('up to here'), 'num', esc(t('Total gain and resulting value if you equip from the top down to this row.'))])}</tr></thead><tbody>
+        [t('up to here'), 'num', esc(t('Total gain and resulting value if you equip from the top down to this row.'))], ['', 'act-col'])}</tr></thead><tbody>
       ${pk.items.map((c) => `<tr><td class="muted">${esc(c.slotName)}</td>
         <td class="num"><b class="${c.gain < 0 ? 'warn-text' : 'good'}">${signed(c.gain)}</b>${c.gain < 0 ? `<div class="small muted"${hintAttr(t('Only pays together with its paired main hand or ring further down in the list (replaces a two-hander on its own).'))}>${esc(t('paired swap'))}</div>` : ''}</td>
         <td>${bisItemCell(c, c.compareTip)}</td>
         <td>${sourceCell(c)}</td>
         <td class="small muted">${esc((c.replaces || []).join(' + ') || '–')}</td>
-        <td class="num small"><span class="good">${signed(c.cumGain)}</span><div class="muted">${num(c.cumValue, 1)}${unit ? ` ${esc(unit)}` : ''}</div></td></tr>`).join('')}</tbody></table>
+        <td class="num small"><span class="good">${signed(c.cumGain)}</span><div class="muted">${num(c.cumValue, 1)}${unit ? ` ${esc(unit)}` : ''}</div></td>
+        <td class="act-col">${excludeBtn(c)}</td></tr>`).join('')}</tbody></table>
       </div></div>` : (d.slots.length ? `<div class="notice section">${esc(t('Your equipped gear is already optimal for the selected source filters and level range.'))}</div>` : '');
 
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
@@ -448,14 +502,42 @@ async function renderBiSTab(o) {
       <span class="spacer"></span></div>
       ${renderModelDetails(d, eng)}</div>
     <div class="section">${sourcePills}</div>
+    ${renderExcludedPanel(filters)}
     ${bisPackageHtml}
     <h2 class="section heading">${esc(t('BiS list per slot'))} ${help(bisTerms(eng, unit))}</h2>
     ${slotPills}
     ${slotsHtml || `<div class="notice section">${esc(t('No items match the selected source filters and level range.'))}</div>`}`;
+  bindExcludedToggle(body);
 }
 
 content.addEventListener('click', (e) => {
   if (state.page !== 'upgrades') return;
+  const exclBtn = e.target.closest('[data-exclude-item]');
+  if (exclBtn) {
+    e.preventDefault();
+    const id = Number(exclBtn.dataset.excludeItem);
+    if (id > 0) {
+      api.excludeItem(id).then((f) => { state.itemFilters = f || emptyFilters(); renderUpgrades(); });
+    }
+    return;
+  }
+  const inclBtn = e.target.closest('[data-include-item]');
+  if (inclBtn) {
+    e.preventDefault();
+    const id = Number(inclBtn.dataset.includeItem);
+    if (id > 0) {
+      api.includeItem(id).then((f) => { state.itemFilters = f || emptyFilters(); renderUpgrades(); });
+    }
+    return;
+  }
+  const resetBtn = e.target.closest('[data-reset-excluded]');
+  if (resetBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    state.excludedPanelOpen = false;
+    api.resetExcludedItems().then((f) => { state.itemFilters = f || emptyFilters(); renderUpgrades(); });
+    return;
+  }
   const uSlot = e.target.closest('[data-u-slot]');
   if (uSlot) {
     state.upgrades.slot = uSlot.dataset.uSlot;

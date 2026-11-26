@@ -14,6 +14,8 @@ export const state = {
   ingame: null, // last sync of the lists the addon shows in the game (api.gameData())
   update: null, // the app's own update as the main process knows it (api.updateState(), api.onUpdate)
   marketSync: null, // community AH price sync state (api.marketSyncState(), api.onMarketSync)
+  itemFilters: null, // persisted item/category exclusions (api.getItemFilters())
+  excludedPanelOpen: false,
   cache: new Map(),
   lastLoad: null,
   writs: { top: 3, ownedAtAhPrice: false, tab: 'writs' },

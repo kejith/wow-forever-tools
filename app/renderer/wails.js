@@ -34,6 +34,11 @@
     openPath: (p) => call('OpenPath', String(p ?? '')),
     getSettings: () => call('GetSettings'),
     setSettings: (patch) => call('SetSettings', patch ?? {}),
+    getItemFilters: () => call('GetItemFilters'),
+    excludeItem: (itemId) => call('ExcludeItem', Number(itemId) || 0),
+    includeItem: (itemId) => call('IncludeItem', Number(itemId) || 0),
+    resetExcludedItems: () => call('ResetExcludedItems'),
+    setCategoryExcluded: (category, excluded) => call('SetCategoryExcluded', String(category ?? ''), Boolean(excluded)),
     onDataChanged: on('data-changed'),
   };
 })();

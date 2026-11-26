@@ -39,6 +39,57 @@ func pdChoice(cmd, name, value string, allowed ...string) error {
 	return ErrUsage
 }
 
+type int64ListFlag []int64
+
+func (f *int64ListFlag) String() string {
+	parts := make([]string, len(*f))
+	for i, v := range *f {
+		parts[i] = strconv.FormatInt(v, 10)
+	}
+	return strings.Join(parts, ",")
+}
+
+func (f *int64ListFlag) Set(s string) error {
+	for _, part := range strings.Split(s, ",") {
+		p := strings.TrimSpace(part)
+		if p == "" {
+			continue
+		}
+		v, err := strconv.ParseInt(p, 10, 64)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("invalid item ID %q", p)
+		}
+		*f = append(*f, v)
+	}
+	return nil
+}
+
+type stringListFlag []string
+
+func (f *stringListFlag) String() string { return strings.Join(*f, ",") }
+
+func (f *stringListFlag) Set(s string) error {
+	for _, part := range strings.Split(s, ",") {
+		p := strings.ToLower(strings.TrimSpace(part))
+		if p != "" {
+			*f = append(*f, p)
+		}
+	}
+	return nil
+}
+
+func buildItemFilter(cmd string, ids []int64, cats []string) (*upgrades.Filter, error) {
+	for _, c := range cats {
+		if err := pdChoice(cmd, "exclude-category", c, upgrades.KnownCategories...); err != nil {
+			return nil, err
+		}
+	}
+	if len(ids) == 0 && len(cats) == 0 {
+		return nil, nil
+	}
+	return upgrades.NewFilter(ids, cats), nil
+}
+
 func runUpgrades(args []string, out io.Writer) error {
 	f := NewFlags("upgrades")
 	char := f.String("char", "", "part of the character name")
@@ -56,8 +107,16 @@ func runUpgrades(args []string, out io.Writer) error {
 	method := f.String("method", "", "expectation, or montecarlo: plays the rotation with real rolls")
 	iterations := f.Int("iterations", 0, "montecarlo: simulated fights (default 10000)")
 	withConsumables := f.Bool("consumables", false, "combat model: rate every swap with the best set of consumables")
+	var excludeItems int64ListFlag
+	var excludeCats stringListFlag
+	f.Var(&excludeItems, "exclude-item", "item ID to exclude (repeatable)")
+	f.Var(&excludeCats, "exclude-category", "item category to exclude, e.g. pvp (repeatable)")
 	asJSON := f.Bool("json", false, "print the result as JSON (for the app)")
 	if err := f.Parse(args); err != nil {
+		return err
+	}
+	filter, err := buildItemFilter("upgrades", excludeItems, excludeCats)
+	if err != nil {
 		return err
 	}
 	set := map[string]bool{}
@@ -83,7 +142,7 @@ func runUpgrades(args []string, out io.Writer) error {
 	}
 	o := upgrades.Options{Level: int64(*level), Preview: int64(*preview), MaxPrice: *maxPrice, Top: *top,
 		Profile: *profile, Sort: *sortBy, Engine: *engineOpt, FightSeconds: *fight, TargetDelta: *target,
-		KillsPerMinute: *kills, Metric: *metric, Method: *method, Iterations: *iterations}
+		KillsPerMinute: *kills, Metric: *metric, Method: *method, Iterations: *iterations, Filter: filter}
 	if *withConsumables {
 		wow, name := f.Wow, *char
 		o.FightBuffs = func(metric string, seconds float64, targetDelta int) (*upgrades.Consumed, error) {

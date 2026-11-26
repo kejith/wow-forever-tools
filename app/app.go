@@ -44,10 +44,11 @@ type App struct {
 	updater  *updater
 	syncer   *marketSyncer
 	quitting atomic.Bool
-	game     gameSync
-	icons    iconCache
-	watch    watcher
-	replies  replies
+	game         gameSync
+	icons        iconCache
+	watch        watcher
+	replies      replies
+	onFilterSync func(write bool) // test hook; nil uses syncGameData
 }
 
 // argValue is the value of --name=value on the command line, "" without one.
@@ -421,11 +422,19 @@ func (a *App) SetSettings(patch map[string]any) map[string]any {
 		delete(patch, k)
 	}
 	before := a.wowDir() + "|" + boolString(a.sendsToGame())
+	beforeFilters := a.filterSignature()
 	beforeSync := boolString(a.marketSyncEnabled()) + "|" + boolString(a.marketSyncInGame()) + "|" + strconv.Itoa(a.marketSyncInGameDays())
 	autoUpdate := a.autoUpdate()
 	a.mu.Lock()
 	for k, v := range patch {
-		a.settings[k] = v
+		switch k {
+		case "excludedItemIds":
+			a.settings[k] = parseIntList(v)
+		case "excludedCategories":
+			a.settings[k] = parseCategoryList(v)
+		default:
+			a.settings[k] = v
+		}
 	}
 	if w, _ := a.settings["wowDir"].(string); w == "" {
 		a.settings["wowDir"] = defaultWow()
@@ -436,6 +445,8 @@ func (a *App) SetSettings(patch map[string]any) map[string]any {
 	a.startWatcher()
 	if before != a.wowDir()+"|"+boolString(a.sendsToGame()) {
 		a.syncGameData(a.sendsToGame())
+	} else if beforeFilters != a.filterSignature() {
+		a.notifyFiltersChanged()
 	}
 	if beforeSync != boolString(a.marketSyncEnabled())+"|"+boolString(a.marketSyncInGame())+"|"+strconv.Itoa(a.marketSyncInGameDays()) {
 		if a.syncer != nil {

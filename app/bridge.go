@@ -118,6 +118,12 @@ func bridgeArgs(command string, opts map[string]any, wowDir, lang string, captur
 	if s, ok := opts["sources"].(string); ok && s != "" {
 		args = append(args, "--sources", s)
 	}
+	for _, id := range parseIntList(opts["excludeItems"]) {
+		args = append(args, "--exclude-item", strconv.Itoa(id))
+	}
+	for _, cat := range parseCategoryList(opts["excludeCategories"]) {
+		args = append(args, "--exclude-category", cat)
+	}
 	if truthy(opts["ownedAtAhPrice"]) {
 		args = append(args, "--owned-at-ah-price")
 	}
@@ -182,6 +188,23 @@ func (a *App) runBridge(command string, opts map[string]any) any {
 	exe, err := os.Executable()
 	if err != nil {
 		return errorAnswer(t("The bridge could not be started ({reason})", "reason", err.Error()))
+	}
+	if !a.capture && (command == "upgrades" || command == "bis" || command == "ingame") {
+		merged := map[string]any{}
+		for k, v := range opts {
+			merged[k] = v
+		}
+		if _, ok := merged["excludeItems"]; !ok {
+			if ids := a.excludedItemIDs(); len(ids) > 0 {
+				merged["excludeItems"] = ids
+			}
+		}
+		if _, ok := merged["excludeCategories"]; !ok {
+			if cats := a.excludedCategories(); len(cats) > 0 {
+				merged["excludeCategories"] = cats
+			}
+		}
+		opts = merged
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), bridgeTimeout)
 	defer cancel()

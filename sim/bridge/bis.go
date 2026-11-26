@@ -27,6 +27,7 @@ func bisCmd(a *Args) (*pyjson.Obj, error) {
 		Metric:         a.Metric,
 		Method:         a.Method,
 		Iterations:     a.Iterations,
+		Filter:         a.ItemFilter(),
 	}
 	if a.Consumables {
 		o.FightBuffs = fightBuffs(a)
