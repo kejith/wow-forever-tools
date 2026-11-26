@@ -413,6 +413,27 @@ async function renderBiSTab(o) {
     : (d.targetLevel > d.level ? t('Level {lvl} (up to {max})', { lvl: d.level, max: d.targetLevel }) : t('Level {lvl}', { lvl: d.level }));
   const dataSrcText = (d.dataSources || []).join(' · ');
 
+  const pk = d.package;
+  const bisPackageHtml = pk?.items?.length ? `<div class="section"><h2 class="heading">${esc(t('Optimal BiS set for your gear'))}
+      ${help(esc(t('Best combination across all slots within the active source filters and level range (rings and trinkets as pairs, main hand + off hand against two-hand, set bonuses and hit cap scored together). Already completed quests are excluded unless you own the item. Sorted by biggest gain, gear you already own comes first.')))}</h2><div class="card">
+      <div class="row" style="gap:36px;align-items:flex-start;margin-bottom:10px">
+        <div><h2>${esc(t('Gain'))}</h2><div class="big good">${signed(pk.gain)}${pk.gainPct === null || pk.gainPct === undefined ? ''
+          : ` <span class="small muted">(${esc(eng ? t('+{pct} {unit}', { pct: percent(pk.gainPct), unit }) : t('+{pct} gear value', { pct: percent(pk.gainPct) }))})</span>`}</div></div>
+        <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana with BiS (s)') : t('{unit} with BiS', { unit })) : t('BiS gear value'))}</h2>
+          <div class="big">${num(pk.targetValue, 1)}</div>
+          <div class="small muted">${esc(t('from {now}', { now: num(d.setValue, 1) }))}</div></div>
+        <div><h2>${esc(t('Upgrades'))}</h2><div class="big">${pk.items.length}</div></div>
+        ${pk.ownedCount ? `<div><h2>${esc(t('Already yours'))}</h2><div class="big">${pk.ownedCount}</div></div>` : ''}<span class="spacer"></span></div>
+      <table><thead><tr>${th([t('Slot')], [t('Gain'), 'num'], [t('Item')], [t('Source')], [t('replaces')],
+        [t('up to here'), 'num', esc(t('Total gain and resulting value if you equip from the top down to this row.'))])}</tr></thead><tbody>
+      ${pk.items.map((c) => `<tr><td class="muted">${esc(c.slotName)}</td>
+        <td class="num"><b class="${c.gain < 0 ? 'warn-text' : 'good'}">${signed(c.gain)}</b>${c.gain < 0 ? `<div class="small muted"${hintAttr(t('Only pays together with its paired main hand or ring further down in the list (replaces a two-hander on its own).'))}>${esc(t('paired swap'))}</div>` : ''}</td>
+        <td>${bisItemCell(c, c.compareTip)}</td>
+        <td>${sourceCell(c)}</td>
+        <td class="small muted">${esc((c.replaces || []).join(' + ') || '–')}</td>
+        <td class="num small"><span class="good">${signed(c.cumGain)}</span><div class="muted">${num(c.cumValue, 1)}${unit ? ` ${esc(unit)}` : ''}</div></td></tr>`).join('')}</tbody></table>
+      </div></div>` : (d.slots.length ? `<div class="notice section">${esc(t('Your equipped gear is already optimal for the selected source filters and level range.'))}</div>` : '');
+
   body.innerHTML = `<div class="card"><div class="row" style="gap:36px;align-items:flex-start">
       <div><h2>${esc(eng ? (eng.metric === 'ttoom' ? t('Mana lasts (s)') : t('{unit} now', { unit })) : t('Gear value'))} ${help(esc(eng
     ? t('The metric of the simulated fight with the gear you wear now. Every gain below is the change of this number.')
@@ -426,8 +447,9 @@ async function renderBiSTab(o) {
         <div class="small muted">${esc(dataSrcText)}</div></div>
       <span class="spacer"></span></div>
       ${renderModelDetails(d, eng)}</div>
+    <div class="section">${sourcePills}</div>
+    ${bisPackageHtml}
     <h2 class="section heading">${esc(t('BiS list per slot'))} ${help(bisTerms(eng, unit))}</h2>
-    ${sourcePills}
     ${slotPills}
     ${slotsHtml || `<div class="notice section">${esc(t('No items match the selected source filters and level range.'))}</div>`}`;
 }

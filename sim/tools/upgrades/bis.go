@@ -21,6 +21,20 @@ import (
 // so Top 10 2H and Top 10 1H lists do not crowd each other out).
 const bisSlotTwoHand int64 = 160
 
+type bisCand struct {
+	item       *BiSCatalogItem
+	svTab      *sv.Table
+	bisSlot    int64
+	variants   [][]int64
+	norm       Stats
+	extra      []string
+	sources    []BiSSource
+	allSources []BiSSource
+	soon       bool
+	remove     []int64
+	gain       float64
+}
+
 // bisSlotOrder is the display order of BiS slots.
 var bisSlotOrder = []int64{
 	1, 2, 3, 15, 5, 9, 10, 6, 7, 8, 11, 13, 16, 17, bisSlotTwoHand, 18,
@@ -386,20 +400,6 @@ func ComputeBiS(wow, char string, prices *sv.Table, o BiSOptions) (*pyjson.Obj, 
 
 	usableWep := usableWeaponsFor(classFile)
 	usableArm := usableArmorFor(classFile, profLevel)
-
-	type bisCand struct {
-		item       *BiSCatalogItem
-		svTab      *sv.Table
-		bisSlot    int64
-		variants   [][]int64
-		norm       Stats
-		extra      []string
-		sources    []BiSSource
-		allSources []BiSSource
-		soon       bool
-		remove     []int64
-		gain       float64
-	}
 
 	// Sort item IDs for deterministic ordering.
 	allIDs := make([]int64, 0, len(cat.Items))
@@ -854,6 +854,11 @@ func ComputeBiS(wow, char string, prices *sv.Table, o BiSOptions) (*pyjson.Obj, 
 			baseValue = eng.Baseline.Value
 		}
 	}
+	pkgOut, err := computeBiSPackage(pool, equipped, equippedIDs, ownedMap, completed, eq, tracker, baseValue,
+		twoHanded, dw, eng != nil, classFile, valueBatch, buildCandObj)
+	if err != nil {
+		return nil, err
+	}
 	weightsText := scale.Text
 	scaleRows := make([]any, len(scale.Rows))
 	for i, r := range scale.Rows {
@@ -900,6 +905,7 @@ func ComputeBiS(wow, char string, prices *sv.Table, o BiSOptions) (*pyjson.Obj, 
 		"scale", scaleRows,
 		"setValue", pyfmt.Round(baseValue, 1),
 		"engine", engineOut,
+		"package", pkgOut,
 		"slots", slotsOut,
 	)
 	if activeSets := SummariesJSON(tracker.ActiveSummaries()); len(activeSets) > 0 {

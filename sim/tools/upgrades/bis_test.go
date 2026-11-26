@@ -210,4 +210,25 @@ func TestComputeBiSFilteringRankingAndLevelMode(t *testing.T) {
 	if len(cands60) != 1 || cands60[0].(*pyjson.Obj).Get("id").(int64) != 90003 {
 		t.Fatalf("expected only raid item 90003, got %d items", len(cands60))
 	}
+
+	// Verify Optimal BiS Set ("package"):
+	// In Case 1 (current level): 90002 is gated behind completed quest 1001, 90001 is already equipped,
+	// and 90007 is weaker -> optimal package must be empty (0 swaps)!
+	pkg1 := res.Get("package").(*pyjson.Obj)
+	if items1 := pkg1.Get("items").([]any); len(items1) != 0 {
+		t.Fatalf("expected 0 package swaps in current mode (only better hat is completed quest), got %d", len(items1))
+	}
+	// In Case 2 (lvl 60 raid): 90003 (Endgame Raid Crown) must be selected as the optimal upgrade!
+	pkg60 := res60.Get("package").(*pyjson.Obj)
+	items60 := pkg60.Get("items").([]any)
+	if len(items60) != 1 {
+		t.Fatalf("expected 1 package swap in lvl60 raid mode, got %d", len(items60))
+	}
+	p0 := items60[0].(*pyjson.Obj)
+	if p0.Get("id").(int64) != 90003 || p0.Get("gain").(float64) <= 0 {
+		t.Fatalf("expected raid item 90003 with positive gain in package, got id=%v gain=%v", p0.Get("id"), p0.Get("gain"))
+	}
+	if pkg60.Get("targetValue").(float64) <= res60.Get("setValue").(float64) {
+		t.Fatalf("expected targetValue > setValue, got %v <= %v", pkg60.Get("targetValue"), res60.Get("setValue"))
+	}
 }
