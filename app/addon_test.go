@@ -393,10 +393,12 @@ func TestLocalSource(t *testing.T) {
 
 	var settings map[string]any
 	json.Unmarshal([]byte(`{"scale": 9, "tooltipItems": "4", "priceSource": "vendor\"; os.exit() --", "autoStart": true, "shown": false,
-		"herbSpells": [2366, "1234", -1, "x", 1234], "evil": "print(1)"}`), &settings)
+		"deductAhCut": false, "vendorFloor": true, "trackAlways": true, "ahMinValue": 5000, "wealthInterval": 10,
+		"minDropQuality": 9, "minDropValue": 100000,
+		"herbSpells": [2366, "1234", -1, "x", 1234], "miningSpells": [2575, 9876], "evil": "print(1)"}`), &settings)
 	g1 := must(writeGphRequest(wow, "reset", settings))
 	gText, _ := os.ReadFile(filepath.Join(gph, "AppRequest.lua"))
-	want := fmt.Sprintf(`GoldPerHour_AppRequest = { id = %d, action = "reset", settings = { shown = false, autoStart = true, scale = 2, tooltipItems = 4, herbSpells = { 2366, 1234 } } }`, g1.ID)
+	want := fmt.Sprintf(`GoldPerHour_AppRequest = { id = %d, action = "reset", settings = { shown = false, autoStart = true, deductAhCut = false, vendorFloor = true, trackAlways = true, scale = 2, tooltipItems = 4, ahMinValue = 5000, wealthInterval = 60, minDropQuality = 5, minDropValue = 100000, herbSpells = { 2366, 1234 }, miningSpells = { 2575, 9876 } } }`, g1.ID)
 	if !strings.Contains(string(gText), want) || regexp.MustCompile(`os\.exit|evil|print`).Match(gText) {
 		t.Fatalf("GoldPerHour request\n%s\nwant %s", gText, want)
 	}

@@ -30,7 +30,10 @@ export const state = {
   rotations: { fight: 60, target: '', consumables: false },
   prices: { query: '', item: null, cls: -1, sort: 'offers', recent: false, range: 0 },
   character: { tab: 'gear' },
-  gph: { open: null, notice: null, more: {} },
+  gph: {
+    tab: 'session', open: null, notice: null, more: {},
+    range: 'days30', wealthChar: 'account', wealthRange: 30, ahRange: 'days30', ahQuery: '', cashflowRange: 'days30',
+  },
 };
 
 // What the user chose survives a restart: the open page, the character and the options of the pages.

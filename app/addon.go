@@ -421,7 +421,7 @@ func luaNumber(x float64) string { return strconv.FormatFloat(x, 'f', -1, 64) }
 // values, so nothing from the page can end up as Lua code.
 func gphSettingsLua(s map[string]any) []string {
 	var out []string
-	for _, key := range []string{"shown", "resumeAfterReload", "autoStart"} {
+	for _, key := range []string{"shown", "resumeAfterReload", "autoStart", "deductAhCut", "vendorFloor", "trackAlways"} {
 		if b, ok := s[key].(bool); ok {
 			out = append(out, fmt.Sprintf("%s = %t", key, b))
 		}
@@ -436,21 +436,43 @@ func gphSettingsLua(s map[string]any) []string {
 			out = append(out, "tooltipItems = "+luaNumber(math.Min(30, math.Max(1, jsRound(items)))))
 		}
 	}
+	if v, present := s["ahMinValue"]; present {
+		if n, ok := jsNumber(v); ok && !math.IsInf(n, 0) {
+			out = append(out, "ahMinValue = "+luaNumber(math.Max(0, jsRound(n))))
+		}
+	}
+	if v, present := s["wealthInterval"]; present {
+		if n, ok := jsNumber(v); ok && !math.IsInf(n, 0) {
+			out = append(out, "wealthInterval = "+luaNumber(math.Min(3600, math.Max(60, jsRound(n)))))
+		}
+	}
+	if v, present := s["minDropQuality"]; present {
+		if n, ok := jsNumber(v); ok && !math.IsInf(n, 0) {
+			out = append(out, "minDropQuality = "+luaNumber(math.Min(5, math.Max(0, jsRound(n)))))
+		}
+	}
+	if v, present := s["minDropValue"]; present {
+		if n, ok := jsNumber(v); ok && !math.IsInf(n, 0) {
+			out = append(out, "minDropValue = "+luaNumber(math.Max(0, jsRound(n))))
+		}
+	}
 	if p, _ := s["priceSource"].(string); p == "auctionator" || p == "vendor" {
 		out = append(out, fmt.Sprintf(`priceSource = "%s"`, p))
 	}
-	if list, ok := s["herbSpells"].([]any); ok {
-		ids := []string{}
-		seen := map[float64]bool{}
-		for _, v := range list {
-			n, ok := jsNumber(v)
-			if !ok || n <= 0 || n != math.Trunc(n) || math.IsInf(n, 0) || seen[n] {
-				continue
+	for _, listKey := range []string{"herbSpells", "miningSpells"} {
+		if list, ok := s[listKey].([]any); ok {
+			ids := []string{}
+			seen := map[float64]bool{}
+			for _, v := range list {
+				n, ok := jsNumber(v)
+				if !ok || n <= 0 || n != math.Trunc(n) || math.IsInf(n, 0) || seen[n] {
+					continue
+				}
+				seen[n] = true
+				ids = append(ids, luaNumber(n))
 			}
-			seen[n] = true
-			ids = append(ids, luaNumber(n))
+			out = append(out, listKey+" = { "+strings.Join(ids, ", ")+" }")
 		}
-		out = append(out, "herbSpells = { "+strings.Join(ids, ", ")+" }")
 	}
 	return out
 }

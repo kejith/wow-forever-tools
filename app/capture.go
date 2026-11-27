@@ -228,10 +228,16 @@ func (a *App) capturePages(out string, required []string) ([]string, error) {
 			a.clickTab(`#page-tabs [data-tab="fight"]`)
 			a.captureConsumablesByValue(shot)
 		case "goldperhour":
-			// Open the first finished session, then shoot settings and history.
+			// Open the first finished session, then capture the new wealth, history, AH, cashflow and settings tabs.
 			a.runJS(`document.querySelector("[data-gph-open]")?.click()`)
-			wait(600)
-			a.captureScrolled(shot, "#gph-settings", "goldperhour-history")
+			wait(500)
+			shot("goldperhour-session")
+			for _, tab := range []string{"wealth", "history", "ah", "cashflow", "settings"} {
+				if a.clickTab(`#page-tabs [data-tab="` + tab + `"]`) {
+					shot("goldperhour-" + tab)
+				}
+			}
+			a.clickTab(`#page-tabs [data-tab="session"]`)
 		}
 	}
 	report["pages"] = results

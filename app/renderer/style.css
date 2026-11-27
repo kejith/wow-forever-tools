@@ -659,18 +659,42 @@ h2 .help, h3 .help { margin-left: 4px; }
 .gph-chart polyline { fill: none; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .gph-chart .total { stroke: var(--gold); stroke-width: 2.4; }
 .gph-chart .herb { stroke: var(--good); }
+.gph-chart .gather { stroke: #d48844; }
 .gph-chart .loot { stroke: #7fa7e0; }
+.gph-chart .dungeon { stroke: #a882e6; }
 .gph-chart .axis { stroke: var(--line-2); vector-effect: non-scaling-stroke; }
 .gph-chart .grid { stroke: var(--line-2); stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.gph-wealth-chart { height: 210px; }
+.gph-wealth-chart .wealth-area { fill: rgba(255, 209, 0, .12); }
+.gph-cf-chart { height: 140px; }
+.gph-cf-chart .cf-pos { fill: var(--good); opacity: .82; }
+.gph-cf-chart .cf-neg { fill: var(--bad); opacity: .82; }
 .chart-axis { display: flex; justify-content: space-between; margin: 2px 0; font-variant-numeric: tabular-nums; }
 .legend { display: flex; gap: 6px 14px; align-items: center; color: var(--muted); margin-top: 6px; }
 .legend .key { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: -8px; vertical-align: middle; }
 .legend .key.total { background: var(--gold); }
 .legend .key.herb { background: var(--good); }
+.legend .key.gather { background: #d48844; }
 .legend .key.loot { background: #7fa7e0; }
+.legend .key.dungeon { background: #a882e6; }
+.gph-kpi-strip { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); margin-bottom: 16px; }
+.gph-kpi { padding: 12px 14px; }
+.gph-kpi .big { margin: 2px 0; }
+.gph-bar-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; }
+.gph-controls { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.gph-pills { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.gph-pills .pill { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--line-2); background: #14100c; color: var(--muted); cursor: pointer; font-size: 12px; }
+.gph-pills .pill:hover { color: var(--text); border-color: var(--gold-dim); }
+.gph-pills .pill.active { background: rgba(255, 209, 0, .16); border-color: var(--gold); color: var(--gold); }
+.gph-share { display: inline-flex; align-items: center; gap: 6px; min-width: 96px; }
+.gph-share-bar { flex: 1; height: 6px; border-radius: 3px; background: #261e16; overflow: hidden; min-width: 48px; }
+.gph-share-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #9a7020, var(--gold)); }
+.gph-share-bar.pos > span { background: var(--good); }
+.gph-share-bar.neg > span { background: var(--bad); }
 .gph-two { display: grid; gap: 16px; grid-template-columns: 2fr 1fr; }
-@media (max-width: 1100px) { .gph-two { grid-template-columns: 1fr; } }
-.gph-detail { display: grid; gap: 16px; grid-template-columns: 1fr 1fr 1.3fr; padding: 6px 0; }
+.gph-two-even { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+@media (max-width: 1100px) { .gph-two, .gph-two-even { grid-template-columns: 1fr; } }
+.gph-detail { display: grid; gap: 16px; grid-template-columns: 1.4fr 1.2fr; padding: 6px 0; }
 table.compact td, table.compact th { padding: 4px 6px; }
 tr.clickable { cursor: pointer; }
 tr.clickable > td:first-child::before { content: "▸"; display: inline-block; width: 14px; color: var(--gold-dim); }
