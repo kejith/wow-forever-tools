@@ -7,6 +7,7 @@ package upgrades
 import (
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -502,8 +503,11 @@ var shortName = []struct{ key, name string }{
 	{"dodge_rating", i18n.Mark("Dodge")},
 	{"parry_rating", i18n.Mark("Parry")},
 	{"block_rating", i18n.Mark("Block")},
+	{"block_value", i18n.Mark("Block value")},
 	{"hit_rating", i18n.Mark("Hit rating")},
 	{"crit_rating", i18n.Mark("Crit rating")},
+	{"haste_rating", i18n.Mark("Haste rating")},
+	{"melee_haste_rating", i18n.Mark("Melee haste")},
 	{"mana_regeneration", i18n.Mark("Mana/5s")},
 	{"damage_per_second", i18n.Mark("DPS")},
 }
@@ -560,11 +564,78 @@ var statLabel = []struct{ key, label string }{{"stamina", i18n.Mark("Stamina")},
 	{"intellect", i18n.Mark("Intellect")}, {"spirit", i18n.Mark("Spirit")}, {"strength", i18n.Mark("Strength")},
 	{"agility", i18n.Mark("Agility")}}
 
-var spellLabel = []struct{ key, text string }{
+var resistLabel = []struct{ key, alias, label string }{
+	{"fire_resistance", "resistance2_name", i18n.Mark("Fire Resistance")},
+	{"nature_resistance", "resistance3_name", i18n.Mark("Nature Resistance")},
+	{"frost_resistance", "resistance4_name", i18n.Mark("Frost Resistance")},
+	{"shadow_resistance", "resistance5_name", i18n.Mark("Shadow Resistance")},
+	{"arcane_resistance", "resistance6_name", i18n.Mark("Arcane Resistance")},
+	{"spell_resistance_all_schools", "", i18n.Mark("All Resistances")},
+}
+
+var ratingLabel = []struct{ key, kind, text string }{
+	{"hit_rating", "hit", i18n.Mark("Equip: Improves your chance to hit by {pct}% ({n} hit rating).")},
+	{"crit_rating", "crit", i18n.Mark("Equip: Improves your chance to get a critical strike by {pct}% ({n} crit rating).")},
+}
+
+var equipLabel = []struct{ key, text string }{
 	{"spell_power", i18n.Mark("Equip: Increases damage and healing done by magical spells and effects by up to {n}.")},
 	{"spell_damage_done", i18n.Mark("Equip: Increases damage done by magical spells and effects by up to {n}.")},
-	{"shadow_damage_done", i18n.Mark("Equip: Increases damage done by Shadow spells and effects by up to {n}.")},
 	{"spell_healing_done", i18n.Mark("Equip: Increases healing done by spells and effects by up to {n}.")},
+	{"holy_damage_done", i18n.Mark("Equip: Increases damage done by Holy spells and effects by up to {n}.")},
+	{"fire_damage_done", i18n.Mark("Equip: Increases damage done by Fire spells and effects by up to {n}.")},
+	{"nature_damage_done", i18n.Mark("Equip: Increases damage done by Nature spells and effects by up to {n}.")},
+	{"frost_damage_done", i18n.Mark("Equip: Increases damage done by Frost spells and effects by up to {n}.")},
+	{"shadow_damage_done", i18n.Mark("Equip: Increases damage done by Shadow spells and effects by up to {n}.")},
+	{"arcane_damage_done", i18n.Mark("Equip: Increases damage done by Arcane spells and effects by up to {n}.")},
+	{"spell_penetration", i18n.Mark("Equip: Decreases the magical resistances of your spell targets by {n}.")},
+	{"attack_power", i18n.Mark("Equip: +{n} Attack Power.")},
+	{"ranged_attack_power", i18n.Mark("Equip: +{n} Ranged Attack Power.")},
+	{"feral_attack_power", i18n.Mark("Equip: +{n} Feral Attack Power.")},
+	{"haste_rating", i18n.Mark("Equip: Improves haste rating by {n}.")},
+	{"melee_haste_rating", i18n.Mark("Equip: Improves melee haste rating by {n}.")},
+	{"expertise_rating", i18n.Mark("Equip: Increases expertise rating by {n}.")},
+	{"defense_skill_rating", i18n.Mark("Equip: Increases defense rating by {n}.")},
+	{"dodge_rating", i18n.Mark("Equip: Increases dodge rating by {n}.")},
+	{"parry_rating", i18n.Mark("Equip: Increases parry rating by {n}.")},
+	{"block_rating", i18n.Mark("Equip: Increases block rating by {n}.")},
+	{"block_value", i18n.Mark("Equip: Increases the block value of your shield by {n}.")},
+	{"mana_regeneration", i18n.Mark("Equip: Restores {n} mana per 5 sec.")},
+	{"health_regen", i18n.Mark("Equip: Restores {n} health per 5 sec.")},
+}
+
+// knownTooltipStatKeys returns every stat key that Tooltip renders with an explicit template.
+func knownTooltipStatKeys() map[string]bool {
+	known := map[string]bool{
+		"armor":             true,
+		"damage_per_second": true,
+	}
+	for _, sl := range statLabel {
+		known[sl.key] = true
+	}
+	for _, rl := range resistLabel {
+		known[rl.key] = true
+		if rl.alias != "" {
+			known[rl.alias] = true
+		}
+	}
+	for _, rl := range ratingLabel {
+		known[rl.key] = true
+	}
+	for _, el := range equipLabel {
+		known[el.key] = true
+	}
+	return known
+}
+
+func humanizeStatKey(k string) string {
+	parts := strings.Split(k, "_")
+	for i, p := range parts {
+		if len(p) > 0 {
+			parts[i] = strings.ToUpper(p[:1]) + p[1:]
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // gspec is f"{v:g}" of an exported number.
@@ -594,17 +665,35 @@ func Tooltip(rec *sv.Table, slotLabel *string) *pyjson.Obj {
 		colors = append(colors, "ffffff")
 	}
 	stats := statValues(rec.Tab("stats"))
+	handled := map[string]bool{}
 	if sv.Truthy(stats["armor"]) {
 		lines = append(lines, i18n.T("{n:g} Armor", "n", stats["armor"]))
 		colors = append(colors, "ffffff")
 	}
+	handled["armor"] = true
 	if sv.Truthy(stats["damage_per_second"]) {
 		lines = append(lines, i18n.T("({n:.1f} damage per second)", "n", stats["damage_per_second"]))
 		colors = append(colors, "ffffff")
 	}
+	handled["damage_per_second"] = true
 	for _, sl := range statLabel {
+		handled[sl.key] = true
 		if sv.Truthy(stats[sl.key]) {
 			lines = append(lines, "+"+gspec(stats[sl.key])+" "+i18n.T(sl.label))
+			colors = append(colors, "ffffff")
+		}
+	}
+	for _, rl := range resistLabel {
+		handled[rl.key] = true
+		if rl.alias != "" {
+			handled[rl.alias] = true
+		}
+		v := stats[rl.key]
+		if !sv.Truthy(v) && rl.alias != "" {
+			v = stats[rl.alias]
+		}
+		if sv.Truthy(v) {
+			lines = append(lines, "+"+gspec(v)+" "+i18n.T(rl.label))
 			colors = append(colors, "ffffff")
 		}
 	}
@@ -617,10 +706,30 @@ func Tooltip(rec *sv.Table, slotLabel *string) *pyjson.Obj {
 		lines = append(lines, i18n.T("Requires Level {n}", "n", rec.Get("reqLevel")))
 		colors = append(colors, "ffffff")
 	}
-	for _, sl := range spellLabel {
-		if sv.Truthy(stats[sl.key]) {
-			equip = append(equip, i18n.T(sl.text, "n", gspec(stats[sl.key])))
+	for _, rl := range ratingLabel {
+		handled[rl.key] = true
+		if sv.Truthy(stats[rl.key]) {
+			f, _ := sv.Num(stats[rl.key])
+			pct := roundG(pyfmt.Round(f/DefaultRatings[rl.kind], 1))
+			equip = append(equip, i18n.T(rl.text, "pct", pct, "n", gspec(stats[rl.key])))
 		}
+	}
+	for _, el := range equipLabel {
+		handled[el.key] = true
+		if sv.Truthy(stats[el.key]) {
+			equip = append(equip, i18n.T(el.text, "n", gspec(stats[el.key])))
+		}
+	}
+	// Fallback: never drop any remaining non-zero stat key from a rebuilt tooltip.
+	var extraKeys []string
+	for k, v := range stats {
+		if !handled[k] && sv.Truthy(v) {
+			extraKeys = append(extraKeys, k)
+		}
+	}
+	sort.Strings(extraKeys)
+	for _, k := range extraKeys {
+		equip = append(equip, i18n.T("Equip: +{n} {label}", "n", gspec(stats[k]), "label", humanizeStatKey(k)))
 	}
 	lines = append(lines, equip...)
 	for range equip {

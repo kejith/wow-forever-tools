@@ -1,9 +1,12 @@
 package upgrades
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/kejith/wow-tools-forever/sim/internal/i18n"
 	"github.com/kejith/wow-tools-forever/sim/internal/sv"
+	"github.com/kejith/wow-tools-forever/sim/tools/enginebundle"
 )
 
 func TestUsableWeaponsByClass(t *testing.T) {
@@ -172,5 +175,153 @@ func TestClassScalesAllNineClasses(t *testing.T) {
 	pScale := BuildScale(makeChar("PALADIN", [][2]any{{"Holy", int64(31)}, {"Prot", int64(0)}, {"Ret", int64(0)}}), "dungeon", 0, 0)
 	if v := SetValue(NormStats(healItem, false, nil), pScale); v <= 40 {
 		t.Errorf("holy paladin should value healing+int strongly, got %.2f", v)
+	}
+}
+
+func allRatedStatKeys() map[string]string {
+	// Map normalized StatKey -> raw ITEM_MOD_* / RESISTANCE* key across every source.
+	keys := map[string]string{}
+	add := func(raw string) {
+		keys[StatKey(raw)] = raw
+	}
+	for _, k := range enginebundle.ItemStatKeys() {
+		add("ITEM_MOD_" + strings.ToUpper(k) + "_SHORT")
+	}
+	for _, sn := range shortName {
+		add("ITEM_MOD_" + strings.ToUpper(sn.key) + "_SHORT")
+	}
+	for _, raw := range compactStatToItemMod {
+		add(raw)
+	}
+	for _, raw := range db2BonusStatKey {
+		add(raw)
+	}
+	for _, k := range spKeys {
+		add("ITEM_MOD_" + strings.ToUpper(k) + "_SHORT")
+	}
+	for _, lk := range linearKeys {
+		if lk.raw == "armor" {
+			add("RESISTANCE0_NAME")
+		} else {
+			add("ITEM_MOD_" + strings.ToUpper(lk.raw) + "_SHORT")
+		}
+	}
+	return keys
+}
+
+func TestTooltipCoversAllKnownStats(t *testing.T) {
+	known := knownTooltipStatKeys()
+	all := allRatedStatKeys()
+	for normKey, rawKey := range all {
+		if !known[normKey] {
+			t.Errorf("stat %q (raw %q) is rated/parsed in sim but missing an explicit Tooltip() template in scale.go", normKey, rawKey)
+		}
+		for _, lang := range []string{"en", "de"} {
+			i18n.SetLanguage(lang, "")
+			rec := sv.NewTable()
+			rec.Set("name", "Test Item")
+			rec.Set("quality", int64(3))
+			st := sv.NewTable()
+			st.Set(rawKey, int64(18))
+			rec.Set("stats", st)
+
+			tip := Tooltip(rec, nil)
+			lines, _ := tip.Get("lines").([]any)
+			found := false
+			for _, line := range lines {
+				if s, ok := line.(string); ok && strings.Contains(s, "18") {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("lang=%s stat %q (%q): Tooltip lines %v did not include value 18", lang, normKey, rawKey, lines)
+			}
+		}
+	}
+	i18n.SetLanguage("en", "")
+}
+
+func TestShortCoversAllEngineAndCatalogStats(t *testing.T) {
+	inShort := map[string]bool{}
+	for _, sn := range shortName {
+		inShort[sn.key] = true
+	}
+	for normKey := range allRatedStatKeys() {
+		if normKey == "armor" || normKey == "health_regen" {
+			continue
+		}
+		if !inShort[normKey] {
+			t.Errorf("stat %q is rated/parsed in sim but missing from shortName in scale.go", normKey)
+		}
+	}
+}
+
+func TestTooltipRobesFallbackAndResistDedup(t *testing.T) {
+	// 1. Robes of Dark Summons: hit_rating=18 must show both 1.8% and 18 in EN & DE.
+	rec := sv.NewTable()
+	rec.Set("name", "Robes of Dark Summons")
+	rec.Set("quality", int64(3))
+	rec.Set("reqLevel", int64(54))
+	st := sv.NewTable()
+	st.Set("ITEM_MOD_SPELL_POWER_SHORT", float64(21))
+	st.Set("ITEM_MOD_STAMINA_SHORT", float64(14))
+	st.Set("ITEM_MOD_HIT_RATING_SHORT", float64(18))
+	st.Set("RESISTANCE0_NAME", float64(84))
+	rec.Set("stats", st)
+
+	for _, tc := range []struct {
+		lang, wantHit string
+	}{
+		{"en", "Equip: Improves your chance to hit by 1.8% (18 hit rating)."},
+		{"de", "Anlegen: Verbessert Eure Trefferchance um 1.8 % (18 Trefferwertung)."},
+	} {
+		i18n.SetLanguage(tc.lang, "")
+		slot := "Chest"
+		tip := Tooltip(rec, &slot)
+		lines, _ := tip.Get("lines").([]any)
+		var joined []string
+		for _, l := range lines {
+			joined = append(joined, l.(string))
+		}
+		if !strings.Contains(strings.Join(joined, "\n"), tc.wantHit) {
+			t.Errorf("lang=%s: expected %q in tooltip lines %v", tc.lang, tc.wantHit, joined)
+		}
+	}
+
+	// 2. Fallback: unknown/future stat must never be silently dropped.
+	i18n.SetLanguage("en", "")
+	unk := sv.NewTable()
+	unk.Set("name", "Future Relic")
+	unkSt := sv.NewTable()
+	unkSt.Set("ITEM_MOD_COSMIC_POWER_SHORT", int64(42))
+	unk.Set("stats", unkSt)
+	unkLines, _ := Tooltip(unk, nil).Get("lines").([]any)
+	foundFallback := false
+	for _, l := range unkLines {
+		if l == "Equip: +42 Cosmic Power" {
+			foundFallback = true
+		}
+	}
+	if !foundFallback {
+		t.Errorf("unknown stat was dropped or misformatted: %v", unkLines)
+	}
+
+	// 3. Resistance deduplication: shadow_resistance + resistance5_name must render once.
+	dup := sv.NewTable()
+	dup.Set("name", "Abyss Shard")
+	dupSt := sv.NewTable()
+	dupSt.Set("ITEM_MOD_SHADOW_RESISTANCE_SHORT", int64(10))
+	dupSt.Set("RESISTANCE5_NAME", int64(10))
+	dup.Set("stats", dupSt)
+	dupLines, _ := Tooltip(dup, nil).Get("lines").([]any)
+	count := 0
+	for _, l := range dupLines {
+		if strings.Contains(l.(string), "Shadow Resistance") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected 1 Shadow Resistance line after dedup, got %d in %v", count, dupLines)
 	}
 }

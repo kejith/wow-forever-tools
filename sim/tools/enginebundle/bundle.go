@@ -45,6 +45,25 @@ var itemKeys = map[string]string{
 	"haste_rating": "haste", "melee_haste_rating": "meleeHaste",
 }
 
+// ItemStatKeys returns every normalized stat key (StatKey form) that NormItem reads from item stats,
+// sorted deterministically. Used by tests to ensure UI summaries and rebuilt tooltips stay in sync.
+func ItemStatKeys() []string {
+	seen := map[string]bool{
+		"damage_per_second": true,
+		"hit_rating":        true,
+		"crit_rating":       true,
+	}
+	for k := range itemKeys {
+		seen[k] = true
+	}
+	out := make([]string, 0, len(seen))
+	for k := range seen {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // NormItem is simengine.norm_item: an item's stats as engine delta keys. Unlike the weight scale's
 // NormStats this keeps healing, per-school damage and the split between "damage done" and "damage and
 // healing done". Hit and crit come as percent from the tooltip (pctLine: kind -> pattern, upgrades.PctLine),
