@@ -104,6 +104,24 @@ func runDamage(args []string, out io.Writer) error {
 	fmt.Fprintln(out, "  "+i18n.T("Your gear is rated by a faster estimate of the normal fight: {value:.1f} {unit} over "+
 		"{seconds:.0f} s.", rvPairs("value", rated.at("value"), "unit", unit, "seconds", rated.at("seconds"))...))
 
+	if groups := r.at("groupRotations").list(); len(groups) > 0 {
+		fmt.Fprintln(out, "\n"+i18n.T("Rotations by group size (1-8, 9+)"))
+		gtable := [][]string{{i18n.T("Group size"), unit.str(), i18n.T("Per enemy"), i18n.T("Rotation")}}
+		for _, g := range groups {
+			var labels []string
+			for _, st := range g.at("steps").list() {
+				labels = append(labels, st.at("label").str())
+			}
+			gtable = append(gtable, []string{
+				g.at("title").str(),
+				rvFormat("{v:.1f}", "v", g.at("value")),
+				rvFormat("{v:.1f}", "v", g.at("perTarget")),
+				strings.Join(labels, " -> "),
+			})
+		}
+		rvTable(out, gtable, nil)
+	}
+
 	if *allRanks {
 		fmt.Fprintln(out, "\n"+i18n.T("Every rank you know"))
 	} else {

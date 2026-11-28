@@ -4,10 +4,10 @@
 // when the combat engine has a damage metric for the class.
 import { DASH as dash, esc, help, hintAttr, num, percent, terms, th } from '../core.js';
 import { t } from '../i18n.js';
-import { clock, skippedChips, stepsTable } from './rotations.js';
+import { clock, groupRotationsCard, skippedChips, stepsTable } from './rotations.js';
 
-// The two rotations the section opens with; the other fights follow as a table.
-const TOP = ['max', 'endurance'];
+// The rotations the section opens with (single target and AoE); the other fights follow as a table.
+const TOP = ['max', 'endurance', 'pack', 'crowd'];
 
 // What one cast does without a crit, as a tooltip says it: the hit, and below it the ticks.
 function hit(r) {
@@ -144,6 +144,7 @@ export function damageSection(d) {
   const rotationTerms = terms([
     [t('Maximum damage'), t('The rotation that deals the most damage in the fight your gear is rated for when mana is no limit. The badge says how long your mana pays for it.')],
     [t('Sustained damage'), t('The rotation for a fight that never ends: it deals the most over 10 minutes, with everything that brings mana back in it.')],
+    [t('AoE rotations'), t('Several enemies (3) and Many enemies (6) show the best AoE rotation; the full breakdown for 1–8 and 9+ enemies is right below.')],
     [t('Per min'), t('Casts per minute over the fight.')],
     [t('Time'), t('Share of the fight you spend casting the spell.')],
     ['DPS', t('Damage per second of the whole fight that comes from the spell.')],
@@ -161,6 +162,7 @@ export function damageSection(d) {
     ${statTiles(d)}
     <h3 class="dmg-sub">${esc(t('Which rotation'))} ${help(rotationTerms)}</h3>
     <div class="dmg-top">${top.map((s) => topCard(s, d.unit)).join('')}</div>
+    ${groupRotationsCard(d.groupRotations, d.unit, 'dmg-groups')}
     <div class="card heal-card dmg-spells">${spellTable(d)}</div>
     <div class="heal-grid dmg-grid">
       <div class="card"><h2 class="heading">${esc(t('The other fights'))} ${help(fightHelp)}</h2>${fightTable(d, others)}</div>

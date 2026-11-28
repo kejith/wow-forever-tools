@@ -48,6 +48,7 @@ func prepare(cat *catalog.Catalog) {
 		if sp := cat.Spells[id]; sp != nil {
 			sp.IsPhysical = true
 			sp.Area = true
+			sp.AreaMax = 4
 			if sp.CooldownMs == 0 {
 				sp.CooldownMs = 10000
 			}
@@ -65,6 +66,7 @@ func prepare(cat *catalog.Catalog) {
 		if sp := cat.Spells[id]; sp != nil {
 			sp.IsPhysical = true
 			sp.Area = true
+			sp.AreaMax = 2
 		}
 	}
 	for _, id := range cat.Chains[Rend] {

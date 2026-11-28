@@ -10,6 +10,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/kejith/wow-tools-forever/sim/engine"
 	"github.com/kejith/wow-tools-forever/sim/internal/game"
@@ -98,7 +99,12 @@ var rulesSeveral = map[string]string{
 }
 
 var (
-	areaFiller = i18n.Mark("fills the rest of the time and hits every enemy at once")
+	areaFiller      = i18n.Mark("fills the rest of the time and hits every enemy at once")
+	areaFillerMax   = i18n.Mark("fills the rest of the time, hits up to {max} enemies")
+	areaDot         = i18n.Mark("keep it on the ground: hits every enemy")
+	areaDotMax      = i18n.Mark("keep it on the ground: hits up to {max} enemies")
+	areaCooldown    = i18n.Mark("whenever it is ready, hits every enemy")
+	areaCooldownMax = i18n.Mark("whenever it is ready, hits up to {max} enemies")
 	// A spell with a cooldown as long as it lasts cannot be on every enemy.
 	keptOnOne  = i18n.Mark("keep it on one enemy: its cooldown allows no more")
 	keptOnSome = i18n.Mark("keep it on {n:.0f} of the {targets} enemies: its cooldown allows no more")
@@ -173,6 +179,7 @@ type Step struct {
 	ManaPerSec   float64
 	Targets      float64
 	Area         bool
+	AreaMax      int
 	HealthPerSec float64
 }
 
@@ -323,17 +330,33 @@ func healRule(i int, steps []run.Step, demand *run.Demand) string {
 func damageRule(step run.Step, enemies int) string {
 	kind := step.Kind
 	values := []any{"time", Clock(step.FirstSec), "pct", step.TakenPct, "floor", step.FloorPct,
-		"health", step.HealthPerSec}
+		"health", step.HealthPerSec, "max", step.AreaMax}
 	if enemies > 1 {
+		if step.Area {
+			switch kind {
+			case "dot":
+				if step.AreaMax > 0 {
+					return i18n.T(areaDotMax, values...)
+				}
+				return i18n.T(areaDot)
+			case "cooldown":
+				if step.AreaMax > 0 {
+					return i18n.T(areaCooldownMax, values...)
+				}
+				return i18n.T(areaCooldown)
+			case "filler":
+				if step.AreaMax > 0 {
+					return i18n.T(areaFillerMax, values...)
+				}
+				return i18n.T(areaFiller)
+			}
+		}
 		kept := step.Targets
 		if (kind == "dot" || kind == "debuff") && 0 < kept && kept < float64(enemies) {
 			if kept < 1.5 {
 				return i18n.T(keptOnOne)
 			}
 			return i18n.T(keptOnSome, "n", kept, "targets", enemies)
-		}
-		if kind == "filler" && step.Area {
-			return i18n.T(areaFiller)
 		}
 		if text, ok := rulesSeveral[kind]; ok {
 			return i18n.T(text, values...)
@@ -413,23 +436,40 @@ func keyOf(kind string, id int) nameKey {
 // SituationOut is rotations.situation_out: one situation of the engine with its texts.
 func SituationOut(s run.Situation, label Labeler, unit string) Situation {
 	fight, demand := s.Fight, s.Demand
-	g, ok := situations[s.Key]
-	if !ok {
-		g = guide{s.Key, ""}
-	}
 	seconds := fight.Seconds
-	about := ""
-	if g.about != "" {
-		var value, pct float64
-		targets := fight.Targets
-		if demand != nil {
-			value, pct, targets = demand.Value, demand.Pct, demand.Targets
+	var title, about string
+	if strings.HasPrefix(s.Key, "targets-") {
+		targets := fight.Enemies()
+		switch {
+		case s.Key == "targets-9":
+			title = i18n.T("9+ enemies")
+			about = i18n.T("9 or more enemies at once (calculated for {targets}, {seconds:.0f} seconds); the number is "+
+				"the damage on all of them together.", "targets", targets, "seconds", seconds)
+		case targets == 1:
+			title = i18n.T("1 enemy")
+			about = i18n.T("1 enemy that lives for {seconds:.0f} seconds.", "seconds", seconds)
+		default:
+			title = i18n.T("{targets} enemies", "targets", targets)
+			about = i18n.T(several, "targets", targets, "seconds", seconds)
 		}
-		if targets == 0 {
-			targets = 1
+	} else {
+		g, ok := situations[s.Key]
+		if !ok {
+			g = guide{s.Key, ""}
 		}
-		about = i18n.T(g.about, "seconds", seconds, "minutes", seconds/60, "delta", fight.TargetDelta,
-			"value", value, "pct", pct, "targets", targets)
+		title = i18n.T(g.title)
+		if g.about != "" {
+			var value, pct float64
+			targets := fight.Targets
+			if demand != nil {
+				value, pct, targets = demand.Value, demand.Pct, demand.Targets
+			}
+			if targets == 0 {
+				targets = 1
+			}
+			about = i18n.T(g.about, "seconds", seconds, "minutes", seconds/60, "delta", fight.TargetDelta,
+				"value", value, "pct", pct, "targets", targets)
+		}
 	}
 	enemies := 1
 	if demand == nil && fight.Targets != 0 {
@@ -464,7 +504,7 @@ func SituationOut(s run.Situation, label Labeler, unit string) Situation {
 			PerMin: pyfmt.Round(st.PerMin, 2), FirstSec: st.FirstSec, SharePct: pyfmt.Round(st.SharePct, 1),
 			Value: pyfmt.Round(st.Value, 1), PerCast: pyfmt.Round(st.PerCast, 1),
 			ManaPerSec: pyfmt.Round(st.ManaPS, 2), Targets: pyfmt.Round(st.Targets, 2), Area: st.Area,
-			HealthPerSec: pyfmt.Round(st.HealthPerSec, 1)})
+			AreaMax: st.AreaMax, HealthPerSec: pyfmt.Round(st.HealthPerSec, 1)})
 	}
 	skipped := make([]Skip, 0, len(s.Skipped))
 	for _, k := range s.Skipped {
@@ -508,7 +548,7 @@ func SituationOut(s run.Situation, label Labeler, unit string) Situation {
 	} else {
 		verdict = damageVerdict(s, steps)
 	}
-	return Situation{Key: s.Key, Title: i18n.T(g.title), About: about, Value: pyfmt.Round(s.Value, 1), Unit: unit,
+	return Situation{Key: s.Key, Title: title, About: about, Value: pyfmt.Round(s.Value, 1), Unit: unit,
 		Verdict: verdict, OOMSeconds: s.OOMSec, Steps: steps, Skipped: skipped, Timeline: timeline, More: s.More,
 		Candidates: s.Candidates, Fight: fight, Demand: demand, FreeMana: s.FreeMana,
 		EndManaPct: pyfmt.RoundInt(s.EndManaPct), EndHPPct: pyfmt.RoundInt(s.EndHPPct)}
@@ -661,6 +701,19 @@ func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMi
 		}
 		guide := pyjson.New("metric", metric, "unit", Units[metric], "title", i18n.T(g.title),
 			"about", i18n.T(g.about), "notes", notes, "situations", list)
+		if len(eng.GroupRotations) > 0 {
+			groups := make([]any, len(eng.GroupRotations))
+			for i, s := range eng.GroupRotations {
+				out := SituationOut(s, label, Units[metric])
+				obj := out.Obj()
+				n := s.Fight.Enemies()
+				obj.Set("targets", n)
+				obj.Set("plus", s.Key == "targets-9")
+				obj.Set("perTarget", pyfmt.Round(s.Value/float64(n), 1))
+				groups[i] = obj
+			}
+			guide.Set("groupRotations", groups)
+		}
 		if consumed != nil {
 			names := make([]any, len(consumed.Names))
 			for i, n := range consumed.Names {

@@ -202,6 +202,7 @@ type Output struct {
 	HealOptions     []HealOption       `json:"healOptions,omitempty"`
 	Coverage        *Coverage          `json:"coverage,omitempty"`
 	Situations      []Situation        `json:"situations,omitempty"`
+	GroupRotations  []Situation        `json:"groupRotations,omitempty"`
 	HealTable       *HealTable         `json:"healTable,omitempty"`
 	DamageTable     *DamageTable       `json:"damageTable,omitempty"`
 	Spells          []SpellNumbers     `json:"spells,omitempty"`
@@ -364,6 +365,8 @@ func prepareClass(classFile string, cat *catalog.Catalog) {
 	switch classFile {
 	case "WARLOCK":
 		warlock.Prepare(cat)
+	case "PRIEST":
+		priest.Prepare(cat)
 	case "MAGE":
 		mage.Prepare(cat)
 	case "DRUID":
@@ -399,6 +402,8 @@ func classAreaSpells(classFile string, cat *catalog.Catalog, known map[int]bool,
 	switch classFile {
 	case "WARLOCK":
 		return warlock.AreaSpells(cat, known, level)
+	case "PRIEST":
+		return priest.AreaSpells(cat, known, level)
 	case "MAGE":
 		return mage.AreaSpells(cat, known, level)
 	case "DRUID":
@@ -559,6 +564,7 @@ func Prepare(in Input) (*Session, Output) {
 			tap = cat.BestRank(warlock.LifeTap, known, in.Character.Level)
 		}
 		out.Situations = damageSituations(in.Character.ClassFile, cat, known, st, standard, tap)
+		out.GroupRotations = groupDamageSituations(in.Character.ClassFile, cat, known, st, standard, tap, out.Situations)
 	} else if in.Situations {
 		out.Situations = healSituations(in.Character.ClassFile, cat, known, st, standard)
 	}

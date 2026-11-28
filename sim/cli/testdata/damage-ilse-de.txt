@@ -58,6 +58,18 @@ Welche Rotation wann
     Weggelassen: Verschlingende Seuche (Rang 1) (-2.3), Heiliges Feuer (Rang 2) (-4.0)
   Deine Ausrüstung wird mit einer schnelleren Schätzung des normalen Kampfs bewertet: 64.6 DPS über 60 s.
 
+Rotationen nach Gruppengröße (1–8, 9+)
+Gruppengröße  DPS   Pro Gegner  Rotation
+1 Gegner      62.3  62.3        Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+2 Gegner      61.5  30.8        Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+3 Gegner      67.0  22.3        Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+4 Gegner      70.8  17.7        Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+5 Gegner      69.6  13.9        Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+6 Gegner      71.6  11.9        Schattenwort: Schmerz (Rang 3) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+7 Gegner      72.0  10.3        Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+8 Gegner      75.6  9.5         Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+9+ Gegner     77.8  8.6         Schattenwort: Schmerz (Rang 3) -> Verschlingende Seuche (Rang 1) -> Gedankenschlag (Rang 3) -> Göttliche Pein (Rang 4)
+
 Jeder Rang, den du kennst
 Zauber                          Ein Zauber                 Schnitt  Mana  Zauberzeit  DPS                   Pro Zaubersekunde  Pro Mana  Koeffizient  Nur das    Einsatz
 Heilige Pein (Rang 1)           43-47                      46       20    1.5 s       30.8                  30.8               2.31      44%          reicht     -

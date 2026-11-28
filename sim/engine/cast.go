@@ -68,10 +68,50 @@ type CastShape struct {
 	// Share of the damage that returns as health (0 = none).
 	DirectLeech float64
 	TickLeech   float64
-	// Area: every enemy of the fight takes the spell's damage.
-	Area bool
+	// Area: one cast hits multiple enemies (capped at AreaMax when > 0, with
+	// per-jump multiplier ChainFalloff when in (0, 1)).
+	Area         bool
+	AreaMax      int
+	ChainFalloff float64
 	// SelfTick is the health each tick of the channel costs the caster.
 	SelfTick float64
+}
+
+// AreaHits returns how many enemies one cast of this spell hits in a fight with
+// the given enemy count.
+func (s *CastShape) AreaHits(enemies int) int {
+	if !s.Area || enemies <= 1 {
+		return 1
+	}
+	if s.AreaMax > 0 && enemies > s.AreaMax {
+		return s.AreaMax
+	}
+	return enemies
+}
+
+// TargetMult returns the damage multiplier for the idx-th target hit (0-based).
+func (s *CastShape) TargetMult(idx int) float64 {
+	if idx <= 0 || s.ChainFalloff <= 0 || s.ChainFalloff == 1 {
+		return 1
+	}
+	return math.Pow(s.ChainFalloff, float64(idx))
+}
+
+// AreaDamageMult returns the total damage multiplier across all targets hit by
+// one cast in a fight with the given enemy count.
+func (s *CastShape) AreaDamageMult(enemies int) float64 {
+	hits := s.AreaHits(enemies)
+	if hits <= 1 {
+		return 1
+	}
+	if s.ChainFalloff <= 0 || s.ChainFalloff == 1 {
+		return float64(hits)
+	}
+	sum := 0.0
+	for i := 0; i < hits; i++ {
+		sum += s.TargetMult(i)
+	}
+	return sum
 }
 
 // Context is what a spell's numbers depend on beyond the character: the
@@ -185,7 +225,8 @@ func ShapeIn(sp *Spell, st *State, tgt Target, ctx *Context) CastShape {
 		// Ignite adds extra% of the total crit damage (1 + critBonus) over 4 s.
 		critBonus += (1 + critBonus) * (extra / 100)
 	}
-	s := CastShape{School: sc, IsHeal: sp.IsHeal, CritBonus: critBonus, Area: sp.Area}
+	s := CastShape{School: sc, IsHeal: sp.IsHeal, CritBonus: critBonus,
+		Area: sp.Area, AreaMax: sp.AreaMax, ChainFalloff: sp.ChainFalloff}
 
 	// Time: talents may shorten the cast; haste shortens it further. The GCD
 	// is not haste-scaled (Classic rule, unverified for Forever).

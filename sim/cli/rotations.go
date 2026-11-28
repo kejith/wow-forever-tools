@@ -125,6 +125,24 @@ func runRotations(args []string, out io.Writer) error {
 				fmt.Fprintln(out, line)
 			}
 		}
+		if groups := g.at("groupRotations").list(); len(groups) > 0 {
+			unit := g.at("unit")
+			fmt.Fprintln(out, "\n"+i18n.T("Rotations by group size (1-8, 9+)"))
+			gtable := [][]string{{i18n.T("Group size"), unit.str(), i18n.T("Per enemy"), i18n.T("Rotation")}}
+			for _, gr := range groups {
+				var labels []string
+				for _, st := range gr.at("steps").list() {
+					labels = append(labels, st.at("label").str())
+				}
+				gtable = append(gtable, []string{
+					gr.at("title").str(),
+					rvFormat("{v:.1f}", "v", gr.at("value")),
+					rvFormat("{v:.1f}", "v", gr.at("perTarget")),
+					strings.Join(labels, " -> "),
+				})
+			}
+			rvTable(out, gtable, nil)
+		}
 		for _, n := range g.at("notes").list() {
 			fmt.Fprintln(out, "\n"+n.str())
 		}

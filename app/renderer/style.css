@@ -774,6 +774,19 @@ tr.detail > td { background: #0c0907; box-shadow: inset 0 1px 4px #000; }
 .rot-meter > span { display: block; height: 100%; }
 .rot-meter.mana > span { background: linear-gradient(180deg, rgba(255, 255, 255, .3), transparent 50%), var(--mana); }
 .rot-meter.health > span { background: linear-gradient(180deg, rgba(255, 255, 255, .3), transparent 50%), var(--health); }
+.rot-groups { margin: 16px 0; }
+.rot-group-table td { vertical-align: top; }
+.rot-group-table td:first-child, .rot-group-table th:first-child { width: 170px; }
+.rot-group-table td:nth-child(2), .rot-group-table th:nth-child(2) { width: 110px; }
+.rot-group-changed > td { background: rgba(212, 175, 55, .05); }
+.rot-group-seq { display: flex; flex-wrap: wrap; gap: 5px 6px; align-items: center; }
+.rot-group-step {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; border-radius: 12px;
+  background: #14100c; border: 1px solid #352b20; font-size: 12.5px; color: var(--text);
+}
+.rot-group-step.area { border-color: var(--gold-dim); background: #21180d; }
+.rot-group-details { margin-top: 6px; }
+.rot-group-details > summary { font-size: 12px; color: var(--muted); }
 
 /* Consumables */
 .cons-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); align-items: start; }

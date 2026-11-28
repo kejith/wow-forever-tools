@@ -26,7 +26,55 @@ const (
 	PowerWordShield = 17
 	WeakenedSoul    = 6788    // the debuff that keeps a target from being shielded again
 	DarkSacrifice   = 1277324 // Forever: health over time for mana
+	HolyNova        = 15237   // instant AoE damage
+	MindSear        = 413259  // Forever: channeled Shadow AoE
 )
+
+const auraPeriodicTrigger = 23
+
+// Prepare links Mind Sear with its periodic AoE trigger spell and flags Holy Nova as AoE.
+func Prepare(cat *catalog.Catalog) {
+	cat.PrepareOnce(prepare)
+}
+
+func prepare(cat *catalog.Catalog) {
+	for _, id := range cat.Chains[MindSear] {
+		sp := cat.Spells[id]
+		if sp == nil || sp.Periodic != nil {
+			continue
+		}
+		for _, a := range cat.Auras[id] {
+			pulse := cat.Spells[a.Trigger]
+			if a.Aura != auraPeriodicTrigger || pulse == nil || pulse.Direct == nil {
+				continue
+			}
+			period := 1000
+			if raw := cat.RawEffects[id][a.Index]; raw != nil && raw.PeriodMs > 0 {
+				period = raw.PeriodMs
+			}
+			tick := *pulse.Direct
+			tick.PeriodMs, tick.Crits = period, true
+			sp.Periodic, sp.Area, sp.Channeled = &tick, true, true
+			break
+		}
+	}
+	for _, id := range cat.Chains[HolyNova] {
+		if sp := cat.Spells[id]; sp != nil && sp.Direct != nil {
+			sp.Area = true
+		}
+	}
+}
+
+// AreaSpells are the best known ranks of Priest AoE spells offered only against several enemies.
+func AreaSpells(cat *catalog.Catalog, known map[int]bool, level int) []*engine.Spell {
+	var out []*engine.Spell
+	for _, base := range []int{MindSear, HolyNova} {
+		if sp := cat.BestRank(base, known, level); sp != nil && sp.Area {
+			out = append(out, sp)
+		}
+	}
+	return out
+}
 
 // darkSacrificeManaPerSpirit: the spell text adds the caster's spirit to the
 // mana it returns ("to gain ${$o2+$SPI} Mana").
@@ -74,8 +122,8 @@ var healChains = []int{LesserHeal, Heal, GreaterHeal, FlashHeal}
 
 // Choices is everything a damage rotation can be built from, for the
 // rotation guide: every DoT and Mind Blast with and without, Mind Flay or
-// Smite as the filler.
-func Choices(cat *catalog.Catalog, known map[int]bool, level int) engine.Choices {
+// Smite as the filler, plus Mind Sear and Holy Nova against several enemies.
+func Choices(cat *catalog.Catalog, known map[int]bool, level, enemies int) engine.Choices {
 	best := func(base int) *engine.Spell { return cat.BestRank(base, known, level) }
 	c := engine.Choices{}
 	for _, opt := range []struct {
@@ -84,6 +132,13 @@ func Choices(cat *catalog.Catalog, known map[int]bool, level int) engine.Choices
 	}{{"dot", ShadowWordPain}, {"dot", HolyFire}, {"dot", DevouringPlague}, {"cooldown", MindBlast}} {
 		if sp := best(opt.base); sp != nil {
 			c.Optional = append(c.Optional, engine.Action{Kind: opt.kind, Spell: sp})
+		}
+	}
+	if enemies > 1 {
+		for _, base := range []int{MindSear, HolyNova} {
+			if sp := best(base); sp != nil && sp.Area && (sp.Direct != nil || sp.Periodic != nil) {
+				c.Fillers = append(c.Fillers, sp)
+			}
 		}
 	}
 	for _, base := range []int{MindFlay, Smite} {

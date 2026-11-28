@@ -290,9 +290,33 @@ func Compute(wow, char string, fightSeconds float64, targetDelta int, killsPerMi
 			"oomSeconds", oom, "freeMana", s.FreeMana, "verdict", s.Verdict, "seconds", s.Fight.Seconds,
 			"steps", steps, "skipped", skipped)
 	}
+	groupRotations := make([]any, len(eng.GroupRotations))
+	for i, raw := range eng.GroupRotations {
+		s := rotations.SituationOut(raw, label, unit)
+		steps := make([]any, len(s.Steps))
+		for j, st := range s.Steps {
+			steps[j] = pyjson.New("label", st.Label, "rule", st.Rule, "kind", st.Kind, "value", st.Value,
+				"sharePct", st.SharePct, "perMin", st.PerMin, "area", st.Area, "targets", st.Targets)
+		}
+		skipped := make([]any, len(s.Skipped))
+		for j, k := range s.Skipped {
+			skipped[j] = pyjson.New("label", k.Label, "loss", k.Loss)
+		}
+		var oom any
+		if s.OOMSeconds != nil {
+			oom = *s.OOMSeconds
+		}
+		n := raw.Fight.Enemies()
+		groupRotations[i] = pyjson.New("key", s.Key, "targets", n, "plus", s.Key == "targets-9",
+			"title", s.Title, "about", s.About, "value", s.Value,
+			"perTarget", pyfmt.Round(raw.Value/float64(n), 1),
+			"oomSeconds", oom, "verdict", s.Verdict, "seconds", s.Fight.Seconds,
+			"steps", steps, "skipped", skipped)
+	}
 	return pyjson.New("name", rotations.Name(ch, char), "level", rotations.Level(ch), "class", rotations.Class(ch),
 		"classFile", classFile, "spec", enginebundle.SpecOf(c), "unit", unit,
 		"rows", rowList, "stats", stats, "notes", notes, "rotations", outRotations,
+		"groupRotations", groupRotations,
 		// The gear rating's number for the fight asked for: a faster estimate of the same fight.
 		"rated", pyjson.New("seconds", fightSeconds, "value", pyfmt.Round(baseline.Value, 1)),
 		"weights", healing.WeightsOf(weights, "Power", short, long, fightSeconds),

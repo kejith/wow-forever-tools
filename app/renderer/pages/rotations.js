@@ -75,6 +75,41 @@ function card(s, healer, guideMetric) {
       ${skippedChips(s.skipped, s.unit)}${timeline(s)}</div>`;
 }
 
+// Compact listing of optimal rotations by group size (1–8 and 9+ enemies), with expandable details per row.
+export function groupRotationsCard(groups, unit, id = '') {
+  if (!groups?.length) return '';
+  const sig = (g) => g.steps.map((st) => `${st.kind}:${st.label}`).join('|');
+  const groupHelp = terms([
+    [t('Group size'), t('1 to 8 enemies and 9+ enemies (calculated for 9), each played over 30 seconds at the same enemy level so rotations compare directly.')],
+    [unit, t('Damage per second across all enemies together; below it the average per enemy.')],
+    [t('Changed'), t('Marks a group size where the optimal spell list changes compared to the previous size.')],
+  ], t('Open “Details” in any row for cast frequency, time share, DPS per spell and skipped spells.'));
+  let prevSig = null;
+  const rows = groups.map((g) => {
+    const curSig = sig(g);
+    const changed = prevSig !== null && curSig !== prevSig;
+    prevSig = curSig;
+    const seq = g.steps.map((st, i) => {
+      const tip = [st.rule, st.value ? `${num(st.value, 1)} ${unit}` : ''].filter(Boolean).join(' · ');
+      const cls = st.area || st.kind === 'burn' ? 'rot-group-step area' : 'rot-group-step';
+      return `<span class="${cls}"${tip ? hintAttr(tip) : ''}><span class="rot-rank">${i + 1}</span><span>${esc(st.label)}</span></span>`;
+    }).join('');
+    const detailsBody = `<p class="rot-verdict">${esc(g.verdict)}</p>
+      ${stepsTable({ ...g, unit }, false)}
+      ${skippedChips(g.skipped, unit)}
+      ${g.timeline?.length ? timeline(g) : ''}`;
+    return `<tr${changed ? ' class="rot-group-changed"' : ''} data-targets="${esc(g.targets)}">
+      <td class="nowrap"><b>${esc(g.title)}</b>${changed ? ` <span class="badge ok">${esc(t('Changed'))}</span>` : ''}</td>
+      <td class="num nowrap"><b>${num(g.value, 1)}</b><div class="small muted">${esc(t('{n} / enemy', { n: num(g.perTarget, 1) }))}</div></td>
+      <td><div class="rot-group-seq">${seq}</div>
+        <details class="scale rot-group-details"><summary>${esc(t('Details'))}</summary>${detailsBody}</details></td></tr>`;
+  }).join('');
+  return `<div class="card rot-groups"${id ? ` id="${esc(id)}"` : ''}>
+      <h2 class="heading">${esc(t('Rotations by group size'))} ${help(groupHelp)}</h2>
+      <table class="compact rot-group-table"><thead><tr><th>${esc(t('Group size'))}</th><th class="num">${esc(unit)}</th><th>${esc(t('Rotation'))}</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+}
+
 export async function renderRotations() {
   if (!state.status) await loadStatus();
   if (!state.char) { content.innerHTML = `<div class="notice">${esc(t('No character exported.'))}</div>`; return; }
@@ -102,8 +137,10 @@ export async function renderRotations() {
       <h2 class="heading">${esc(g.title)} ${help(guideTerms(g))}</h2>
       ${g.consumables ? `<div class="notice small">${esc(g.consumables.text)}</div>` : ''}
       <div class="rot-summary">${g.situations.map((s) => `<button type="button" class="rot-pill" data-rot-jump="#rot-${esc(g.metric)}-${esc(s.key)}">
-        <span>${esc(s.title)}</span><b>${num(s.value, 1)}</b></button>`).join('')}</div>
-      <div class="rot-grid">${g.situations.map((s) => card(s, g.metric === 'hps', g.metric)).join('')}</div></div>`).join('')}`;
+        <span>${esc(s.title)}</span><b>${num(s.value, 1)}</b></button>`).join('')}${g.groupRotations?.length ? `<button type="button" class="rot-pill" data-rot-jump="#rot-${esc(g.metric)}-groups">
+        <span>${esc(t('Group size 1–9+'))}</span><b>${num(g.groupRotations[g.groupRotations.length - 1].value, 1)}</b></button>` : ''}</div>
+      <div class="rot-grid">${g.situations.map((s) => card(s, g.metric === 'hps', g.metric)).join('')}</div>
+      ${groupRotationsCard(g.groupRotations, g.unit, `rot-${g.metric}-groups`)}</div>`).join('')}`;
 }
 
 content.addEventListener('click', (e) => {

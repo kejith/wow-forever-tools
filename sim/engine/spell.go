@@ -30,8 +30,14 @@ type Spell struct {
 	// Energize is mana the spell returns to the caster per tick over its
 	// duration (Dark Sacrifice).
 	Energize *Effect
-	// Area: the spell hits every enemy of the fight (Rain of Fire, Hellfire).
-	Area bool
+	// Area: the spell hits multiple enemies with one cast (Rain of Fire, Hellfire,
+	// Cone of Cold, Whirlwind, Multi-Shot, Chain Lightning, ...). AreaMax caps how
+	// many enemies one cast can hit (0 = all enemies in the fight). ChainFalloff
+	// scales each subsequent target's damage (e.g. 0.7 for Chain Lightning; 0 or 1
+	// means full damage to every target).
+	Area         bool
+	AreaMax      int
+	ChainFalloff float64
 	// SelfTick is the damage a channel deals to its own caster per tick
 	// (Hellfire): spell power raises it like the damage on the enemies.
 	SelfTick *Effect

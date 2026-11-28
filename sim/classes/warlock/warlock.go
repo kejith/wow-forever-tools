@@ -249,14 +249,18 @@ func Choices(cat *catalog.Catalog, known map[int]bool, level, enemies int) engin
 		tail = append([]engine.Action{{Kind: "proc_cast", Spell: sb}}, tail...)
 	}
 	c := engine.Choices{Tail: tail, Recover: best(DrainLife)}
-	c.Optional = optional(cat, best, CurseOfAgony, Corruption, SiphonLife, Immolate, DeathCoil, SoulFire)
 	if enemies > 1 {
+		// Against multiple enemies, omit long single-target cooldowns (2 min Horror Death Coil,
+		// 1 min Soul Fire) so AoE pack rotations are not distorted by one-off 30 s opener casts.
+		c.Optional = optional(cat, best, CurseOfAgony, Corruption, SiphonLife, Immolate)
 		if sp := best(RainOfFire); sp != nil && sp.Area && sp.Periodic != nil {
 			c.Fillers = append(c.Fillers, sp)
 		}
 		if sp := best(Hellfire); sp != nil && sp.SelfTick != nil {
 			c.Optional = append(c.Optional, engine.Action{Kind: "burn", Spell: sp})
 		}
+	} else {
+		c.Optional = optional(cat, best, CurseOfAgony, Corruption, SiphonLife, Immolate, DeathCoil, SoulFire)
 	}
 	for _, base := range fillerBases {
 		if sp := best(base); sp != nil {

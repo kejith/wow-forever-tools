@@ -160,3 +160,37 @@ func TestPackSituation(t *testing.T) {
 		t.Errorf("pack without area spells %g, with them %g", plain.Value, pack.Value)
 	}
 }
+
+func TestGroupRotations(t *testing.T) {
+	out := Run(areaInput())
+	if out.Error != "" {
+		t.Fatal(out.Error)
+	}
+	if len(out.GroupRotations) != 9 {
+		t.Fatalf("got %d group rotations, want 9 (1..8 and 9+)", len(out.GroupRotations))
+	}
+	prev := 0.0
+	for i, s := range out.GroupRotations {
+		wantTargets := i + 1
+		if s.Fight.Enemies() != wantTargets {
+			t.Errorf("group[%d]: targets=%d, want %d", i, s.Fight.Enemies(), wantTargets)
+		}
+		if s.Fight.Seconds != groupFightSeconds {
+			t.Errorf("group[%d]: seconds=%g, want %g", i, s.Fight.Seconds, float64(groupFightSeconds))
+		}
+		if len(s.Steps) == 0 {
+			t.Errorf("group[%d]: empty steps", i)
+		}
+		if s.Value < prev {
+			t.Errorf("group[%d] (%d targets): DPS %g dropped below %g", i, wantTargets, s.Value, prev)
+		}
+		prev = s.Value
+	}
+	// 3 enemies matches pack exactly.
+	pack := situation(t, out, "pack")
+	almost(t, "targets-3 matches pack", out.GroupRotations[2].Value, pack.Value, 1e-9)
+	// At 9+ targets, area spells dominate strongly over single target.
+	if out.GroupRotations[8].Value <= out.GroupRotations[0].Value*4 {
+		t.Errorf("9+ DPS %g should be far above 1-target DPS %g", out.GroupRotations[8].Value, out.GroupRotations[0].Value)
+	}
+}

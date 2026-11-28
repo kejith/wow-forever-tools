@@ -1,6 +1,7 @@
 package run
 
 import (
+	"fmt"
 	"runtime"
 	"sort"
 	"sync"
@@ -48,8 +49,9 @@ type Step struct {
 	HealthCost float64 `json:"healthCost,omitempty"`
 	// A debuff: how much more damage the enemy takes under it, in percent.
 	TakenPct float64 `json:"takenPct,omitempty"`
-	// Area: one cast works on every enemy of the fight.
-	Area bool `json:"area,omitempty"`
+	// Area: one cast works on multiple enemies (capped at AreaMax when > 0).
+	Area    bool `json:"area,omitempty"`
+	AreaMax int  `json:"areaMax,omitempty"`
 	// A channel that damages its caster (Hellfire): the health a second of
 	// it costs, and the share of the health the model keeps (percent).
 	HealthPerSec float64 `json:"healthPerSec,omitempty"`
@@ -192,7 +194,7 @@ func choices(classFile, spec string, cat *catalog.Catalog, known map[int]bool, l
 	case "WARLOCK":
 		return warlock.Choices(cat, known, level, enemies)
 	case "PRIEST":
-		return priest.Choices(cat, known, level)
+		return priest.Choices(cat, known, level, enemies)
 	case "MAGE":
 		return mage.Choices(cat, known, level, enemies)
 	case "DRUID":
@@ -211,130 +213,210 @@ func choices(classFile, spec string, cat *catalog.Catalog, known map[int]bool, l
 	return engine.Choices{}
 }
 
+// groupFightSeconds is the fight length used to compare rotations across group
+// sizes (1..8 and 9+ enemies) on an equal footing.
+const groupFightSeconds = 30
+
+// groupFights returns one fight per group size: 1..8 enemies and 9+ (modeled
+// at 9 enemies).
+func groupFights(standard engine.Fight) []damageFight {
+	out := make([]damageFight, 0, 9)
+	for n := 1; n <= 9; n++ {
+		out = append(out, damageFight{
+			key: fmt.Sprintf("targets-%d", n),
+			fight: engine.Fight{
+				Seconds:        groupFightSeconds,
+				TargetDelta:    standard.TargetDelta,
+				KillsPerMinute: -1,
+				Targets:        n,
+			},
+		})
+	}
+	return out
+}
+
+// playDamageFight plays every candidate rotation in rots for one fight and
+// returns the winning situation.
+func playDamageFight(cat *catalog.Catalog, st *engine.State, tapSpell *engine.Spell, df damageFight,
+	rots [][]engine.Action) Situation {
+	fight := resolveKills(df.fight, "dps")
+	play := st
+	if df.freeMana {
+		rich := *st
+		rich.ManaMax += freeManaPool
+		play = &rich
+	}
+	scores := make([]float64, len(rots))
+	workers := runtime.GOMAXPROCS(0)
+	if workers > 1 && len(rots) >= 16 {
+		if workers > len(rots) {
+			workers = len(rots)
+		}
+		var wg sync.WaitGroup
+		wg.Add(workers)
+		chunk := (len(rots) + workers - 1) / workers
+		for w := 0; w < workers; w++ {
+			lo := w * chunk
+			hi := lo + chunk
+			if hi > len(rots) {
+				hi = len(rots)
+			}
+			if lo >= hi {
+				wg.Done()
+				continue
+			}
+			go func(lo, hi int) {
+				defer wg.Done()
+				for i := lo; i < hi; i++ {
+					scores[i] = engine.Play(play, fight, rots[i], "dps").Value
+				}
+			}(lo, hi)
+		}
+		wg.Wait()
+	} else {
+		for i, r := range rots {
+			scores[i] = engine.Play(play, fight, r, "dps").Value
+		}
+	}
+	best := 0
+	for i := range rots {
+		if scores[i] > scores[best] {
+			best = i
+		}
+	}
+	pb := engine.Play(st, fight, rots[best], "dps")
+	oom := pb.OOMSec
+	if df.freeMana {
+		pb, oom = withFreeMana(cat, st, fight, rots[best])
+	}
+	s := Situation{Key: df.key, Fight: fight, Metric: "dps", Value: pb.Value, OOMSec: oom, Candidates: len(rots),
+		FreeMana: df.freeMana}
+	s.Steps = steps(cat, rots[best], pb, fight, tapSpell)
+	tgt := engine.NewTarget(st.Level, fight.TargetDelta)
+	for i := range s.Steps {
+		step := &s.Steps[i]
+		sp := cat.Spells[step.SpellID]
+		if sp == nil {
+			continue
+		}
+		sh := engine.Shape(sp, st, tgt)
+		if step.Kind == "burn" && sh.PeriodSec > 0 {
+			step.HealthPerSec, step.FloorPct = sh.SelfTick/sh.PeriodSec, engine.BurnFloorPct
+		}
+		if fight.Enemies() == 1 {
+			continue
+		}
+		step.Area = sp.Area
+		step.AreaMax = sp.AreaMax
+		if sp.Area {
+			continue
+		}
+		switch step.Kind { // on how many of the enemies it is kept
+		case "dot":
+			step.Targets = float64(engine.KeptOn(fight.Enemies(), sh.DurationSec, sh.CooldownSec))
+		case "debuff":
+			step.Targets = float64(engine.KeptOn(fight.Enemies(), engine.DebuffSec(sp, st), sh.CooldownSec))
+		}
+	}
+	s.Timeline, s.More = timeline(pb, st)
+	if n := len(pb.Events); n > 0 {
+		// The state before the last action is the closest the record has.
+		s.EndManaPct, s.EndHPPct = pct(pb.Events[n-1].Mana, st.ManaMax), pct(pb.Events[n-1].Health, st.HealthMax)
+	}
+
+	// What the rotation leaves out, and what casting it anyway would cost.
+	in := map[int]bool{}
+	for _, a := range rots[best] {
+		if a.Spell != nil && a.Kind != "proc_cast" {
+			in[a.Spell.ID] = true
+		}
+	}
+	with := map[int]float64{}
+	kinds := map[int]string{}
+	for i, r := range rots {
+		for _, a := range r {
+			if a.Spell == nil || in[a.Spell.ID] || a.Kind == "mana" || a.Kind == "recover" || a.Kind == "proc_cast" {
+				continue
+			}
+			if old, ok := with[a.Spell.ID]; !ok || scores[i] > old {
+				with[a.Spell.ID] = scores[i]
+			}
+			kinds[a.Spell.ID] = a.Kind
+		}
+	}
+	for id, score := range with {
+		sp := cat.Spells[id]
+		s.Skipped = append(s.Skipped, Skipped{Kind: kinds[id], SpellID: id, Name: sp.Name, Rank: cat.RankNumber(id),
+			Loss: scores[best] - score})
+	}
+	sort.Slice(s.Skipped, func(i, j int) bool {
+		if s.Skipped[i].Loss != s.Skipped[j].Loss {
+			return s.Skipped[i].Loss < s.Skipped[j].Loss
+		}
+		return s.Skipped[i].SpellID < s.Skipped[j].SpellID
+	})
+	return s
+}
+
 // damageSituations plays every candidate rotation in every fight and keeps
 // the best one of each.
 func damageSituations(classFile string, cat *catalog.Catalog, known map[int]bool, st *engine.State, standard engine.Fight,
 	tapSpell *engine.Spell) []Situation {
+	rotsSingle := choices(classFile, st.Spec, cat, known, st.Level, 1).Rotations()
+	if len(rotsSingle) == 0 {
+		return nil
+	}
+	var rotsMulti [][]engine.Action
 	var out []Situation
 	for _, df := range damageFights(standard) {
-		fight := resolveKills(df.fight, "dps")
-		// Against several enemies the class may have more to cast.
-		rots := choices(classFile, st.Spec, cat, known, st.Level, fight.Enemies()).Rotations()
+		rots := rotsSingle
+		if df.fight.Enemies() > 1 {
+			if rotsMulti == nil {
+				rotsMulti = choices(classFile, st.Spec, cat, known, st.Level, df.fight.Enemies()).Rotations()
+			}
+			rots = rotsMulti
+		}
 		if len(rots) == 0 {
 			return nil
 		}
-		play := st
-		if df.freeMana {
-			rich := *st
-			rich.ManaMax += freeManaPool
-			play = &rich
-		}
-		scores := make([]float64, len(rots))
-		workers := runtime.GOMAXPROCS(0)
-		if workers > 1 && len(rots) >= 16 {
-			if workers > len(rots) {
-				workers = len(rots)
-			}
-			var wg sync.WaitGroup
-			wg.Add(workers)
-			chunk := (len(rots) + workers - 1) / workers
-			for w := 0; w < workers; w++ {
-				lo := w * chunk
-				hi := lo + chunk
-				if hi > len(rots) {
-					hi = len(rots)
-				}
-				if lo >= hi {
-					wg.Done()
-					continue
-				}
-				go func(lo, hi int) {
-					defer wg.Done()
-					for i := lo; i < hi; i++ {
-						scores[i] = engine.Play(play, fight, rots[i], "dps").Value
-					}
-				}(lo, hi)
-			}
-			wg.Wait()
-		} else {
-			for i, r := range rots {
-				scores[i] = engine.Play(play, fight, r, "dps").Value
-			}
-		}
-		best := 0
-		for i := range rots {
-			if scores[i] > scores[best] {
-				best = i
-			}
-		}
-		pb := engine.Play(st, fight, rots[best], "dps")
-		oom := pb.OOMSec
-		if df.freeMana {
-			pb, oom = withFreeMana(cat, st, fight, rots[best])
-		}
-		s := Situation{Key: df.key, Fight: fight, Metric: "dps", Value: pb.Value, OOMSec: oom, Candidates: len(rots),
-			FreeMana: df.freeMana}
-		s.Steps = steps(cat, rots[best], pb, fight, tapSpell)
-		tgt := engine.NewTarget(st.Level, fight.TargetDelta)
-		for i := range s.Steps {
-			step := &s.Steps[i]
-			sp := cat.Spells[step.SpellID]
-			if sp == nil {
-				continue
-			}
-			sh := engine.Shape(sp, st, tgt)
-			if step.Kind == "burn" && sh.PeriodSec > 0 {
-				step.HealthPerSec, step.FloorPct = sh.SelfTick/sh.PeriodSec, engine.BurnFloorPct
-			}
-			if fight.Enemies() == 1 {
-				continue
-			}
-			step.Area = sp.Area
-			switch step.Kind { // on how many of the enemies it is kept
-			case "dot":
-				step.Targets = float64(engine.KeptOn(fight.Enemies(), sh.DurationSec, sh.CooldownSec))
-			case "debuff":
-				step.Targets = float64(engine.KeptOn(fight.Enemies(), engine.DebuffSec(sp, st), sh.CooldownSec))
-			}
-		}
-		s.Timeline, s.More = timeline(pb, st)
-		if n := len(pb.Events); n > 0 {
-			// The state before the last action is the closest the record has.
-			s.EndManaPct, s.EndHPPct = pct(pb.Events[n-1].Mana, st.ManaMax), pct(pb.Events[n-1].Health, st.HealthMax)
-		}
+		out = append(out, playDamageFight(cat, st, tapSpell, df, rots))
+	}
+	return out
+}
 
-		// What the rotation leaves out, and what casting it anyway would cost.
-		in := map[int]bool{}
-		for _, a := range rots[best] {
-			if a.Spell != nil && a.Kind != "proc_cast" {
-				in[a.Spell.ID] = true
-			}
+// groupDamageSituations computes the best rotation for each group size 1..8
+// and 9+ (9 enemies) over a uniform 30 s fight, reusing any matching fight
+// already computed in existing (such as "pack" for 3 enemies).
+func groupDamageSituations(classFile string, cat *catalog.Catalog, known map[int]bool, st *engine.State, standard engine.Fight,
+	tapSpell *engine.Spell, existing []Situation) []Situation {
+	rotsSingle := choices(classFile, st.Spec, cat, known, st.Level, 1).Rotations()
+	if len(rotsSingle) == 0 {
+		return nil
+	}
+	rotsMulti := choices(classFile, st.Spec, cat, known, st.Level, 2).Rotations()
+	if len(rotsMulti) == 0 {
+		return nil
+	}
+	byFight := map[engine.Fight]Situation{}
+	for _, s := range existing {
+		if !s.FreeMana {
+			byFight[s.Fight] = s
 		}
-		with := map[int]float64{}
-		kinds := map[int]string{}
-		for i, r := range rots {
-			for _, a := range r {
-				if a.Spell == nil || in[a.Spell.ID] || a.Kind == "mana" || a.Kind == "recover" || a.Kind == "proc_cast" {
-					continue
-				}
-				if old, ok := with[a.Spell.ID]; !ok || scores[i] > old {
-					with[a.Spell.ID] = scores[i]
-				}
-				kinds[a.Spell.ID] = a.Kind
-			}
+	}
+	fights := groupFights(standard)
+	out := make([]Situation, len(fights))
+	for i, df := range fights {
+		resolved := resolveKills(df.fight, "dps")
+		if prev, ok := byFight[resolved]; ok {
+			prev.Key = df.key
+			out[i] = prev
+			continue
 		}
-		for id, score := range with {
-			sp := cat.Spells[id]
-			s.Skipped = append(s.Skipped, Skipped{Kind: kinds[id], SpellID: id, Name: sp.Name, Rank: cat.RankNumber(id),
-				Loss: scores[best] - score})
+		rots := rotsMulti
+		if df.fight.Enemies() == 1 {
+			rots = rotsSingle
 		}
-		sort.Slice(s.Skipped, func(i, j int) bool {
-			if s.Skipped[i].Loss != s.Skipped[j].Loss {
-				return s.Skipped[i].Loss < s.Skipped[j].Loss
-			}
-			return s.Skipped[i].SpellID < s.Skipped[j].SpellID
-		})
-		out = append(out, s)
+		out[i] = playDamageFight(cat, st, tapSpell, df, rots)
 	}
 	return out
 }

@@ -317,7 +317,10 @@ func (p *player) newScratch() playScratch {
 	}
 	total := 0
 	for d := range p.dots {
-		n := KeptOn(p.enemies, p.dots[d].shape.DurationSec, p.dots[d].shape.CooldownSec)
+		n := 1
+		if !p.dots[d].shape.Area {
+			n = KeptOn(p.enemies, p.dots[d].shape.DurationSec, p.dots[d].shape.CooldownSec)
+		}
 		sc.dotOff[d] = total
 		sc.dotCnt[d] = n
 		total += n
@@ -620,8 +623,18 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 				for progress >= dotRem[idx]-1e-9 {
 					tickT += dotRem[idx] / speed
 					progress -= dotRem[idx]
-					mult := liveMult(dots[d].act.Spell, sh.School, k, tickT, true)
-					gain(dots[d].act.Spell, sh.TickValue*dotOn[idx]*mult, sh.TickLeech)
+					if sh.Area {
+						hits := sh.AreaHits(p.enemies)
+						for e := 0; e < hits; e++ {
+							if w := lands(rng, sh.HitChance); w > 0 {
+								mult := liveMult(dots[d].act.Spell, sh.School, e, tickT, true) * sh.TargetMult(e)
+								gain(dots[d].act.Spell, sh.TickValue*w*mult, sh.TickLeech)
+							}
+						}
+					} else {
+						mult := liveMult(dots[d].act.Spell, sh.School, k, tickT, true)
+						gain(dots[d].act.Spell, sh.TickValue*dotOn[idx]*mult, sh.TickLeech)
+					}
 					onTickProc(dots[d].act.Spell, tickT, dotOn[idx])
 					dotRem[idx] = sh.PeriodSec
 				}
@@ -658,7 +671,7 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 	}
 	// landDirect resolves a direct hit on target k at time now, updating
 	// Shadow Weaving and Improved Shadow Bolt.
-	landDirect := func(sp *Spell, sh *CastShape, target int, now float64) {
+	landDirect := func(sp *Spell, sh *CastShape, target int, now, scale float64) {
 		if sh.DirectAvg == 0 {
 			return
 		}
@@ -675,7 +688,7 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 			if crit {
 				val *= 1 + sh.CritBonus
 			}
-			mult := liveMult(sp, sh.School, target, now, true)
+			mult := liveMult(sp, sh.School, target, now, true) * scale
 			gain(sp, val*mult, sh.DirectLeech)
 			onSpellLand(sh.School, target, now, 1)
 			if crit {
@@ -683,7 +696,7 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 			}
 			return
 		}
-		mult := liveMult(sp, sh.School, target, now, true)
+		mult := liveMult(sp, sh.School, target, now, true) * scale
 		val := sh.DirectAvg * (1 + sh.CritPct/100*sh.CritBonus) * sh.HitChance * mult
 		gain(sp, val, sh.DirectLeech)
 		onSpellLand(sh.School, target, now, sh.HitChance)
@@ -713,10 +726,7 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 	cast := func(s *slot, instant bool) {
 		sh := &s.shape
 		note(s.act.Kind, s.act.Spell)
-		hits := 1
-		if sh.Area {
-			hits = p.enemies
-		}
+		hits := sh.AreaHits(p.enemies)
 		// Channeled spell: tick discretely across PeriodSec steps.
 		if s.act.Spell.Channeled && sh.Ticks > 0 && sh.PeriodSec > 0 {
 			hasted := s == filler
@@ -747,7 +757,7 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 				elapsed += step
 				for e := 0; e < hits; e++ {
 					if w := hitWeights[e]; w > 0 {
-						mult := liveMult(s.act.Spell, sh.School, e, t, true)
+						mult := liveMult(s.act.Spell, sh.School, e, t, true) * sh.TargetMult(e)
 						gain(s.act.Spell, sh.TickValue*w*mult, sh.TickLeech)
 						if tick == 0 {
 							onSpellLand(sh.School, e, t, w)
@@ -790,7 +800,7 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 		}
 		lastCast = t
 		for e := 0; e < hits; e++ {
-			landDirect(s.act.Spell, sh, e, t)
+			landDirect(s.act.Spell, sh, e, t, sh.TargetMult(e))
 		}
 		if rem := execTime - castTime; rem > 1e-9 {
 			mana = math.Min(st.ManaMax, mana+p.regenCast*rem)
@@ -917,7 +927,15 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 						mana = 0
 					}
 					lastCast = t
-					if rng.Float64() < sh.HitChance {
+					if sh.Area {
+						hits := sh.AreaHits(p.enemies)
+						if sh.DirectAvg > 0 {
+							for e := 0; e < hits; e++ {
+								landDirect(dots[d].act.Spell, sh, e, t, sh.TargetMult(e))
+							}
+						}
+						dotEnd[idx], dotRem[idx], dotOn[idx] = t+sh.DurationSec, sh.PeriodSec, 1
+					} else if rng.Float64() < sh.HitChance {
 						if sh.DirectAvg > 0 {
 							val := sh.SampleLanded(rng) * liveMult(dots[d].act.Spell, sh.School, k, t, true)
 							gain(dots[d].act.Spell, val, sh.DirectLeech)
@@ -931,48 +949,75 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 						advance(rem, false)
 					}
 				} else {
-					// Deterministic playback: model expected recast cost (1 / HitChance) so a
-					// missed DoT costs extra GCDs & mana instead of ticking weakened for 18-24s.
-					tries := 1.0
-					dotWeight := sh.HitChance
-					if sh.HitChance > 0 && sh.HitChance < 1 {
-						wantTries := 1.0 / sh.HitChance
-						maxTries := wantTries
-						if sh.ManaCost > 0 {
-							if afford := mana / sh.ManaCost; afford < maxTries {
-								maxTries = math.Max(1, afford)
+					if sh.Area {
+						// Ground AoE DoT (Flamestrike, Consecration): cast once on the ground,
+						// hits every enemy independently at sh.HitChance.
+						if sh.CastSec > 0 {
+							mana = math.Min(st.ManaMax, mana+p.regenCast*sh.CastSec)
+							advance(sh.CastSec, false)
+						}
+						hits := sh.AreaHits(p.enemies)
+						if sh.DirectAvg > 0 {
+							for e := 0; e < hits; e++ {
+								landDirect(dots[d].act.Spell, sh, e, t, sh.TargetMult(e))
 							}
 						}
-						tries = maxTries
-						// Probability of landing within `tries` attempts (1.0 when full 1/HitChance is affordable).
-						if tries >= wantTries-1e-9 {
-							dotWeight = 1.0
-						} else {
-							dotWeight = 1 - math.Pow(1-sh.HitChance, tries)
+						dotEnd[idx], dotRem[idx], dotOn[idx] = t+sh.DurationSec, sh.PeriodSec, 1
+						mana -= sh.ManaCost
+						if mana < 0 {
+							mana = 0
 						}
-					}
-					if sh.CastSec > 0 {
-						mana = math.Min(st.ManaMax, mana+p.regenCast*sh.CastSec)
-						advance(sh.CastSec, false)
-					}
-					if sh.DirectAvg > 0 {
-						val := sh.SampleLanded(nil) * dotWeight * liveMult(dots[d].act.Spell, sh.School, k, t, true)
-						gain(dots[d].act.Spell, val, sh.DirectLeech)
-					}
-					dotEnd[idx], dotRem[idx], dotOn[idx] = t+sh.DurationSec, sh.PeriodSec, dotWeight
-					onSpellLand(sh.School, k, t, dotWeight)
-					totalCost := sh.ManaCost * tries
-					remDur := sh.ExecuteSec*tries - sh.CastSec
-					mana -= totalCost
-					if mana < 0 {
-						mana = 0
-					}
-					if remDur > 1e-9 {
-						mana = math.Min(st.ManaMax, mana+p.regenCast*remDur)
-						lastCast = t + remDur
-						advance(remDur, false)
+						if remDur := sh.ExecuteSec - sh.CastSec; remDur > 1e-9 {
+							mana = math.Min(st.ManaMax, mana+p.regenCast*remDur)
+							lastCast = t + remDur
+							advance(remDur, false)
+						} else {
+							lastCast = t
+						}
 					} else {
-						lastCast = t
+						// Deterministic playback: model expected recast cost (1 / HitChance) so a
+						// missed DoT costs extra GCDs & mana instead of ticking weakened for 18-24s.
+						tries := 1.0
+						dotWeight := sh.HitChance
+						if sh.HitChance > 0 && sh.HitChance < 1 {
+							wantTries := 1.0 / sh.HitChance
+							maxTries := wantTries
+							if sh.ManaCost > 0 {
+								if afford := mana / sh.ManaCost; afford < maxTries {
+									maxTries = math.Max(1, afford)
+								}
+							}
+							tries = maxTries
+							// Probability of landing within `tries` attempts (1.0 when full 1/HitChance is affordable).
+							if tries >= wantTries-1e-9 {
+								dotWeight = 1.0
+							} else {
+								dotWeight = 1 - math.Pow(1-sh.HitChance, tries)
+							}
+						}
+						if sh.CastSec > 0 {
+							mana = math.Min(st.ManaMax, mana+p.regenCast*sh.CastSec)
+							advance(sh.CastSec, false)
+						}
+						if sh.DirectAvg > 0 {
+							val := sh.SampleLanded(nil) * dotWeight * liveMult(dots[d].act.Spell, sh.School, k, t, true)
+							gain(dots[d].act.Spell, val, sh.DirectLeech)
+						}
+						dotEnd[idx], dotRem[idx], dotOn[idx] = t+sh.DurationSec, sh.PeriodSec, dotWeight
+						onSpellLand(sh.School, k, t, dotWeight)
+						totalCost := sh.ManaCost * tries
+						remDur := sh.ExecuteSec*tries - sh.CastSec
+						mana -= totalCost
+						if mana < 0 {
+							mana = 0
+						}
+						if remDur > 1e-9 {
+							mana = math.Min(st.ManaMax, mana+p.regenCast*remDur)
+							lastCast = t + remDur
+							advance(remDur, false)
+						} else {
+							lastCast = t
+						}
 					}
 				}
 				acted = true
@@ -1002,7 +1047,10 @@ func (p *player) playWith(rng *rand.Rand, rec *record, sc *playScratch) (perSec,
 					mana = 0
 				}
 				lastCast = t
-				landDirect(cooldowns[cd].act.Spell, sh, 0, t)
+				hits := sh.AreaHits(p.enemies)
+				for e := 0; e < hits; e++ {
+					landDirect(cooldowns[cd].act.Spell, sh, e, t, sh.TargetMult(e))
+				}
 				if rem := sh.ExecuteSec - sh.CastSec; rem > 1e-9 {
 					mana = math.Min(p.resourceMax, mana+p.regenCast*rem)
 					lastCast = t + rem

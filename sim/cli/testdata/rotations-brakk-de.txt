@@ -98,8 +98,6 @@ Mehrere Gegner: 374.7 DPS  (3 Gegner zugleich, die 30 Sekunden leben; die Zahl i
   Weggelassen: Blutsauger (Rang 5) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
   Weggelassen: Sengender Schmerz (Rang 3) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
   Weggelassen: Zermürben (Rang 1) (10.0 DPS weniger; in diesem Kampf der schwächere Füller)
-  Weggelassen: Todesmantel (Rang 2) (16.6 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Seelenfeuer (Rang 1) (20.5 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Weggelassen: Fluch der Elemente (Rang 4) (22.2 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Weggelassen: Lebensentzug (Rang 3) (22.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Beginn (Mana/Leben in % vor jeder Aktion): 0 s Omen der Pein (Rang 5) x3 [100/100] > 5 s Verderbnis (Rang 5) x3 [83/100] > 10 s Höllenfeuer (Rang 2) [60/100] > 20 s Feuerregen (Rang 3) [32/45] > 28 s Omen der Pein (Rang 5) [6/46] > 30 s Zauberstab [0/46]
@@ -108,7 +106,6 @@ Viele Gegner: 622.5 DPS  (6 Gegner zugleich, die 20 Sekunden leben; die Zahl ist
   Das Mana reicht für den ganzen Kampf. Am Ende sind 45 % Mana und 46 % Leben übrig.
   1. Höllenfeuer (Rang 2): sobald die Zauber darüber laufen, solange dein Leben über 40 % liegt: trifft alle Gegner und kostet dich 146 Leben pro Sekunde  [3.0/min, 50 % der Zeit, 396.0 DPS]
   2. Feuerregen (Rang 3): füllt die restliche Zeit und trifft alle Gegner zugleich  [6.0/min, 50 % der Zeit, 226.5 DPS]
-  Weggelassen: Todesmantel (Rang 2) (23.8 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Weggelassen: Omen der Pein (Rang 5) (61.1 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Weggelassen: Seelendieb (Rang 3) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
   Weggelassen: Schattenblitz (Rang 8) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
@@ -116,8 +113,19 @@ Viele Gegner: 622.5 DPS  (6 Gegner zugleich, die 20 Sekunden leben; die Zahl ist
   Weggelassen: Sengender Schmerz (Rang 3) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
   Weggelassen: Zermürben (Rang 1) (62.8 DPS weniger; in diesem Kampf der schwächere Füller)
   Weggelassen: Verderbnis (Rang 5) (93.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
-  Weggelassen: Seelenfeuer (Rang 1) (109.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Weggelassen: Feuerbrand (Rang 6) (186.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Weggelassen: Lebensentzug (Rang 3) (192.9 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Weggelassen: Fluch der Elemente (Rang 4) (228.7 DPS weniger; kostet in diesem Kampf mehr Zauberzeit, als er zurückgibt)
   Beginn (Mana/Leben in % vor jeder Aktion): 0 s Höllenfeuer (Rang 2) [100/100] > 10 s Feuerregen (Rang 3) x2 [71/45]
+
+Rotationen nach Gruppengröße (1–8, 9+)
+Gruppengröße  DPS    Pro Gegner  Rotation
+1 Gegner      263.0  263.0       Fluch der Elemente (Rang 4) -> Omen der Pein (Rang 5) -> Verderbnis (Rang 5) -> Lebensentzug (Rang 3) -> Feuerbrand (Rang 6) -> Todesmantel (Rang 2) -> Zermürben (Rang 1)
+2 Gegner      288.9  144.5       Fluch der Elemente (Rang 4) -> Omen der Pein (Rang 5) -> Verderbnis (Rang 5) -> Feuerbrand (Rang 6) -> Höllenfeuer (Rang 2) -> Zermürben (Rang 1)
+3 Gegner      374.7  124.9       Omen der Pein (Rang 5) -> Verderbnis (Rang 5) -> Höllenfeuer (Rang 2) -> Feuerregen (Rang 3) -> Zauberstab
+4 Gegner      441.4  110.3       Omen der Pein (Rang 5) -> Verderbnis (Rang 5) -> Höllenfeuer (Rang 2) -> Schattenblitz (Rang 8) -> Blutsauger (Rang 5)
+5 Gegner      513.1  102.6       Omen der Pein (Rang 5) -> Verderbnis (Rang 5) -> Höllenfeuer (Rang 2) -> Zauberstab
+6 Gegner      592.6  98.8        Omen der Pein (Rang 5) -> Höllenfeuer (Rang 2) -> Feuerregen (Rang 3)
+7 Gegner      683.8  97.7        Omen der Pein (Rang 5) -> Höllenfeuer (Rang 2) -> Feuerregen (Rang 3)
+8 Gegner      680.1  85.0        Höllenfeuer (Rang 2) -> Feuerregen (Rang 3) -> Zauberstab
+9+ Gegner     764.4  84.9        Höllenfeuer (Rang 2) -> Feuerregen (Rang 3) -> Zauberstab

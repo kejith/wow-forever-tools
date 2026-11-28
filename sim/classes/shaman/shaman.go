@@ -38,6 +38,13 @@ func prepare(cat *catalog.Catalog) {
 			}
 		}
 	}
+	for _, id := range cat.Chains[ChainLightning] {
+		if sp := cat.Spells[id]; sp != nil {
+			sp.Area = true
+			sp.AreaMax = 3
+			sp.ChainFalloff = 0.7
+		}
+	}
 }
 
 var healChains = []int{HealingWave, LesserHealingWave, ChainHeal}

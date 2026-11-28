@@ -271,16 +271,20 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			if p.cycle <= 0 {
 				continue
 			}
-			on := 1.0 // the enemies it is kept on
-			if a.Kind == "dot" || a.Kind == "debuff" {
+			on := 1.0 // casts per cycle (enemies it is kept on, or 1 for ground/area spells)
+			dmgMult := 1.0
+			if sh.Area {
+				dmgMult = sh.AreaDamageMult(int(enemies))
+			} else if a.Kind == "dot" || a.Kind == "debuff" {
 				on = float64(KeptOn(int(enemies), p.cycle, res.CooldownSec))
+				dmgMult = on
 			}
 			p.on = on
 			p.share = res.ExecuteSec / p.cycle * on
-			p.dps = res.Damage / p.cycle * on
+			p.dps = res.Damage / p.cycle * dmgMult
 			p.hps = res.Healing / p.cycle
 			p.mps = res.ManaCost / p.cycle * on
-			p.leech = res.Leech / p.cycle * on
+			p.leech = res.Leech / p.cycle * dmgMult
 		case "filler", "heal":
 			if fillerIdx >= 0 {
 				continue // one filler is enough for the closed form
@@ -345,8 +349,9 @@ func Evaluate(st *State, fight Fight, actions []Action, metric string) Metrics {
 			fMPS = f.res.ManaCost / fExec
 			fLeech = f.res.Leech / fExec
 			if f.act.Spell.Area {
-				fDPS *= enemies
-				fLeech *= enemies
+				mult := f.sh.AreaDamageMult(int(enemies))
+				fDPS *= mult
+				fLeech *= mult
 			}
 		}
 		// A channel that makes the DoTs tick faster (Wrack): for the share

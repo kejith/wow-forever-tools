@@ -168,6 +168,7 @@ type Engine struct {
 	Downrank        *run.Downrank
 	HealOptions     []run.HealOption
 	Coverage        *run.Coverage
+	GroupRotations  []run.Situation    // damage rotations by group size (1..8 and 9+)
 	Spells          []run.SpellNumbers // per known spell rank what one cast does, as a tooltip shows it
 	Fight           engine.Fight       // as evaluated: the engine resolves automatic values
 	sess            *run.Session       // cached prepared session when using the default run.Run
@@ -213,6 +214,9 @@ func (e *Engine) exec(in run.Input) (out run.Output, err error) {
 	e.Downrank = out.Downrank
 	e.HealOptions = out.HealOptions
 	e.Coverage = out.Coverage
+	if len(out.GroupRotations) > 0 {
+		e.GroupRotations = out.GroupRotations
+	}
 	if len(out.Spells) > 0 {
 		e.Spells = out.Spells
 	}

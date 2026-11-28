@@ -187,3 +187,62 @@ func TestBurn(t *testing.T) {
 		t.Errorf("a 4 s fight: %+v", cut.Events[0])
 	}
 }
+
+// An AoE cooldown hits every enemy up to AreaMax, applying ChainFalloff per
+// jump when set. Both Evaluate and Play must agree with the exact expectation.
+func TestAreaCooldownAndChainFalloff(t *testing.T) {
+	st := mcState()
+	st.Crit[Nature] = 5
+	// Cooldown hitting up to 3 targets with 0.7 chain falloff (Chain Lightning):
+	// 100 base + 0 SP = 100, 5% crit (1.025x), 95% hit = 97.375 per full target.
+	// On 1 target: 1x; on 2: 1+0.7=1.7x; on 3 or 5: 1+0.7+0.49=2.19x.
+	chain := &Spell{
+		ID: 421, BaseID: 421, Name: "Chain Lightning", School: Nature,
+		CastMs: 1500, CooldownMs: 6000, Cost: Cost{Mana: 100},
+		Area: true, AreaMax: 3, ChainFalloff: 0.7,
+		Direct: &Effect{BP: 100, Coeff: 0},
+	}
+	actions := []Action{{Kind: "cooldown", Spell: chain}}
+	oneHit := 100.0 * (1 + 0.05*0.5) * 0.95
+	for enemies, mult := range map[int]float64{1: 1.0, 2: 1.7, 3: 2.19, 5: 2.19} {
+		fight := Fight{Seconds: 60, TargetDelta: 2, Targets: enemies}
+		want := 10 * oneHit * mult / 60.0 // 10 casts in 60s (at 0, 6, ..., 54)
+		almost(t, "closed form", Evaluate(st, fight, actions, "dps").DPS, want, 1e-6)
+		almost(t, "played", Play(st, fight, actions, "dps").Value, want, 1e-6)
+	}
+}
+
+// A ground AoE DoT (Flamestrike, Consecration) is cast once on the ground and
+// damages every enemy on both its direct hit and its periodic ticks.
+func TestGroundAreaDoT(t *testing.T) {
+	st := mcState()
+	st.Crit[Fire] = 5
+	// Direct 100 (5% crit -> 102.5) + 4 ticks of 50 (no crit) over 8 s, 95% hit.
+	// Cast once every 8 s = 4 casts in 32 s.
+	ground := &Spell{
+		ID: 2120, BaseID: 2120, Name: "Flamestrike", School: Fire,
+		CastMs: 2000, DurationMs: 8000, Cost: Cost{Mana: 200}, Area: true,
+		Direct:   &Effect{BP: 100, Coeff: 0},
+		Periodic: &Effect{BP: 50, Coeff: 0, PeriodMs: 2000},
+	}
+	actions := []Action{{Kind: "dot", Spell: ground}}
+	perCastOne := (100*(1+0.05*0.5) + 4*50) * 0.95
+	fight := Fight{Seconds: 32, TargetDelta: 2, Targets: 4}
+	// Play casts at t=0 (lands t=2, 4 ticks by t=10), t=10 (lands t=12, 4 ticks by t=20),
+	// t=20 (lands t=22, 4 ticks by t=30), t=30 (lands t=32 -> direct hit only, 0 ticks).
+	// Between casts, wand swings fill idle gaps (at t=10..10.5 etc., shifting cast starts by 0.5 s).
+	pb := Play(st, fight, actions, "dps")
+	dotCasts := 0
+	for _, e := range pb.Events {
+		if e.Kind == "dot" {
+			dotCasts++
+		}
+	}
+	if dotCasts != 3 && dotCasts != 4 {
+		t.Fatalf("expected 3-4 ground casts (not 4x per enemy), got %d", dotCasts)
+	}
+	// Verify damage scales linearly with 4 targets vs 1 target.
+	pbOne := Play(st, Fight{Seconds: 32, TargetDelta: 2, Targets: 1}, actions, "dps")
+	almost(t, "ground AoE DoT scales 4x", pb.BySpell[2120], pbOne.BySpell[2120]*4, 1e-6)
+	almost(t, "ground AoE DoT closed form", Evaluate(st, fight, actions, "dps").DPS, perCastOne*4/8.0, 1e-6)
+}
